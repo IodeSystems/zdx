@@ -556,7 +556,7 @@ var (
 	// work — list items and future-tense signals inside them must not be
 	// extracted as decomposition candidates. Matches with or without leading
 	// markdown hashes and optional trailing colon. (IS-675)
-	decompExemptHeaderRe = regexp.MustCompile(`(?i)^\s*(?:#+\s*)?(WHAT SHOULD HAPPEN|WHAT DID HAPPEN|WHAT THE TOOL SHOULD DO|IMPLEMENTATION DIRECTION|REPRO|CANDIDATE FIXES|FIX|OUT OF SCOPE|EXAMPLES)\b`)
+	decompExemptHeaderRe = regexp.MustCompile(`(?i)^\s*(?:#+\s*)?(?:\([a-z0-9]+\)\s*)?(WHAT SHOULD HAPPEN|WHAT DID HAPPEN|WHAT THE TOOL SHOULD DO|IMPLEMENTATION DIRECTION|REPRO|CANDIDATE FIXES|FIX|OUT OF SCOPE|EXAMPLES)\b`)
 	// decompCodeFenceRe matches a markdown code-fence opening or closing line.
 	// Lines inside fences must not be extracted — they are example commands or
 	// quoted output, not pending work. Without this guard, a diff line like

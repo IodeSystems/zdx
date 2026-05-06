@@ -175,6 +175,21 @@ func TestExtractDecompositionCandidates(t *testing.T) {
 			want: nil,
 		},
 		{
+			name: "parenthesized letter prefix on exempt headers suppresses extraction",
+			input: "(a) What should happen\n" +
+				"- The handler should reject empty payloads.\n" +
+				"\n" +
+				"(b) What did happen\n" +
+				"- It accepted the empty payload and crashed.\n" +
+				"\n" +
+				"(c) Implementation direction\n" +
+				"- Add a guard before the call.\n" +
+				"\n" +
+				"## (a) What should happen\n" +
+				"- Markdown-prefixed variant should also suppress.\n",
+			want: nil,
+		},
+		{
 			name:  "'todos' noun does not trigger 'todo' future signal",
 			input: "## Root cause\nThe gate matches todos and other nouns containing the word as a substring.",
 			want:  nil,
