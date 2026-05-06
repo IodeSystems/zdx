@@ -3,11 +3,11 @@
 Single source of truth for the global-agent-pool stream. Captured 2026-05-06,
 updated as decisions firm up.
 
-**Stabilization mode (active).** This work is driven by direct human edits.
-No `dx issue add` / `dx todo` / `dx agent claude --loop` on GAPD itself
-until phase 2 ships clean. Anything that would normally become a tracker
-issue lives inline below. Ignore `plan/plan.md` for this stream — that's the
-broader product roadmap, orthogonal to GAPD.
+**Stabilization mode** — phase 2 shipped, but this doc remains the
+single source of truth while phase 3 lands. Open items are direct-edit
+in the doc rather than tracker issues; once phase 3 ships clean we can
+exit stabilization for the agent stream and let `dx agent claude --loop`
+resume on remaining work.
 
 ## Status
 
@@ -15,7 +15,7 @@ broader product roadmap, orthogonal to GAPD.
 |-------|-------|
 | 1 — schema + connect verb + list endpoint | ✅ shipped (`21bc378f`) |
 | 2 — UI panel + pin/unpin + flag fix | ✅ shipped 2026-05-06 — API smoke + Playwright e2e (`TestDemoBrowser_AgentsPoolPanel`) cover the full pin/unpin loop |
-| 3 — mark-priority + cross-project queue + admin auth | design only |
+| 3 — priority push + cross-project queue + admin auth | 🟡 in flight — project priority schema (`686633f9`) and per-todo priority push (`2625eb18`) shipped; cross-project claim path, admin-token auth, and dedicated reap still open |
 
 ## Why stabilization mode
 
@@ -244,16 +244,28 @@ operator escalates urgent work via mark-as-priority; auth story is proper.
   next to the priority chip; opens a small dialog with a number input.
   Adding the push verb to the queue-row and per-issue todo lists is a
   follow-up.
+- [x] **Project priority schema** (`686633f9`) — `zdx_projects.priority
+  INT NOT NULL DEFAULT 5` (1=highest, 9=lowest convention; not enforced
+  at the DB layer). `/api/projects` payload carries it; `PUT
+  /api/admin/project-priority` sets it. Consumer (cross-project claim)
+  still gated on the costing pass below.
+- [ ] **Push verb on queue rows + per-issue todo lists.** Push is on
+  the todo detail page (`/todos/{key}`) only. Add the same ↑ Push
+  control to the QueueView `TodoRow` (`ui/src/components/QueueView.tsx`)
+  and to the issue page's todo list so operators don't have to drill
+  into a todo to escalate it.
 - [ ] **Cross-project queue browsing for unpinned global agents.**
-  - Schema: `zdx_projects.priority INT NOT NULL DEFAULT 5`
   - Server: cached cross-project priority list (`zdx_solo_global_view`,
     materialized view, or trigger-rebuilt cache — TBD after costing pass).
   - Claim path: global agents (no `project_id`, not pinned) call
     `POST /api/dx/solo/claim-any` against the cross-project view.
+  - Composite ordering: project_priority × todo.priority. Lower-is-
+    earlier on both axes; LEAST() on the upsert side (already in place
+    for todos) keeps operator pushes durable.
 - [ ] **Admin token auth.** Server-admin token recognition for
   `dx agent connect --global`; reject project tokens for global
   registration (or accept both transitionally).
-- [ ] **Push-work commands: explicitly NOT BUILDING.** The promotion
+- [ ] **Push-work commands: explicitly NOT BUILDING.** The priority-push
   mechanism replaces dispatch.
 - [ ] **Dedicated reap for globals.** Admin-triggered, separate from
   per-project sweeps.
@@ -285,32 +297,30 @@ separately to keep the stream coherent.
   the `startDaemon` call. Re-tested: `dx agent connect --provider=claude
   --idle` registers as `claude-<8hex>`.
 
-## Post-phase-2 backlog
+## Out-of-band backlog (orthogonal to GAPD)
 
-Phase 2 shipped clean. With stabilization mode over, these can move
-into the tracker (or be picked up directly from this doc — pick one
-discipline and stick to it).
+Items uncovered along the way that don't belong to a specific phase.
+File as tracker issues if they grow beyond a sentence; otherwise pick
+straight from here.
 
 - **Workspace relocation** to `~/.zdx/workspaces/<project>/...`. Big
   refactor across agent provisioning, ship hooks, dx config lookup,
-  dx-agent `--mcp-root`. The next significant pass.
+  dx-agent `--mcp-root`. Decouples agent worktrees from the operator's
+  project tree. The next significant pass after phase 3.
 - **Browser-demo cross-test flake.** `TestDemoBrowser_ProjectDirectionTab`
-  passes alone but times out on the Goals heading when run after
+  passes alone (~3s) but times out on the Goals heading when run after
   another browser demo in the same process. Pre-rewrite tests had the
   same binary-level isolation, so this likely predates phase 2 — but
-  was masked by the universal SPA-404 regression. Suspected: the
-  `.zdx/demo/video/` directory accumulating per context, or the
-  shared playwright-go runtime not actually disposing between tests.
+  was masked by the universal SPA-404 regression. Suspected:
+  `.zdx/demo/video/` accumulating per context, or the shared
+  playwright-go runtime not actually disposing between tests.
   Repro: `STATIC_DIR=… TEST_DRIVER=ui dx test --layer demo --filter
-  TestDemoBrowser_`. Not blocking; the demos are individually
-  reliable and demo runs are rarely batched.
-- **Project priority schema** — prerequisite for phase 3's cross-project
-  claim. Splits naturally: schema first (cheap), cache strategy second
-  (deferred until queue size + access pattern data).
-- **Mark-as-priority UI verb** — phase 3 element but useful even before
-  phase 3 lands (boosts a todo for project-scoped agents too).
-- **Cached cross-project queue view** — costing pass on cache-invalidation
-  patterns required before implementation.
+  TestDemoBrowser_`. Not blocking; demos are individually reliable
+  and demo runs are rarely batched.
+- **Vitest preexisting failures** — 6 environment-card tests fail with
+  `useNavigate is not a function` at `EnvironmentCard` (`ui/src/routes/
+  project/$slug/environments/index.test.tsx`). Surfaces on every
+  `dx test --layer demo` run. Predates this stream entirely.
 
 ## Harness-fix knock-on findings (2026-05-06)
 
@@ -338,25 +348,61 @@ under `dx test --layer demo`:
     Likely shared-playwright/resource contention — captured in the
     backlog below; not a blocker for the e2e fix landing.
 
-## Pickup checklist for the next session
+## Pickup — next session
 
-### Local dev env recap (already standing on 2026-05-06)
+Phase 2 shipped; phase 3 is in flight. Pick one of the open items below.
+Pieces are roughly ordered by setup-cost (smallest first) and
+dependency (push-verb spread doesn't block anything else; cross-project
+claim is gated on the costing pass).
 
-- Postgres in `tmp-postgres` container, host port **7601** (not 7650 —
-  `dx daemon start` default; the earlier "7650" reference in this doc
-  is from the prod-DB convention).
-- dx-server on **7600**, vite on **7610** (loopback `::1`).
+1. **Push verb on queue rows + per-issue todo lists.** Smallest. The
+   piece is already on `TodoDetail` — copy the IconButton + Dialog
+   pattern into `ui/src/components/QueueView.tsx`'s `TodoRow`, and
+   into the issue-page's todo list. Hook is `useSetTodoPriority`
+   from `ui/src/api/index.ts`. Any TodoRow already shows
+   `priority`; just add a Push button next to it.
+
+2. **Admin-token auth for `dx agent connect --global`.** Today's WS
+   handshake accepts any project token. Recognize server-admin tokens
+   (`zdx_api_keys` rows where the user is `role='admin'`) and reject
+   project tokens for `project_slug=""` registrations — or accept both
+   transitionally with a deprecation log line. Touches
+   `internal/server/handlers/handlers_agent_conn.go` and the project
+   `getProjectByToken` lookup chain.
+
+3. **Cross-project queue costing pass + claim path.** Deferred until
+   queue size + access pattern data warrants the cache. Worth a brief
+   measurement in prod before designing — open prod dashboard, scan
+   solo claim rate per project, decide cache strategy
+   (materialized view vs. trigger-rebuilt cache vs. per-claim
+   composite scan). Once the path is chosen, schema is small but the
+   invalidation contract isn't.
+
+4. **Dedicated reap for globals.** Admin-triggered, separate from
+   per-project sweeps. Today's reap (`dx agent reap`) operates per
+   project; a global agent that misses a heartbeat for an unrelated
+   reason shouldn't be torn down. Add `POST /api/admin/agents/reap`
+   that targets `project_id IS NULL` rows.
+
+### Local dev env recap
+
+- Postgres in `tmp-postgres` container, host port **7601**.
+- dx-server on **7600**, vite on **7610** (loopback `::1` — bind via
+  `./node_modules/.bin/vite --host 0.0.0.0` if you need LAN access;
+  `pnpm run dev` swallows the `--host` flag and `server.host` in
+  `vite.config.ts` is also ignored by vite v8).
 - Local admin token bootstrapped via `POST /api/setup/bootstrap` and
   promoted to `role='admin'` via SQL. User: `smoke@local`. Project
   `smoke` (id=1) created via `POST /api/project`.
+- Live DB at migration **150** (project priority). The session's
+  rejected boolean-flag attempt (151) was rolled back; if your DB
+  already had it, drop the column manually and update
+  `schema_migrations` to `(150, false)`.
 
-### How to run the regression
-
-The pin/unpin walkthrough now lives in
-`TestDemoBrowser_AgentsPoolPanel`. Reproduction:
+### How to run the demo regression
 
 ```bash
-make build                   # picks up devserver STATIC_DIR change
+make build                   # picks up devserver STATIC_DIR + DSN propagation
 cd ui && pnpm build          # produces ui/dist for the SPA fallback
 cd ..
 ./bin/dx test e2e build      # rebuilds bin/zdx-test
@@ -365,11 +411,21 @@ STATIC_DIR="$PWD/ui/dist" TEST_DRIVER=ui \
 ```
 
 Expected: `1 passed 0 failed 0 skipped` for the e2e adapter; vitest
-adapter still fails 6 preexisting environment-card tests
-(`useNavigate is not a function` — pre-existing, unrelated).
+adapter still fails 6 preexisting environment-card tests (see
+out-of-band backlog).
 
-### After UI confirms
+### Worker-contract reminder
 
-Phase 2 ships clean. Exit stabilization mode for GAPD: file new work
-as tracker issues again, let the agent loop resume on this stream.
-Then schedule workspace relocation, then phase 3.
+Workers commit intent only. Do not stage `internal/db/*.sql.go`,
+`internal/dxclient/models.gen.go`, `ui/src/api.gen.ts`,
+`schema/shipped.sql`, or `ui/src/routeTree.gen.ts`. Use
+`./bin/dx commit --intent` — it inspects the staged set, warns on each
+generated file, unstages it, then commits the remainder.
+
+### Session log (2026-05-06)
+
+- `b1a12266` test(e2e): automate GAPD phase-2 UI walkthrough
+- `a669d3ab` test(e2e): drop empty PageGetByTextOptions to avoid library nil-deref
+- `66fa83e7` test(e2e): rewrite direction-tab demo Goals-only after IS-627
+- `686633f9` feat(projects): priority column for cross-project agent claim ordering
+- `2625eb18` feat(todos): operator priority-push as integer (LEAST-preserved)
