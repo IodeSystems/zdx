@@ -11,31 +11,6 @@ import (
 
 var _ = metaquery.Query{}
 
-var MetaCountProjectConstraints = metaquery.Query{
-	Name:   "CountProjectConstraints",
-	Cmd:    ":one",
-	Source: "goals.sql",
-	SQL:    `SELECT count(*) FROM zdx_project_constraints WHERE project_id = $1`,
-	Columns: []metaquery.Column{
-		{Name: "count", OriginalName: "count", GoType: "int64"},
-	},
-	Args: []metaquery.Arg{
-		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
-	},
-}
-
-// WrapCountProjectConstraints returns a metaquery.Builder over MetaCountProjectConstraints, pre-bound with typed arguments.
-func WrapCountProjectConstraints(projectID int32) *metaquery.Builder {
-	return metaquery.Wrap(&MetaCountProjectConstraints, projectID)
-}
-
-// CountProjectConstraintsCols gives typed, name-safe access to CountProjectConstraints's output columns.
-var CountProjectConstraintsCols = struct {
-	Count metaquery.IntCol
-}{
-	Count: metaquery.NewIntCol("count"),
-}
-
 var MetaCountProjectGoals = metaquery.Query{
 	Name:   "CountProjectGoals",
 	Cmd:    ":one",
@@ -59,59 +34,6 @@ var CountProjectGoalsCols = struct {
 	Count metaquery.IntCol
 }{
 	Count: metaquery.NewIntCol("count"),
-}
-
-var MetaCreateProjectConstraint = metaquery.Query{
-	Name:   "CreateProjectConstraint",
-	Cmd:    ":one",
-	Source: "goals.sql",
-	SQL: `INSERT INTO zdx_project_constraints (project_id, title, description, priority, status)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, title, description, priority, status, created_at, updated_at`,
-	Columns: []metaquery.Column{
-		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "priority", OriginalName: "priority", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_project_constraints"},
-	},
-	Args: []metaquery.Arg{
-		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
-		{Position: 2, Name: "title", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 3, Name: "description", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 4, Name: "priority", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
-		{Position: 5, Name: "status", GoType: "string", DBType: "text", NotNull: true},
-	},
-	Table: &metaquery.Table{Name: "zdx_project_constraints"},
-}
-
-// WrapCreateProjectConstraint returns a metaquery.Builder over MetaCreateProjectConstraint, pre-bound with typed arguments.
-func WrapCreateProjectConstraint(arg CreateProjectConstraintParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaCreateProjectConstraint, arg.ProjectID, arg.Title, arg.Description, arg.Priority, arg.Status)
-}
-
-// CreateProjectConstraintCols gives typed, name-safe access to CreateProjectConstraint's output columns.
-var CreateProjectConstraintCols = struct {
-	ID          metaquery.IntCol
-	ProjectID   metaquery.IntCol
-	Title       metaquery.TextCol
-	Description metaquery.TextCol
-	Priority    metaquery.IntCol
-	Status      metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	UpdatedAt   metaquery.TimeCol
-}{
-	ID:          metaquery.NewIntCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Title:       metaquery.NewTextCol("title"),
-	Description: metaquery.NewTextCol("description"),
-	Priority:    metaquery.NewIntCol("priority"),
-	Status:      metaquery.NewTextCol("status"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
 }
 
 var MetaCreateProjectGoal = metaquery.Query{
@@ -175,21 +97,6 @@ var CreateProjectGoalCols = struct {
 	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
 }
 
-var MetaDeleteProjectConstraint = metaquery.Query{
-	Name:   "DeleteProjectConstraint",
-	Cmd:    ":exec",
-	Source: "goals.sql",
-	SQL:    `DELETE FROM zdx_project_constraints WHERE id = $1`,
-	Args: []metaquery.Arg{
-		{Position: 1, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
-	},
-}
-
-// WrapDeleteProjectConstraint returns a metaquery.Builder over MetaDeleteProjectConstraint, pre-bound with typed arguments.
-func WrapDeleteProjectConstraint(id int32) *metaquery.Builder {
-	return metaquery.Wrap(&MetaDeleteProjectConstraint, id)
-}
-
 var MetaDeleteProjectGoal = metaquery.Query{
 	Name:   "DeleteProjectGoal",
 	Cmd:    ":exec",
@@ -203,53 +110,6 @@ var MetaDeleteProjectGoal = metaquery.Query{
 // WrapDeleteProjectGoal returns a metaquery.Builder over MetaDeleteProjectGoal, pre-bound with typed arguments.
 func WrapDeleteProjectGoal(id int32) *metaquery.Builder {
 	return metaquery.Wrap(&MetaDeleteProjectGoal, id)
-}
-
-var MetaGetProjectConstraint = metaquery.Query{
-	Name:   "GetProjectConstraint",
-	Cmd:    ":one",
-	Source: "goals.sql",
-	SQL: `SELECT id, project_id, title, description, priority, status, created_at, updated_at
-FROM zdx_project_constraints WHERE id = $1`,
-	Columns: []metaquery.Column{
-		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "priority", OriginalName: "priority", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_project_constraints"},
-	},
-	Args: []metaquery.Arg{
-		{Position: 1, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
-	},
-}
-
-// WrapGetProjectConstraint returns a metaquery.Builder over MetaGetProjectConstraint, pre-bound with typed arguments.
-func WrapGetProjectConstraint(id int32) *metaquery.Builder {
-	return metaquery.Wrap(&MetaGetProjectConstraint, id)
-}
-
-// GetProjectConstraintCols gives typed, name-safe access to GetProjectConstraint's output columns.
-var GetProjectConstraintCols = struct {
-	ID          metaquery.IntCol
-	ProjectID   metaquery.IntCol
-	Title       metaquery.TextCol
-	Description metaquery.TextCol
-	Priority    metaquery.IntCol
-	Status      metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	UpdatedAt   metaquery.TimeCol
-}{
-	ID:          metaquery.NewIntCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Title:       metaquery.NewTextCol("title"),
-	Description: metaquery.NewTextCol("description"),
-	Priority:    metaquery.NewIntCol("priority"),
-	Status:      metaquery.NewTextCol("status"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
 }
 
 var MetaGetProjectGoal = metaquery.Query{
@@ -403,54 +263,6 @@ var ListIssueGoalsCols = struct {
 	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
 }
 
-var MetaListProjectConstraints = metaquery.Query{
-	Name:   "ListProjectConstraints",
-	Cmd:    ":many",
-	Source: "goals.sql",
-	SQL: `SELECT id, project_id, title, description, priority, status, created_at, updated_at
-FROM zdx_project_constraints WHERE project_id = $1
-ORDER BY priority, title`,
-	Columns: []metaquery.Column{
-		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "priority", OriginalName: "priority", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_project_constraints"},
-		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_project_constraints"},
-	},
-	Args: []metaquery.Arg{
-		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
-	},
-}
-
-// WrapListProjectConstraints returns a metaquery.Builder over MetaListProjectConstraints, pre-bound with typed arguments.
-func WrapListProjectConstraints(projectID int32) *metaquery.Builder {
-	return metaquery.Wrap(&MetaListProjectConstraints, projectID)
-}
-
-// ListProjectConstraintsCols gives typed, name-safe access to ListProjectConstraints's output columns.
-var ListProjectConstraintsCols = struct {
-	ID          metaquery.IntCol
-	ProjectID   metaquery.IntCol
-	Title       metaquery.TextCol
-	Description metaquery.TextCol
-	Priority    metaquery.IntCol
-	Status      metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	UpdatedAt   metaquery.TimeCol
-}{
-	ID:          metaquery.NewIntCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Title:       metaquery.NewTextCol("title"),
-	Description: metaquery.NewTextCol("description"),
-	Priority:    metaquery.NewIntCol("priority"),
-	Status:      metaquery.NewTextCol("status"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
-}
-
 var MetaListProjectGoals = metaquery.Query{
 	Name:   "ListProjectGoals",
 	Cmd:    ":many",
@@ -519,31 +331,6 @@ var MetaUnlinkGoalIssue = metaquery.Query{
 // WrapUnlinkGoalIssue returns a metaquery.Builder over MetaUnlinkGoalIssue, pre-bound with typed arguments.
 func WrapUnlinkGoalIssue(arg UnlinkGoalIssueParams) *metaquery.Builder {
 	return metaquery.Wrap(&MetaUnlinkGoalIssue, arg.GoalID, arg.IssueID)
-}
-
-var MetaUpdateProjectConstraint = metaquery.Query{
-	Name:   "UpdateProjectConstraint",
-	Cmd:    ":exec",
-	Source: "goals.sql",
-	SQL: `UPDATE zdx_project_constraints
-SET title       = $2,
-    description = $3,
-    priority    = $4,
-    status      = $5,
-    updated_at  = NOW()
-WHERE id = $1`,
-	Args: []metaquery.Arg{
-		{Position: 1, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
-		{Position: 2, Name: "title", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 3, Name: "description", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 4, Name: "priority", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
-		{Position: 5, Name: "status", GoType: "string", DBType: "text", NotNull: true},
-	},
-}
-
-// WrapUpdateProjectConstraint returns a metaquery.Builder over MetaUpdateProjectConstraint, pre-bound with typed arguments.
-func WrapUpdateProjectConstraint(arg UpdateProjectConstraintParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaUpdateProjectConstraint, arg.ID, arg.Title, arg.Description, arg.Priority, arg.Status)
 }
 
 var MetaUpdateProjectGoal = metaquery.Query{

@@ -11,17 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countProjectConstraints = `-- name: CountProjectConstraints :one
-SELECT count(*) FROM zdx_project_constraints WHERE project_id = $1
-`
-
-func (q *Queries) CountProjectConstraints(ctx context.Context, projectID int32) (int64, error) {
-	row := q.db.QueryRow(ctx, countProjectConstraints, projectID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const countProjectGoals = `-- name: CountProjectGoals :one
 SELECT count(*) FROM zdx_project_goals WHERE project_id = $1
 `
@@ -31,42 +20,6 @@ func (q *Queries) CountProjectGoals(ctx context.Context, projectID int32) (int64
 	var count int64
 	err := row.Scan(&count)
 	return count, err
-}
-
-const createProjectConstraint = `-- name: CreateProjectConstraint :one
-INSERT INTO zdx_project_constraints (project_id, title, description, priority, status)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, title, description, priority, status, created_at, updated_at
-`
-
-type CreateProjectConstraintParams struct {
-	ProjectID   int32  `db:"project_id" json:"project_id"`
-	Title       string `db:"title" json:"title"`
-	Description string `db:"description" json:"description"`
-	Priority    int32  `db:"priority" json:"priority"`
-	Status      string `db:"status" json:"status"`
-}
-
-func (q *Queries) CreateProjectConstraint(ctx context.Context, arg CreateProjectConstraintParams) (ZdxProjectConstraint, error) {
-	row := q.db.QueryRow(ctx, createProjectConstraint,
-		arg.ProjectID,
-		arg.Title,
-		arg.Description,
-		arg.Priority,
-		arg.Status,
-	)
-	var i ZdxProjectConstraint
-	err := row.Scan(
-		&i.ID,
-		&i.ProjectID,
-		&i.Title,
-		&i.Description,
-		&i.Priority,
-		&i.Status,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
 }
 
 const createProjectGoal = `-- name: CreateProjectGoal :one
@@ -124,15 +77,6 @@ func (q *Queries) CreateProjectGoal(ctx context.Context, arg CreateProjectGoalPa
 	return i, err
 }
 
-const deleteProjectConstraint = `-- name: DeleteProjectConstraint :exec
-DELETE FROM zdx_project_constraints WHERE id = $1
-`
-
-func (q *Queries) DeleteProjectConstraint(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, deleteProjectConstraint, id)
-	return err
-}
-
 const deleteProjectGoal = `-- name: DeleteProjectGoal :exec
 DELETE FROM zdx_project_goals WHERE id = $1
 `
@@ -140,27 +84,6 @@ DELETE FROM zdx_project_goals WHERE id = $1
 func (q *Queries) DeleteProjectGoal(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, deleteProjectGoal, id)
 	return err
-}
-
-const getProjectConstraint = `-- name: GetProjectConstraint :one
-SELECT id, project_id, title, description, priority, status, created_at, updated_at
-FROM zdx_project_constraints WHERE id = $1
-`
-
-func (q *Queries) GetProjectConstraint(ctx context.Context, id int32) (ZdxProjectConstraint, error) {
-	row := q.db.QueryRow(ctx, getProjectConstraint, id)
-	var i ZdxProjectConstraint
-	err := row.Scan(
-		&i.ID,
-		&i.ProjectID,
-		&i.Title,
-		&i.Description,
-		&i.Priority,
-		&i.Status,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
 }
 
 const getProjectGoal = `-- name: GetProjectGoal :one
@@ -289,41 +212,6 @@ func (q *Queries) ListIssueGoals(ctx context.Context, issueID string) ([]ListIss
 	return items, nil
 }
 
-const listProjectConstraints = `-- name: ListProjectConstraints :many
-SELECT id, project_id, title, description, priority, status, created_at, updated_at
-FROM zdx_project_constraints WHERE project_id = $1
-ORDER BY priority, title
-`
-
-func (q *Queries) ListProjectConstraints(ctx context.Context, projectID int32) ([]ZdxProjectConstraint, error) {
-	rows, err := q.db.Query(ctx, listProjectConstraints, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ZdxProjectConstraint
-	for rows.Next() {
-		var i ZdxProjectConstraint
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.Title,
-			&i.Description,
-			&i.Priority,
-			&i.Status,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listProjectGoals = `-- name: ListProjectGoals :many
 SELECT id, project_id, title, description, priority, status, metric_name, metric_unit, created_at, updated_at
 FROM zdx_project_goals WHERE project_id = $1
@@ -385,35 +273,6 @@ type UnlinkGoalIssueParams struct {
 
 func (q *Queries) UnlinkGoalIssue(ctx context.Context, arg UnlinkGoalIssueParams) error {
 	_, err := q.db.Exec(ctx, unlinkGoalIssue, arg.GoalID, arg.IssueID)
-	return err
-}
-
-const updateProjectConstraint = `-- name: UpdateProjectConstraint :exec
-UPDATE zdx_project_constraints
-SET title       = $2,
-    description = $3,
-    priority    = $4,
-    status      = $5,
-    updated_at  = NOW()
-WHERE id = $1
-`
-
-type UpdateProjectConstraintParams struct {
-	ID          int32  `db:"id" json:"id"`
-	Title       string `db:"title" json:"title"`
-	Description string `db:"description" json:"description"`
-	Priority    int32  `db:"priority" json:"priority"`
-	Status      string `db:"status" json:"status"`
-}
-
-func (q *Queries) UpdateProjectConstraint(ctx context.Context, arg UpdateProjectConstraintParams) error {
-	_, err := q.db.Exec(ctx, updateProjectConstraint,
-		arg.ID,
-		arg.Title,
-		arg.Description,
-		arg.Priority,
-		arg.Status,
-	)
 	return err
 }
 

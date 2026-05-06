@@ -70,7 +70,6 @@ type Querier interface {
 	// (resolve-on-dev and branch-cut) to skip when a backport is already queued.
 	CountOpenBackportTasks(ctx context.Context, arg CountOpenBackportTasksParams) (int64, error)
 	CountOpenIssuesByTitle(ctx context.Context, arg CountOpenIssuesByTitleParams) (int64, error)
-	CountProjectConstraints(ctx context.Context, projectID int32) (int64, error)
 	CountProjectGoals(ctx context.Context, projectID int32) (int64, error)
 	CountQuestionProposalsByQuestion(ctx context.Context, arg CountQuestionProposalsByQuestionParams) (int64, error)
 	// Count how many times a todo has been claimed (reservation count).
@@ -110,7 +109,6 @@ type Querier interface {
 	// ── Plan step refs (discovery spawns) ────────────────────────────────────────
 	CreatePlanStepRef(ctx context.Context, arg CreatePlanStepRefParams) error
 	CreateProject(ctx context.Context, arg CreateProjectParams) (CreateProjectRow, error)
-	CreateProjectConstraint(ctx context.Context, arg CreateProjectConstraintParams) (ZdxProjectConstraint, error)
 	CreateProjectGoal(ctx context.Context, arg CreateProjectGoalParams) (CreateProjectGoalRow, error)
 	CreateProposal(ctx context.Context, arg CreateProposalParams) (ZdxProposal, error)
 	CreateProposalVersion(ctx context.Context, arg CreateProposalVersionParams) (ZdxProposalVersion, error)
@@ -146,7 +144,6 @@ type Querier interface {
 	DeletePlan(ctx context.Context, id int32) error
 	DeletePlanStep(ctx context.Context, id int32) error
 	DeletePlanStepRef(ctx context.Context, arg DeletePlanStepRefParams) error
-	DeleteProjectConstraint(ctx context.Context, id int32) error
 	DeleteProjectGoal(ctx context.Context, id int32) error
 	DeleteSpec(ctx context.Context, id int32) error
 	DeleteTask(ctx context.Context, id string) error
@@ -250,7 +247,6 @@ type Querier interface {
 	GetProjectByID(ctx context.Context, id int32) (ZdxProject, error)
 	GetProjectBySlug(ctx context.Context, slug string) (ZdxProject, error)
 	GetProjectClassification(ctx context.Context, id int32) (string, error)
-	GetProjectConstraint(ctx context.Context, id int32) (ZdxProjectConstraint, error)
 	GetProjectGitConfig(ctx context.Context, slug string) (GetProjectGitConfigRow, error)
 	GetProjectGoal(ctx context.Context, id int32) (GetProjectGoalRow, error)
 	GetProjectProxyConfig(ctx context.Context, slug string) (GetProjectProxyConfigRow, error)
@@ -477,7 +473,6 @@ type Querier interface {
 	ListPlansByFeature(ctx context.Context, featureID pgtype.Int4) ([]ListPlansByFeatureRow, error)
 	ListPlansByFocus(ctx context.Context, focusID pgtype.Int4) ([]ListPlansByFocusRow, error)
 	ListPlansByIssue(ctx context.Context, issueID pgtype.Text) ([]ListPlansByIssueRow, error)
-	ListProjectConstraints(ctx context.Context, projectID int32) ([]ZdxProjectConstraint, error)
 	ListProjectGoals(ctx context.Context, projectID int32) ([]ListProjectGoalsRow, error)
 	ListProjects(ctx context.Context) ([]ZdxProject, error)
 	ListProposalVersions(ctx context.Context, proposalID int32) ([]ZdxProposalVersion, error)
@@ -749,7 +744,6 @@ type Querier interface {
 	UpdatePlan(ctx context.Context, arg UpdatePlanParams) error
 	UpdatePlanStep(ctx context.Context, arg UpdatePlanStepParams) error
 	UpdatePlanStepSeq(ctx context.Context, arg UpdatePlanStepSeqParams) error
-	UpdateProjectConstraint(ctx context.Context, arg UpdateProjectConstraintParams) error
 	UpdateProjectGoal(ctx context.Context, arg UpdateProjectGoalParams) error
 	UpdateProposal(ctx context.Context, arg UpdateProposalParams) (ZdxProposal, error)
 	UpdateProposalStatus(ctx context.Context, arg UpdateProposalStatusParams) (ZdxProposal, error)
