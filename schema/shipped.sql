@@ -4,6 +4,7 @@
 
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -62,7 +63,7 @@ ALTER SEQUENCE public.zdx_agent_budgets_id_seq OWNED BY public.zdx_agent_budgets
 
 CREATE TABLE public.zdx_agents (
     id text NOT NULL,
-    project_id integer NOT NULL,
+    project_id integer,
     session_id text DEFAULT ''::text NOT NULL,
     worktree_path text DEFAULT ''::text NOT NULL,
     worktree_branch text DEFAULT ''::text NOT NULL,
@@ -75,7 +76,8 @@ CREATE TABLE public.zdx_agents (
     last_heartbeat timestamp with time zone DEFAULT now() NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     valkey_url text DEFAULT ''::text NOT NULL,
-    disconnect_at timestamp with time zone
+    disconnect_at timestamp with time zone,
+    idle boolean DEFAULT false NOT NULL
 );
 
 
@@ -4466,6 +4468,13 @@ ALTER TABLE ONLY public.zdx_version_branches
 
 ALTER TABLE ONLY public.zdx_work_log
     ADD CONSTRAINT zdx_work_log_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_agents_global_pool; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_agents_global_pool ON public.zdx_agents USING btree (id) WHERE (project_id IS NULL);
 
 
 --

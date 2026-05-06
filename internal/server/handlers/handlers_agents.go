@@ -13,8 +13,16 @@ import (
 )
 
 type AgentItem struct {
-	ID              string `json:"id"`
-	ProjectID       int32  `json:"project_id"`
+	ID string `json:"id"`
+	// ProjectID is null for global-pool agents (no project assignment).
+	// Project-scoped agents carry their project's id.
+	ProjectID *int32 `json:"project_id"`
+	// ProjectSlug + ProjectName are populated by the server-wide list
+	// endpoint (/api/agents) so the UI can render scope without a
+	// secondary lookup. Empty when the agent is global or when called
+	// from the project-scoped list (which already knows the project).
+	ProjectSlug     string `json:"project_slug,omitempty"`
+	ProjectName     string `json:"project_name,omitempty"`
 	SessionID       string `json:"session_id"`
 	WorktreePath    string `json:"worktree_path"`
 	WorktreeBranch  string `json:"worktree_branch"`
@@ -25,6 +33,7 @@ type AgentItem struct {
 	ServerPort      int32  `json:"server_port"`
 	DatabaseUrl     string `json:"database_url"`
 	ValkeyUrl       string `json:"valkey_url"`
+	Idle            bool   `json:"idle"`
 	LastHeartbeat   string `json:"last_heartbeat"`
 	CreatedAt       string `json:"created_at"`
 	ConnectionState string `json:"connection_state"` // connected | disconnected | paused | draining
@@ -73,10 +82,16 @@ func agentItemFrom(a db.ZdxAgent, reg AgentConnRegistry) AgentItem {
 	if a.Status == "paused" || a.Status == "draining" {
 		connState = a.Status
 	}
+	var pid *int32
+	if a.ProjectID.Valid {
+		v := a.ProjectID.Int32
+		pid = &v
+	}
 	return AgentItem{
 		ID:              a.ID,
-		ProjectID:       a.ProjectID,
+		ProjectID:       pid,
 		SessionID:       a.SessionID,
+		Idle:            a.Idle,
 		WorktreePath:    a.WorktreePath,
 		WorktreeBranch:  a.WorktreeBranch,
 		Pid:             a.Pid,
@@ -122,7 +137,7 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 			}
 			a, err := h.Q.RegisterAgent(ctx, db.RegisterAgentParams{
 				ID:             in.Body.ID,
-				ProjectID:      p.ID,
+				ProjectID:      pgtype.Int4{Int32: p.ID, Valid: true},
 				SessionID:      in.Body.SessionID,
 				WorktreePath:   in.Body.WorktreePath,
 				WorktreeBranch: in.Body.WorktreeBranch,
@@ -152,13 +167,59 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			rows, err := h.Q.ListAgentsByProject(ctx, p.ID)
+			rows, err := h.Q.ListAgentsByProject(ctx, pgtype.Int4{Int32: p.ID, Valid: true})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			out := make([]AgentItem, len(rows))
 			for i, r := range rows {
 				out[i] = agentItemFrom(r, h.AgentConnRegistry)
+			}
+			return &struct {
+				Body struct {
+					Agents []AgentItem `json:"agents"`
+				}
+			}{Body: struct {
+				Agents []AgentItem `json:"agents"`
+			}{Agents: out}}, nil
+		})
+
+	// Server-wide list (across every project + the global pool). Used by
+	// the top-level /agents nav so operators see every connected and
+	// registered agent in one panel. Returns AgentItem augmented with
+	// project_slug + project_name so the UI can render scope without a
+	// secondary lookup.
+	huma.Register(api, huma.Operation{OperationID: "list-all-agents", Method: http.MethodGet, Path: "/api/agents"},
+		func(ctx context.Context, _ *struct{}) (*struct {
+			Body struct {
+				Agents []AgentItem `json:"agents"`
+			}
+		}, error) {
+			rows, err := h.Q.ListAllAgents(ctx)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]AgentItem, len(rows))
+			for i, r := range rows {
+				// Promote ListAllAgentsRow → ZdxAgent fields on agentItemFrom
+				// by reusing the existing converter, then layer on the joined
+				// project columns the converter doesn't know about.
+				agent := db.ZdxAgent{
+					ID: r.ID, ProjectID: r.ProjectID, SessionID: r.SessionID,
+					WorktreePath: r.WorktreePath, WorktreeBranch: r.WorktreeBranch,
+					Pid: r.Pid, Status: r.Status, TaskGroup: r.TaskGroup,
+					ComposeProject: r.ComposeProject, ServerPort: r.ServerPort,
+					DatabaseUrl: r.DatabaseUrl, ValkeyUrl: r.ValkeyUrl,
+					Idle: r.Idle, LastHeartbeat: r.LastHeartbeat,
+					CreatedAt: r.CreatedAt, DisconnectAt: r.DisconnectAt,
+				}
+				out[i] = agentItemFrom(agent, h.AgentConnRegistry)
+				if r.ProjectSlug.Valid {
+					out[i].ProjectSlug = r.ProjectSlug.String
+				}
+				if r.ProjectName.Valid {
+					out[i].ProjectName = r.ProjectName.String
+				}
 			}
 			return &struct {
 				Body struct {

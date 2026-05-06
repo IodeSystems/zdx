@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iodesystems/zdx-go/internal/agentdaemon"
 	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/config"
 	"github.com/iodesystems/zdx-go/internal/doctor"
@@ -94,8 +95,125 @@ For the long-running work loop, use ` + "`dx agent loop --provider=X`" + `.`,
 	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
 	cmd.Flags().StringVar(&mcpContainer, "mcp-container", "", "dispatch tool calls through dx-agent --mcp-stdio running inside this container (opencode/local only)")
 
-	cmd.AddCommand(agentLoopCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd(), agentDrainCmd(), agentBudgetCmd())
+	cmd.AddCommand(agentLoopCmd(), agentConnectCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd(), agentDrainCmd(), agentBudgetCmd())
 	return cmd
+}
+
+// agentConnectCmd registers the agent with the zdx server's pool, holds the
+// WS connection alive, and (unless --idle) runs the work loop. The verb is
+// the user-facing entry point for "make this agent visible in the server's
+// /agents nav" — it covers both project-scoped and global-pool registration.
+//
+// With --global (parent-persistent flag), the agent registers without a
+// project binding; appears in /agents under "global" scope; receives no work
+// until assigned (Stream-2 follow-up). Without --global, registration
+// inherits the project from .zdx/config.yaml just like `dx agent loop`.
+//
+// With --idle, registration completes but the work loop never starts. The
+// agent stays connected (WS heartbeat alive, control channel open),
+// waiting for the operator to dispatch work via the UI / control message.
+//
+// Default (no --idle) is "register and start working" — the user
+// explicitly asked for this in the design conversation: "when an agent is
+// connected, it should start working immediately unless started with
+// connect --idle."
+func agentConnectCmd() *cobra.Command {
+	var idle bool
+	var maxTurns, maxWorktrees int
+	var keepContainer, chrome bool
+	var mcpContainer string
+	cmd := &cobra.Command{
+		Use:   "connect",
+		Short: "Register agent to the zdx server pool; start work loop unless --idle",
+		Long: `Connect registers this agent in the server's agent pool (visible in
+/agents nav) and starts the work loop by default. With --global (parent
+flag) registration goes into the cross-project global pool; without it,
+the agent is project-scoped and claims from this project's queue.
+
+  dx agent connect --provider=claude              # project-scoped, working
+  dx agent connect --provider=claude --idle       # project-scoped, idle
+  dx agent --global connect --provider=claude     # global pool, idle until assigned
+
+Honors all parent flags (--container, --worktree, --branch, --complexity,
+--alias, --model). With --idle the work loop never runs — the WS stays
+open so the UI can pause/resume/drain or eventually push work.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			provider := cmd.Flag("provider").Value.String()
+			alias := cmd.Flag("alias").Value.String()
+			model := cmd.Flag("model").Value.String()
+			complexity := cmd.Flag("complexity").Value.String()
+			containerVal := cmd.Flag("container").Value.String()
+			worktree := cmd.Flag("worktree").Value.String()
+			branch := cmd.Flag("branch").Value.String()
+			global, _ := cmd.Flags().GetBool("global")
+
+			mode, err := NormalizeContainer(containerVal)
+			if err != nil {
+				return err
+			}
+			if err := rejectUnimplementedExplicit("worktree", worktree); err != nil {
+				return err
+			}
+			if err := rejectUnimplementedExplicit("branch", branch); err != nil {
+				return err
+			}
+
+			tier, err := NormalizeComplexity(complexity)
+			if err != nil {
+				return err
+			}
+			opts, err := loadManagedOptsFromCmd(cmd, provider, alias, "", model, tier, maxTurns, mcpContainer)
+			if err != nil {
+				return err
+			}
+			if cmd.Flags().Changed("chrome") {
+				opts.Chrome = chrome
+			}
+			opts.KeepContainer = keepContainer
+			if cmd.Flags().Changed("max-worktrees") && maxWorktrees > 0 {
+				opts.AgentCfg.MaxWorktrees = maxWorktrees
+			}
+			opts.Global = global
+			opts.Idle = idle
+
+			// Idle mode: just hold the WS daemon. No work loop, no slot
+			// containers. The handshake with Idle=true tells the server
+			// to surface the agent as paused/standby in /agents.
+			if idle {
+				return runIdleDaemon(cmd.Context(), provider, opts)
+			}
+
+			// Working mode: behave like `dx agent loop`. Container vs local
+			// dispatch is decided by --container.
+			if mode == ContainerDocker {
+				return DispatchContainerLoop(cmd.Context(), provider, opts)
+			}
+			if err := enforceContainerExecution(false); err != nil {
+				return err
+			}
+			return DispatchLoop(cmd.Context(), provider, opts)
+		},
+	}
+	cmd.Flags().BoolVar(&idle, "idle", false, "register but don't start the work loop; UI controls the agent")
+	cmd.Flags().IntVar(&maxTurns, "max-turns", 0, "cap on assistant turns per session (0 = unlimited; opencode/local only)")
+	cmd.Flags().BoolVar(&keepContainer, "keep-container", false, "keep slot containers after exit (skip --rm; useful for debugging)")
+	cmd.Flags().BoolVar(&chrome, "chrome", true, "pass --chrome to claude CLI (claude only; ignored otherwise)")
+	cmd.Flags().IntVar(&maxWorktrees, "max-worktrees", 0, "override agent.max_worktrees from config (container slot count)")
+	cmd.Flags().StringVar(&mcpContainer, "mcp-container", "", "dispatch tool calls through dx-agent --mcp-stdio running inside this container (opencode/local only)")
+	return cmd
+}
+
+// runIdleDaemon registers the agent via the WS daemon and blocks until ctx
+// is cancelled. No work loop runs; the daemon's control channel is the
+// only way the agent does anything once registered.
+func runIdleDaemon(ctx context.Context, providerName string, opts ProviderOpts) error {
+	if opts.RC.url == "" || opts.RC.key == "" {
+		return fmt.Errorf("--idle requires a configured remote (RC.url + RC.key); pass --global with credentials or run inside a project")
+	}
+	holder := agentdaemon.NewLoopTaskHolder()
+	startDaemon(ctx, providerName, opts, holder, nil)
+	<-ctx.Done()
+	return nil
 }
 
 // rejectUnimplementedExplicit refuses any value other than "auto" / empty for

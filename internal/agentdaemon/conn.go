@@ -56,6 +56,14 @@ type Daemon struct {
 	Pid            int32
 	Capabilities   []string
 	Holder         TaskHolder
+	// ProjectSlug is the project the daemon registers under; empty
+	// string means the agent is registering into the server-wide
+	// global pool (not bound to any one project).
+	ProjectSlug string
+	// Idle reports the agent's initial work-loop state. False = the
+	// caller will start claiming work after the WS comes up. True =
+	// the agent stays passive, controllable from the UI.
+	Idle bool
 
 	// ControlCh receives pause/resume commands forwarded from the WS channel.
 	// If nil, control messages are logged but not forwarded. Callers should
@@ -137,7 +145,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 		return fmt.Errorf("dial: %w", err)
 	}
 
-	// Send handshake.
+	// Send handshake. ProjectSlug + Idle are optional fields the server
+	// reads (and ignores when absent for older daemons that didn't send
+	// them).
 	handshake, _ := json.Marshal(map[string]any{
 		"agent_id":        d.AgentID,
 		"hostname":        d.Hostname,
@@ -145,6 +155,8 @@ func (d *Daemon) Run(ctx context.Context) error {
 		"capabilities":    d.Capabilities,
 		"worktree_path":   d.WorktreePath,
 		"worktree_branch": d.WorktreeBranch,
+		"project_slug":    d.ProjectSlug,
+		"idle":            d.Idle,
 	})
 	if err := conn.Write(ctx, websocket.MessageText, handshake); err != nil {
 		return fmt.Errorf("write handshake: %w", err)

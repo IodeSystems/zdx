@@ -31,10 +31,10 @@ var MetaGetAgent = metaquery.Query{
 	Name:   "GetAgent",
 	Cmd:    ":one",
 	Source: "agents.sql",
-	SQL:    `SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at FROM zdx_agents WHERE id = $1`,
+	SQL:    `SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at, idle FROM zdx_agents WHERE id = $1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
-		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_agents"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_agents"},
 		{Name: "session_id", OriginalName: "session_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
 		{Name: "worktree_path", OriginalName: "worktree_path", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
 		{Name: "worktree_branch", OriginalName: "worktree_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
@@ -48,6 +48,7 @@ var MetaGetAgent = metaquery.Query{
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_agents"},
 		{Name: "valkey_url", OriginalName: "valkey_url", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
 		{Name: "disconnect_at", OriginalName: "disconnect_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_agents"},
+		{Name: "idle", OriginalName: "idle", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_agents"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "id", GoType: "string", DBType: "text", NotNull: true},
@@ -76,6 +77,7 @@ var GetAgentCols = struct {
 	CreatedAt      metaquery.TimeCol
 	ValkeyUrl      metaquery.TextCol
 	DisconnectAt   metaquery.TimeCol
+	Idle           metaquery.BoolCol
 }{
 	ID:             metaquery.NewTextCol("id"),
 	ProjectID:      metaquery.NewIntCol("project_id"),
@@ -92,16 +94,17 @@ var GetAgentCols = struct {
 	CreatedAt:      metaquery.NewTimeCol("created_at"),
 	ValkeyUrl:      metaquery.NewTextCol("valkey_url"),
 	DisconnectAt:   metaquery.NewTimeCol("disconnect_at"),
+	Idle:           metaquery.NewBoolCol("idle"),
 }
 
 var MetaListAgentsByProject = metaquery.Query{
 	Name:   "ListAgentsByProject",
 	Cmd:    ":many",
 	Source: "agents.sql",
-	SQL:    `SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at FROM zdx_agents WHERE project_id = $1 ORDER BY last_heartbeat DESC`,
+	SQL:    `SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at, idle FROM zdx_agents WHERE project_id = $1 ORDER BY last_heartbeat DESC`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
-		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_agents"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_agents"},
 		{Name: "session_id", OriginalName: "session_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
 		{Name: "worktree_path", OriginalName: "worktree_path", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
 		{Name: "worktree_branch", OriginalName: "worktree_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
@@ -115,14 +118,15 @@ var MetaListAgentsByProject = metaquery.Query{
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_agents"},
 		{Name: "valkey_url", OriginalName: "valkey_url", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
 		{Name: "disconnect_at", OriginalName: "disconnect_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_agents"},
+		{Name: "idle", OriginalName: "idle", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_agents"},
 	},
 	Args: []metaquery.Arg{
-		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 1, Name: "project_id", GoType: "pgtype.Int4", DBType: "pg_catalog.int4"},
 	},
 }
 
 // WrapListAgentsByProject returns a metaquery.Builder over MetaListAgentsByProject, pre-bound with typed arguments.
-func WrapListAgentsByProject(projectID int32) *metaquery.Builder {
+func WrapListAgentsByProject(projectID pgtype.Int4) *metaquery.Builder {
 	return metaquery.Wrap(&MetaListAgentsByProject, projectID)
 }
 
@@ -143,6 +147,7 @@ var ListAgentsByProjectCols = struct {
 	CreatedAt      metaquery.TimeCol
 	ValkeyUrl      metaquery.TextCol
 	DisconnectAt   metaquery.TimeCol
+	Idle           metaquery.BoolCol
 }{
 	ID:             metaquery.NewTextCol("id"),
 	ProjectID:      metaquery.NewIntCol("project_id"),
@@ -159,6 +164,87 @@ var ListAgentsByProjectCols = struct {
 	CreatedAt:      metaquery.NewTimeCol("created_at"),
 	ValkeyUrl:      metaquery.NewTextCol("valkey_url"),
 	DisconnectAt:   metaquery.NewTimeCol("disconnect_at"),
+	Idle:           metaquery.NewBoolCol("idle"),
+}
+
+var MetaListAllAgents = metaquery.Query{
+	Name:   "ListAllAgents",
+	Cmd:    ":many",
+	Source: "agents.sql",
+	SQL: `SELECT a.id, a.project_id, a.session_id, a.worktree_path, a.worktree_branch,
+       a.pid, a.status, a.task_group, a.compose_project, a.server_port,
+       a.database_url, a.valkey_url, a.idle, a.last_heartbeat, a.created_at,
+       a.disconnect_at,
+       p.slug AS project_slug, p.name AS project_name
+FROM zdx_agents a
+LEFT JOIN zdx_projects p ON p.id = a.project_id
+ORDER BY a.last_heartbeat DESC`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_agents"},
+		{Name: "session_id", OriginalName: "session_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
+		{Name: "worktree_path", OriginalName: "worktree_path", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
+		{Name: "worktree_branch", OriginalName: "worktree_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
+		{Name: "pid", OriginalName: "pid", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_agents"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
+		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
+		{Name: "compose_project", OriginalName: "compose_project", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
+		{Name: "server_port", OriginalName: "server_port", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_agents"},
+		{Name: "database_url", OriginalName: "database_url", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
+		{Name: "valkey_url", OriginalName: "valkey_url", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
+		{Name: "idle", OriginalName: "idle", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_agents"},
+		{Name: "last_heartbeat", OriginalName: "last_heartbeat", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_agents"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_agents"},
+		{Name: "disconnect_at", OriginalName: "disconnect_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_agents"},
+		{Name: "project_slug", OriginalName: "slug", GoType: "pgtype.Text", DBType: "text", Table: "zdx_projects"},
+		{Name: "project_name", OriginalName: "name", GoType: "pgtype.Text", DBType: "text", Table: "zdx_projects"},
+	},
+}
+
+// WrapListAllAgents returns a metaquery.Builder over MetaListAllAgents, pre-bound with typed arguments.
+func WrapListAllAgents() *metaquery.Builder {
+	return metaquery.Wrap(&MetaListAllAgents)
+}
+
+// ListAllAgentsCols gives typed, name-safe access to ListAllAgents's output columns.
+var ListAllAgentsCols = struct {
+	ID             metaquery.TextCol
+	ProjectID      metaquery.IntCol
+	SessionID      metaquery.TextCol
+	WorktreePath   metaquery.TextCol
+	WorktreeBranch metaquery.TextCol
+	Pid            metaquery.IntCol
+	Status         metaquery.TextCol
+	TaskGroup      metaquery.TextCol
+	ComposeProject metaquery.TextCol
+	ServerPort     metaquery.IntCol
+	DatabaseUrl    metaquery.TextCol
+	ValkeyUrl      metaquery.TextCol
+	Idle           metaquery.BoolCol
+	LastHeartbeat  metaquery.TimeCol
+	CreatedAt      metaquery.TimeCol
+	DisconnectAt   metaquery.TimeCol
+	ProjectSlug    metaquery.TextCol
+	ProjectName    metaquery.TextCol
+}{
+	ID:             metaquery.NewTextCol("id"),
+	ProjectID:      metaquery.NewIntCol("project_id"),
+	SessionID:      metaquery.NewTextCol("session_id"),
+	WorktreePath:   metaquery.NewTextCol("worktree_path"),
+	WorktreeBranch: metaquery.NewTextCol("worktree_branch"),
+	Pid:            metaquery.NewIntCol("pid"),
+	Status:         metaquery.NewTextCol("status"),
+	TaskGroup:      metaquery.NewTextCol("task_group"),
+	ComposeProject: metaquery.NewTextCol("compose_project"),
+	ServerPort:     metaquery.NewIntCol("server_port"),
+	DatabaseUrl:    metaquery.NewTextCol("database_url"),
+	ValkeyUrl:      metaquery.NewTextCol("valkey_url"),
+	Idle:           metaquery.NewBoolCol("idle"),
+	LastHeartbeat:  metaquery.NewTimeCol("last_heartbeat"),
+	CreatedAt:      metaquery.NewTimeCol("created_at"),
+	DisconnectAt:   metaquery.NewTimeCol("disconnect_at"),
+	ProjectSlug:    metaquery.NewTextCol("slug"),
+	ProjectName:    metaquery.NewTextCol("name"),
 }
 
 var MetaMarkAgentConnected = metaquery.Query{
@@ -203,10 +289,10 @@ var MetaReapStaleAgents = metaquery.Query{
 	Source: "agents.sql",
 	SQL: `DELETE FROM zdx_agents
 WHERE last_heartbeat < NOW() - $1::interval
-RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at`,
+RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at, idle`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
-		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_agents"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_agents"},
 		{Name: "session_id", OriginalName: "session_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
 		{Name: "worktree_path", OriginalName: "worktree_path", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
 		{Name: "worktree_branch", OriginalName: "worktree_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
@@ -220,6 +306,7 @@ RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, statu
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_agents"},
 		{Name: "valkey_url", OriginalName: "valkey_url", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
 		{Name: "disconnect_at", OriginalName: "disconnect_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_agents"},
+		{Name: "idle", OriginalName: "idle", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_agents"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "stale_threshold", GoType: "pgtype.Interval", DBType: "interval", NotNull: true},
@@ -248,6 +335,7 @@ var ReapStaleAgentsCols = struct {
 	CreatedAt      metaquery.TimeCol
 	ValkeyUrl      metaquery.TextCol
 	DisconnectAt   metaquery.TimeCol
+	Idle           metaquery.BoolCol
 }{
 	ID:             metaquery.NewTextCol("id"),
 	ProjectID:      metaquery.NewIntCol("project_id"),
@@ -264,6 +352,7 @@ var ReapStaleAgentsCols = struct {
 	CreatedAt:      metaquery.NewTimeCol("created_at"),
 	ValkeyUrl:      metaquery.NewTextCol("valkey_url"),
 	DisconnectAt:   metaquery.NewTimeCol("disconnect_at"),
+	Idle:           metaquery.NewBoolCol("idle"),
 }
 
 var MetaRegisterAgent = metaquery.Query{
@@ -284,10 +373,10 @@ ON CONFLICT (id) DO UPDATE SET
     database_url = EXCLUDED.database_url,
     valkey_url = EXCLUDED.valkey_url,
     last_heartbeat = NOW()
-RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at`,
+RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at, idle`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
-		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_agents"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_agents"},
 		{Name: "session_id", OriginalName: "session_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
 		{Name: "worktree_path", OriginalName: "worktree_path", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
 		{Name: "worktree_branch", OriginalName: "worktree_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
@@ -301,10 +390,11 @@ RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, statu
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_agents"},
 		{Name: "valkey_url", OriginalName: "valkey_url", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_agents"},
 		{Name: "disconnect_at", OriginalName: "disconnect_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_agents"},
+		{Name: "idle", OriginalName: "idle", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_agents"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "id", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 2, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "project_id", GoType: "pgtype.Int4", DBType: "pg_catalog.int4"},
 		{Position: 3, Name: "session_id", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 4, Name: "worktree_path", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 5, Name: "worktree_branch", GoType: "string", DBType: "text", NotNull: true},
@@ -341,6 +431,7 @@ var RegisterAgentCols = struct {
 	CreatedAt      metaquery.TimeCol
 	ValkeyUrl      metaquery.TextCol
 	DisconnectAt   metaquery.TimeCol
+	Idle           metaquery.BoolCol
 }{
 	ID:             metaquery.NewTextCol("id"),
 	ProjectID:      metaquery.NewIntCol("project_id"),
@@ -357,6 +448,7 @@ var RegisterAgentCols = struct {
 	CreatedAt:      metaquery.NewTimeCol("created_at"),
 	ValkeyUrl:      metaquery.NewTextCol("valkey_url"),
 	DisconnectAt:   metaquery.NewTimeCol("disconnect_at"),
+	Idle:           metaquery.NewBoolCol("idle"),
 }
 
 var MetaUpdateAgentHeartbeat = metaquery.Query{

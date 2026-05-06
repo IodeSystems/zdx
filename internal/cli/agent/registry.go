@@ -48,6 +48,20 @@ type ProviderOpts struct {
 	// launching slot loops; the slots have their own alias=<base>-<N> but
 	// the shared cluster_id makes the whole cluster filterable as one chain.
 	ClusterID string
+
+	// Global=true registers the agent in the server-wide pool (no project
+	// binding) instead of under opts.RC.slug. Surfaced in /api/agents and
+	// the top-level /agents UI; assignment to a specific project happens
+	// via separate API later (phase 2). Implies the agent has no project
+	// queue to claim from until assigned.
+	Global bool
+
+	// Idle=true registers the agent and holds the WS connection but
+	// doesn't start the work loop. Operator activates via UI or
+	// (eventually) a server-pushed control command. Useful for global
+	// agents that are waiting for assignment, and for project-scoped
+	// agents an operator wants to "have ready" before dispatching work.
+	Idle bool
 }
 
 // ProviderConstructor builds an AgentProvider ready to be passed to

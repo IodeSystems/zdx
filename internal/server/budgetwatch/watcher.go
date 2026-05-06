@@ -138,7 +138,7 @@ func (w *Watcher) checkAgent(ctx context.Context, agentID string) error {
 
 	if _, err := w.Q.RecordBudgetPause(ctx, db.RecordBudgetPauseParams{
 		AgentID:   agentID,
-		ProjectID: pgtype.Int4{Int32: agent.ProjectID, Valid: true},
+		ProjectID: agent.ProjectID,
 		Reason:    reason,
 	}); err != nil {
 		return fmt.Errorf("record pause: %w", err)
@@ -153,12 +153,17 @@ func (w *Watcher) checkAgent(ctx context.Context, agentID string) error {
 }
 
 // resolveBudget returns the per-agent ceiling if set, otherwise the
-// per-project ceiling. ok=false when neither applies.
-func (w *Watcher) resolveBudget(ctx context.Context, agentID string, projectID int32) (db.ZdxAgentBudget, bool) {
+// per-project ceiling. ok=false when neither applies — including for
+// global-pool agents whose ProjectID is NULL (no project budget to fall
+// back to; only a per-agent ceiling can constrain them).
+func (w *Watcher) resolveBudget(ctx context.Context, agentID string, projectID pgtype.Int4) (db.ZdxAgentBudget, bool) {
 	if b, err := w.Q.GetAgentBudget(ctx, pgtype.Text{String: agentID, Valid: true}); err == nil {
 		return b, true
 	}
-	if b, err := w.Q.GetProjectBudget(ctx, pgtype.Int4{Int32: projectID, Valid: true}); err == nil {
+	if !projectID.Valid {
+		return db.ZdxAgentBudget{}, false
+	}
+	if b, err := w.Q.GetProjectBudget(ctx, projectID); err == nil {
 		return b, true
 	}
 	return db.ZdxAgentBudget{}, false

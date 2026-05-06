@@ -10,7 +10,7 @@ import (
 
 type ZdxAgent struct {
 	ID             string             `db:"id" json:"id"`
-	ProjectID      int32              `db:"project_id" json:"project_id"`
+	ProjectID      pgtype.Int4        `db:"project_id" json:"project_id"`
 	SessionID      string             `db:"session_id" json:"session_id"`
 	WorktreePath   string             `db:"worktree_path" json:"worktree_path"`
 	WorktreeBranch string             `db:"worktree_branch" json:"worktree_branch"`
@@ -24,6 +24,7 @@ type ZdxAgent struct {
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ValkeyUrl      string             `db:"valkey_url" json:"valkey_url"`
 	DisconnectAt   pgtype.Timestamptz `db:"disconnect_at" json:"disconnect_at"`
+	Idle           bool               `db:"idle" json:"idle"`
 }
 
 type ZdxAgentBudget struct {

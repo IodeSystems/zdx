@@ -21,7 +21,7 @@ func (q *Queries) DeleteAgent(ctx context.Context, id string) error {
 }
 
 const getAgent = `-- name: GetAgent :one
-SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at FROM zdx_agents WHERE id = $1
+SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at, idle FROM zdx_agents WHERE id = $1
 `
 
 func (q *Queries) GetAgent(ctx context.Context, id string) (ZdxAgent, error) {
@@ -43,15 +43,16 @@ func (q *Queries) GetAgent(ctx context.Context, id string) (ZdxAgent, error) {
 		&i.CreatedAt,
 		&i.ValkeyUrl,
 		&i.DisconnectAt,
+		&i.Idle,
 	)
 	return i, err
 }
 
 const listAgentsByProject = `-- name: ListAgentsByProject :many
-SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at FROM zdx_agents WHERE project_id = $1 ORDER BY last_heartbeat DESC
+SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at, idle FROM zdx_agents WHERE project_id = $1 ORDER BY last_heartbeat DESC
 `
 
-func (q *Queries) ListAgentsByProject(ctx context.Context, projectID int32) ([]ZdxAgent, error) {
+func (q *Queries) ListAgentsByProject(ctx context.Context, projectID pgtype.Int4) ([]ZdxAgent, error) {
 	rows, err := q.db.Query(ctx, listAgentsByProject, projectID)
 	if err != nil {
 		return nil, err
@@ -76,6 +77,82 @@ func (q *Queries) ListAgentsByProject(ctx context.Context, projectID int32) ([]Z
 			&i.CreatedAt,
 			&i.ValkeyUrl,
 			&i.DisconnectAt,
+			&i.Idle,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAllAgents = `-- name: ListAllAgents :many
+SELECT a.id, a.project_id, a.session_id, a.worktree_path, a.worktree_branch,
+       a.pid, a.status, a.task_group, a.compose_project, a.server_port,
+       a.database_url, a.valkey_url, a.idle, a.last_heartbeat, a.created_at,
+       a.disconnect_at,
+       p.slug AS project_slug, p.name AS project_name
+FROM zdx_agents a
+LEFT JOIN zdx_projects p ON p.id = a.project_id
+ORDER BY a.last_heartbeat DESC
+`
+
+type ListAllAgentsRow struct {
+	ID             string             `db:"id" json:"id"`
+	ProjectID      pgtype.Int4        `db:"project_id" json:"project_id"`
+	SessionID      string             `db:"session_id" json:"session_id"`
+	WorktreePath   string             `db:"worktree_path" json:"worktree_path"`
+	WorktreeBranch string             `db:"worktree_branch" json:"worktree_branch"`
+	Pid            int32              `db:"pid" json:"pid"`
+	Status         string             `db:"status" json:"status"`
+	TaskGroup      string             `db:"task_group" json:"task_group"`
+	ComposeProject string             `db:"compose_project" json:"compose_project"`
+	ServerPort     int32              `db:"server_port" json:"server_port"`
+	DatabaseUrl    string             `db:"database_url" json:"database_url"`
+	ValkeyUrl      string             `db:"valkey_url" json:"valkey_url"`
+	Idle           bool               `db:"idle" json:"idle"`
+	LastHeartbeat  pgtype.Timestamptz `db:"last_heartbeat" json:"last_heartbeat"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	DisconnectAt   pgtype.Timestamptz `db:"disconnect_at" json:"disconnect_at"`
+	ProjectSlug    pgtype.Text        `db:"project_slug" json:"project_slug"`
+	ProjectName    pgtype.Text        `db:"project_name" json:"project_name"`
+}
+
+// Server-wide list across every project plus the global pool. Joins the
+// project's slug + name so the /agents UI can render scope without
+// per-row lookups. Returns both project-scoped (project_id NOT NULL) and
+// global-pool (project_id IS NULL) rows.
+func (q *Queries) ListAllAgents(ctx context.Context) ([]ListAllAgentsRow, error) {
+	rows, err := q.db.Query(ctx, listAllAgents)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllAgentsRow
+	for rows.Next() {
+		var i ListAllAgentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.SessionID,
+			&i.WorktreePath,
+			&i.WorktreeBranch,
+			&i.Pid,
+			&i.Status,
+			&i.TaskGroup,
+			&i.ComposeProject,
+			&i.ServerPort,
+			&i.DatabaseUrl,
+			&i.ValkeyUrl,
+			&i.Idle,
+			&i.LastHeartbeat,
+			&i.CreatedAt,
+			&i.DisconnectAt,
+			&i.ProjectSlug,
+			&i.ProjectName,
 		); err != nil {
 			return nil, err
 		}
@@ -116,7 +193,7 @@ func (q *Queries) MarkAgentDisconnected(ctx context.Context, id string) error {
 const reapStaleAgents = `-- name: ReapStaleAgents :many
 DELETE FROM zdx_agents
 WHERE last_heartbeat < NOW() - $1::interval
-RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at
+RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at, idle
 `
 
 func (q *Queries) ReapStaleAgents(ctx context.Context, staleThreshold pgtype.Interval) ([]ZdxAgent, error) {
@@ -144,6 +221,7 @@ func (q *Queries) ReapStaleAgents(ctx context.Context, staleThreshold pgtype.Int
 			&i.CreatedAt,
 			&i.ValkeyUrl,
 			&i.DisconnectAt,
+			&i.Idle,
 		); err != nil {
 			return nil, err
 		}
@@ -170,22 +248,22 @@ ON CONFLICT (id) DO UPDATE SET
     database_url = EXCLUDED.database_url,
     valkey_url = EXCLUDED.valkey_url,
     last_heartbeat = NOW()
-RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at
+RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at, idle
 `
 
 type RegisterAgentParams struct {
-	ID             string `db:"id" json:"id"`
-	ProjectID      int32  `db:"project_id" json:"project_id"`
-	SessionID      string `db:"session_id" json:"session_id"`
-	WorktreePath   string `db:"worktree_path" json:"worktree_path"`
-	WorktreeBranch string `db:"worktree_branch" json:"worktree_branch"`
-	Pid            int32  `db:"pid" json:"pid"`
-	Status         string `db:"status" json:"status"`
-	TaskGroup      string `db:"task_group" json:"task_group"`
-	ComposeProject string `db:"compose_project" json:"compose_project"`
-	ServerPort     int32  `db:"server_port" json:"server_port"`
-	DatabaseUrl    string `db:"database_url" json:"database_url"`
-	ValkeyUrl      string `db:"valkey_url" json:"valkey_url"`
+	ID             string      `db:"id" json:"id"`
+	ProjectID      pgtype.Int4 `db:"project_id" json:"project_id"`
+	SessionID      string      `db:"session_id" json:"session_id"`
+	WorktreePath   string      `db:"worktree_path" json:"worktree_path"`
+	WorktreeBranch string      `db:"worktree_branch" json:"worktree_branch"`
+	Pid            int32       `db:"pid" json:"pid"`
+	Status         string      `db:"status" json:"status"`
+	TaskGroup      string      `db:"task_group" json:"task_group"`
+	ComposeProject string      `db:"compose_project" json:"compose_project"`
+	ServerPort     int32       `db:"server_port" json:"server_port"`
+	DatabaseUrl    string      `db:"database_url" json:"database_url"`
+	ValkeyUrl      string      `db:"valkey_url" json:"valkey_url"`
 }
 
 func (q *Queries) RegisterAgent(ctx context.Context, arg RegisterAgentParams) (ZdxAgent, error) {
@@ -220,6 +298,7 @@ func (q *Queries) RegisterAgent(ctx context.Context, arg RegisterAgentParams) (Z
 		&i.CreatedAt,
 		&i.ValkeyUrl,
 		&i.DisconnectAt,
+		&i.Idle,
 	)
 	return i, err
 }

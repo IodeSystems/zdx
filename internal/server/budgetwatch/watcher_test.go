@@ -116,7 +116,7 @@ func newWatcher(q Querier, r AgentLister, c AgentCommander) *Watcher {
 
 func TestSweep_TripsAgentTokenCeiling(t *testing.T) {
 	q := &fakeQ{
-		agent:          db.ZdxAgent{ID: "A1", ProjectID: 7},
+		agent:          db.ZdxAgent{ID: "A1", ProjectID: pgtype.Int4{Int32: 7, Valid: true}},
 		hasAgentBudget: true,
 		agentBudget:    db.ZdxAgentBudget{TokenCeiling: pgtype.Int8{Int64: 1000, Valid: true}},
 		usage:          db.GetAgentTokenUsageRow{InputTokens: 600, OutputTokens: 600},
@@ -141,7 +141,7 @@ func TestSweep_TripsAgentTokenCeiling(t *testing.T) {
 
 func TestSweep_IdempotentWhilePaused(t *testing.T) {
 	q := &fakeQ{
-		agent:          db.ZdxAgent{ID: "A1", ProjectID: 7},
+		agent:          db.ZdxAgent{ID: "A1", ProjectID: pgtype.Int4{Int32: 7, Valid: true}},
 		hasAgentBudget: true,
 		agentBudget:    db.ZdxAgentBudget{TokenCeiling: pgtype.Int8{Int64: 1000, Valid: true}},
 		usage:          db.GetAgentTokenUsageRow{InputTokens: 5000, OutputTokens: 5000},
@@ -165,7 +165,7 @@ func TestSweep_IdempotentWhilePaused(t *testing.T) {
 
 func TestSweep_NoBudget_NoOp(t *testing.T) {
 	q := &fakeQ{
-		agent: db.ZdxAgent{ID: "A1", ProjectID: 7},
+		agent: db.ZdxAgent{ID: "A1", ProjectID: pgtype.Int4{Int32: 7, Valid: true}},
 		usage: db.GetAgentTokenUsageRow{InputTokens: 999_999_999},
 	}
 	reg := &fakeRegistry{ids: []string{"A1"}}
@@ -179,7 +179,7 @@ func TestSweep_NoBudget_NoOp(t *testing.T) {
 
 func TestSweep_ProjectBudgetCoversAgent(t *testing.T) {
 	q := &fakeQ{
-		agent:         db.ZdxAgent{ID: "A1", ProjectID: 7},
+		agent:         db.ZdxAgent{ID: "A1", ProjectID: pgtype.Int4{Int32: 7, Valid: true}},
 		hasProjBudget: true,
 		projectBudget: db.ZdxAgentBudget{TokenCeiling: pgtype.Int8{Int64: 500, Valid: true}},
 		usage:         db.GetAgentTokenUsageRow{InputTokens: 400, OutputTokens: 200},
@@ -198,7 +198,7 @@ func TestSweep_ProjectBudgetCoversAgent(t *testing.T) {
 
 func TestSweep_AgentBudgetOverridesProject(t *testing.T) {
 	q := &fakeQ{
-		agent:          db.ZdxAgent{ID: "A1", ProjectID: 7},
+		agent:          db.ZdxAgent{ID: "A1", ProjectID: pgtype.Int4{Int32: 7, Valid: true}},
 		hasAgentBudget: true,
 		agentBudget:    db.ZdxAgentBudget{TokenCeiling: pgtype.Int8{Int64: 100_000, Valid: true}},
 		hasProjBudget:  true,
@@ -216,7 +216,7 @@ func TestSweep_AgentBudgetOverridesProject(t *testing.T) {
 
 func TestSweep_CostCeiling(t *testing.T) {
 	q := &fakeQ{
-		agent:          db.ZdxAgent{ID: "A1", ProjectID: 7},
+		agent:          db.ZdxAgent{ID: "A1", ProjectID: pgtype.Int4{Int32: 7, Valid: true}},
 		hasAgentBudget: true,
 		agentBudget:    db.ZdxAgentBudget{CostCeiling: pgtype.Float8{Float64: 0.01, Valid: true}},
 		// 10000 input tokens × $3/MTok = $0.03 — well past $0.01 ceiling.
@@ -233,7 +233,7 @@ func TestSweep_CostCeiling(t *testing.T) {
 
 func TestSweep_WSWriteFailureDoesNotRecord(t *testing.T) {
 	q := &fakeQ{
-		agent:          db.ZdxAgent{ID: "A1", ProjectID: 7},
+		agent:          db.ZdxAgent{ID: "A1", ProjectID: pgtype.Int4{Int32: 7, Valid: true}},
 		hasAgentBudget: true,
 		agentBudget:    db.ZdxAgentBudget{TokenCeiling: pgtype.Int8{Int64: 100, Valid: true}},
 		usage:          db.GetAgentTokenUsageRow{InputTokens: 1000},

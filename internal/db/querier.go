@@ -316,7 +316,12 @@ type Querier interface {
 	ListActiveTodoClaims(ctx context.Context, projectID int32) ([]ListActiveTodoClaimsRow, error)
 	ListAdminScopedApiKeys(ctx context.Context) ([]ListAdminScopedApiKeysRow, error)
 	ListAgentAuditEvents(ctx context.Context, agentID string) ([]ZdxSessionAuditEvent, error)
-	ListAgentsByProject(ctx context.Context, projectID int32) ([]ZdxAgent, error)
+	ListAgentsByProject(ctx context.Context, projectID pgtype.Int4) ([]ZdxAgent, error)
+	// Server-wide list across every project plus the global pool. Joins the
+	// project's slug + name so the /agents UI can render scope without
+	// per-row lookups. Returns both project-scoped (project_id NOT NULL) and
+	// global-pool (project_id IS NULL) rows.
+	ListAllAgents(ctx context.Context) ([]ListAllAgentsRow, error)
 	// For every issue in the project, walk up the composition chain (issue → parents)
 	// and return any open sequencing blockers found anywhere in the ancestry, INCLUDING
 	// the issue itself. Used by the queue's claim-check to gate composition children of

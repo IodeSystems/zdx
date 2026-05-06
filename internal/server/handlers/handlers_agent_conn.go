@@ -14,6 +14,18 @@ import (
 )
 
 // AgentRegisterMsg is the first frame sent by the daemon after upgrading.
+//
+// ProjectSlug is the project the daemon is registering under. Empty string
+// means the agent is registering into the server-wide global pool — visible
+// in the top-level /agents nav, not bound to any one project. The slug
+// must match a real project when non-empty.
+//
+// Idle reports the agent's initial work-loop state. False = start
+// claiming work immediately (today's `dx agent loop` behavior). True =
+// register but stay passive; operator activates via UI / control message.
+// Mostly relevant for global agents (no project queue to claim from
+// without an assignment), but also useful for project-scoped agents that
+// want to show up as "ready, waiting" before being told to do anything.
 type AgentRegisterMsg struct {
 	AgentID        string   `json:"agent_id"`
 	Hostname       string   `json:"hostname"`
@@ -21,6 +33,8 @@ type AgentRegisterMsg struct {
 	Capabilities   []string `json:"capabilities"`
 	WorktreePath   string   `json:"worktree_path"`
 	WorktreeBranch string   `json:"worktree_branch"`
+	ProjectSlug    string   `json:"project_slug,omitempty"`
+	Idle           bool     `json:"idle,omitempty"`
 }
 
 // HandleAgentConnect upgrades the HTTP connection to WebSocket, reads the
@@ -62,6 +76,8 @@ func (h *Handler) HandleAgentConnect(registry *agentconn.Registry) http.HandlerF
 			Capabilities:   reg.Capabilities,
 			WorktreePath:   reg.WorktreePath,
 			WorktreeBranch: reg.WorktreeBranch,
+			ProjectSlug:    reg.ProjectSlug,
+			Idle:           reg.Idle,
 			ConnectedAt:    time.Now(),
 			WS:             conn,
 		}
@@ -163,9 +179,15 @@ func (h *Handler) handleAgentAuditEvent(ctx context.Context, msg AgentAuditEvent
 		log.Printf("audit: lookup agent %s: %v", msg.AgentID, err)
 		return
 	}
-	project, err := h.Q.GetProjectByID(ctx, agent.ProjectID)
+	// Global-pool agents (ProjectID NULL) have no project to attribute
+	// audit events to. Drop silently — the agent's WS audit-channel
+	// broadcast above already gave the operator the live signal.
+	if !agent.ProjectID.Valid {
+		return
+	}
+	project, err := h.Q.GetProjectByID(ctx, agent.ProjectID.Int32)
 	if err != nil {
-		log.Printf("audit: lookup project %d: %v", agent.ProjectID, err)
+		log.Printf("audit: lookup project %d: %v", agent.ProjectID.Int32, err)
 		return
 	}
 	sess, err := h.Q.GetClaudeSessionBySessionID(ctx, db.GetClaudeSessionBySessionIDParams{

@@ -17,8 +17,19 @@ type Conn struct {
 	Capabilities   []string
 	WorktreePath   string
 	WorktreeBranch string
-	ConnectedAt    time.Time
-	WS             *websocket.Conn
+	// ProjectSlug is the project the agent registered under, or "" when
+	// the agent registered into the server-wide global pool. Project-
+	// scoped and global agents both live in the same registry; the slug
+	// is the visible distinguishing field surfaced in /api/agents.
+	ProjectSlug string
+	// Idle reports whether the agent's work loop is paused / waiting for
+	// commands. Set at registration via the WS handshake (`idle=true`
+	// from `dx agent connect --idle`); toggled later by pause/resume
+	// control messages. Idle agents stay registered and visible in the
+	// live list, they just don't claim work.
+	Idle        bool
+	ConnectedAt time.Time
+	WS          *websocket.Conn
 }
 
 // Registry holds live agent connections. Connection itself is the liveness

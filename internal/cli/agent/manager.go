@@ -572,6 +572,13 @@ func startDaemon(ctx context.Context, providerName string, opts ProviderOpts, ho
 			loopLog.Info(name, kv...)
 		}
 	}
+	// Project slug: empty for global-pool agents (registered without a
+	// project binding); otherwise the configured project's slug so the
+	// server attaches the agent record to the right project.
+	projectSlug := opts.RC.slug
+	if opts.Global {
+		projectSlug = ""
+	}
 	d := &agentdaemon.Daemon{
 		ServerURL:    opts.RC.url,
 		AgentID:      opts.Alias,
@@ -584,6 +591,8 @@ func startDaemon(ctx context.Context, providerName string, opts ProviderOpts, ho
 		PauseRenewer: holder, // LoopTaskHolder satisfies LeaseRenewer
 		ControlCh:    ctrlCh,
 		EventLog:     emit,
+		ProjectSlug:  projectSlug,
+		Idle:         opts.Idle,
 	}
 
 	go func() {
