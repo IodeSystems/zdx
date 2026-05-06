@@ -34,7 +34,11 @@ type AgentItem struct {
 	DatabaseUrl     string `json:"database_url"`
 	ValkeyUrl       string `json:"valkey_url"`
 	Idle            bool   `json:"idle"`
-	LastHeartbeat   string `json:"last_heartbeat"`
+	// OriginallyGlobal is true when the agent was first registered into
+	// the global pool. Drives the assign/unassign rule: only originally-
+	// global agents can be pinned/unpinned.
+	OriginallyGlobal bool   `json:"originally_global"`
+	LastHeartbeat    string `json:"last_heartbeat"`
 	CreatedAt       string `json:"created_at"`
 	ConnectionState string `json:"connection_state"` // connected | disconnected | paused | draining
 	ConnectedAt     string `json:"connected_at"`     // non-empty when connection_state=connected
@@ -88,23 +92,24 @@ func agentItemFrom(a db.ZdxAgent, reg AgentConnRegistry) AgentItem {
 		pid = &v
 	}
 	return AgentItem{
-		ID:              a.ID,
-		ProjectID:       pid,
-		SessionID:       a.SessionID,
-		Idle:            a.Idle,
-		WorktreePath:    a.WorktreePath,
-		WorktreeBranch:  a.WorktreeBranch,
-		Pid:             a.Pid,
-		Status:          a.Status,
-		TaskGroup:       a.TaskGroup,
-		ComposeProject:  a.ComposeProject,
-		ServerPort:      a.ServerPort,
-		DatabaseUrl:     a.DatabaseUrl,
-		ValkeyUrl:       a.ValkeyUrl,
-		LastHeartbeat:   fmtTS(a.LastHeartbeat),
-		CreatedAt:       fmtTS(a.CreatedAt),
-		ConnectionState: connState,
-		ConnectedAt:     connectedAt,
+		ID:               a.ID,
+		ProjectID:        pid,
+		SessionID:        a.SessionID,
+		Idle:             a.Idle,
+		OriginallyGlobal: a.OriginallyGlobal,
+		WorktreePath:     a.WorktreePath,
+		WorktreeBranch:   a.WorktreeBranch,
+		Pid:              a.Pid,
+		Status:           a.Status,
+		TaskGroup:        a.TaskGroup,
+		ComposeProject:   a.ComposeProject,
+		ServerPort:       a.ServerPort,
+		DatabaseUrl:      a.DatabaseUrl,
+		ValkeyUrl:        a.ValkeyUrl,
+		LastHeartbeat:    fmtTS(a.LastHeartbeat),
+		CreatedAt:        fmtTS(a.CreatedAt),
+		ConnectionState:  connState,
+		ConnectedAt:      connectedAt,
 	}
 }
 
@@ -210,8 +215,9 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 					Pid: r.Pid, Status: r.Status, TaskGroup: r.TaskGroup,
 					ComposeProject: r.ComposeProject, ServerPort: r.ServerPort,
 					DatabaseUrl: r.DatabaseUrl, ValkeyUrl: r.ValkeyUrl,
-					Idle: r.Idle, LastHeartbeat: r.LastHeartbeat,
-					CreatedAt: r.CreatedAt, DisconnectAt: r.DisconnectAt,
+					Idle: r.Idle, OriginallyGlobal: r.OriginallyGlobal,
+					LastHeartbeat: r.LastHeartbeat,
+					CreatedAt:     r.CreatedAt, DisconnectAt: r.DisconnectAt,
 				}
 				out[i] = agentItemFrom(agent, h.AgentConnRegistry)
 				if r.ProjectSlug.Valid {
@@ -240,6 +246,62 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 				return nil, apiErr(404, "agent not found")
 			}
 			item := agentItemFrom(a, h.AgentConnRegistry)
+			return &struct{ Body AgentItem }{Body: item}, nil
+		})
+
+	// Assign an originally-global agent to a project (pin).
+	// 400 when the agent was originally registered project-scoped — those
+	// are scope-immutable per design (re-register if the operator wants a
+	// different project).
+	huma.Register(api, huma.Operation{OperationID: "assign-agent", Method: http.MethodPost, Path: "/api/agents/{id}/assign"},
+		func(ctx context.Context, in *struct {
+			ID   string `path:"id" required:"true"`
+			Body struct {
+				ProjectSlug string `json:"project_slug" required:"true"`
+			}
+		}) (*struct{ Body AgentItem }, error) {
+			a, err := h.Q.GetAgent(ctx, in.ID)
+			if err != nil {
+				return nil, apiErr(404, "agent not found")
+			}
+			if !a.OriginallyGlobal {
+				return nil, apiErr(400, "agent was originally registered project-scoped; re-register to change scope")
+			}
+			p, err := h.Q.GetProjectBySlug(ctx, in.Body.ProjectSlug)
+			if err != nil {
+				return nil, apiErr(404, "project not found: "+in.Body.ProjectSlug)
+			}
+			updated, err := h.Q.AssignAgentToProject(ctx, db.AssignAgentToProjectParams{
+				ID:        in.ID,
+				ProjectID: pgtype.Int4{Int32: p.ID, Valid: true},
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			item := agentItemFrom(updated, h.AgentConnRegistry)
+			item.ProjectSlug = p.Slug
+			item.ProjectName = p.Name
+			return &struct{ Body AgentItem }{Body: item}, nil
+		})
+
+	// Unassign an originally-global agent from its current project (unpin).
+	// 400 when the agent was originally registered project-scoped.
+	huma.Register(api, huma.Operation{OperationID: "unassign-agent", Method: http.MethodDelete, Path: "/api/agents/{id}/assign"},
+		func(ctx context.Context, in *struct {
+			ID string `path:"id" required:"true"`
+		}) (*struct{ Body AgentItem }, error) {
+			a, err := h.Q.GetAgent(ctx, in.ID)
+			if err != nil {
+				return nil, apiErr(404, "agent not found")
+			}
+			if !a.OriginallyGlobal {
+				return nil, apiErr(400, "agent was originally registered project-scoped; cannot unassign")
+			}
+			updated, err := h.Q.UnassignAgent(ctx, in.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			item := agentItemFrom(updated, h.AgentConnRegistry)
 			return &struct{ Body AgentItem }{Body: item}, nil
 		})
 

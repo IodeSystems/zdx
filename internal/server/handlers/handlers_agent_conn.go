@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"nhooyr.io/websocket"
 
 	"github.com/iodesystems/zdx-go/internal/db"
@@ -87,8 +88,46 @@ func (h *Handler) HandleAgentConnect(registry *agentconn.Registry) http.HandlerF
 		}
 		defer registry.Unregister(reg.AgentID)
 
-		// Clear disconnect_at and restore active status on reconnect.
+		// Persist (upsert) the agent row. Until phase 2 the connect path
+		// only registered in-memory; without a DB row, /api/agents and
+		// assign/unassign couldn't see global-pool agents. Project-scoped
+		// upserts go through RegisterAgent (sets originally_global=false on
+		// insert); empty ProjectSlug routes to RegisterGlobalAgent
+		// (originally_global=true, project_id NULL). originally_global is
+		// immutable on upsert in either query.
 		if h.Q != nil {
+			if reg.ProjectSlug == "" {
+				if _, err := h.Q.RegisterGlobalAgent(ctx, db.RegisterGlobalAgentParams{
+					ID:             reg.AgentID,
+					SessionID:      "",
+					WorktreePath:   reg.WorktreePath,
+					WorktreeBranch: reg.WorktreeBranch,
+					Pid:            reg.Pid,
+					Status:         "active",
+					Idle:           reg.Idle,
+				}); err != nil {
+					log.Printf("agent connect: register global %s: %v", reg.AgentID, err)
+				}
+			} else {
+				p, err := h.Q.GetProjectBySlug(ctx, reg.ProjectSlug)
+				if err != nil {
+					log.Printf("agent connect: lookup project %q for %s: %v", reg.ProjectSlug, reg.AgentID, err)
+				} else {
+					if _, err := h.Q.RegisterAgent(ctx, db.RegisterAgentParams{
+						ID:             reg.AgentID,
+						ProjectID:      pgtype.Int4{Int32: p.ID, Valid: true},
+						SessionID:      "",
+						WorktreePath:   reg.WorktreePath,
+						WorktreeBranch: reg.WorktreeBranch,
+						Pid:            reg.Pid,
+						Status:         "active",
+					}); err != nil {
+						log.Printf("agent connect: register project %s: %v", reg.AgentID, err)
+					} else if err := h.Q.SetAgentIdle(ctx, db.SetAgentIdleParams{ID: reg.AgentID, Idle: reg.Idle}); err != nil {
+						log.Printf("agent connect: set idle %s: %v", reg.AgentID, err)
+					}
+				}
+			}
 			if err := h.Q.MarkAgentConnected(ctx, reg.AgentID); err != nil {
 				log.Printf("agent connect: mark connected %s: %v", reg.AgentID, err)
 			}

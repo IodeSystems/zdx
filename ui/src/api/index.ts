@@ -2244,16 +2244,6 @@ export interface GoalItem {
   updated_at: string
 }
 
-export interface ConstraintItem {
-  id: number
-  title: string
-  description: string
-  priority: number
-  status: string
-  created_at: string
-  updated_at: string
-}
-
 export const useGoals = (slug: string) =>
   useQuery<GoalItem[]>({
     queryKey: ['goals', slug],
@@ -2298,53 +2288,6 @@ export const useDeleteGoal = (slug: string) => {
       return (data as unknown) as OKBody
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['goals', slug] }),
-  })
-}
-
-export const useConstraints = (slug: string) =>
-  useQuery<ConstraintItem[]>({
-    queryKey: ['constraints', slug],
-    queryFn: async () => {
-      const { data, error } = await client.GET('/api/constraints', { params: { query: { slug } } })
-      if (error) throw new Error(JSON.stringify(error))
-      return ((data as any)?.constraints ?? []) as ConstraintItem[]
-    },
-    enabled: !!slug,
-  })
-
-export const useCreateConstraint = () => {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (body: { slug: string; title: string; description: string; priority: number; status?: string }) => {
-      const { data, error } = await client.POST('/api/constraint', { body: body as any })
-      if (error) throw new Error(JSON.stringify(error))
-      return (data as unknown) as ConstraintItem
-    },
-    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['constraints', vars.slug] }),
-  })
-}
-
-export const useUpdateConstraint = (slug: string) => {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (body: { id: number; title: string; description: string; priority: number; status: string }) => {
-      const { data, error } = await client.PUT('/api/constraint', { body: body as any })
-      if (error) throw new Error(JSON.stringify(error))
-      return (data as unknown) as OKBody
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['constraints', slug] }),
-  })
-}
-
-export const useDeleteConstraint = (slug: string) => {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (id: number) => {
-      const { data, error } = await client.DELETE('/api/constraint', { body: { id } as any })
-      if (error) throw new Error(JSON.stringify(error))
-      return (data as unknown) as OKBody
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['constraints', slug] }),
   })
 }
 
@@ -3389,3 +3332,68 @@ export const useGetPlan = (slug: string, id: number) =>
     },
     enabled: !!slug && id > 0,
   })
+
+// ── agents (server-wide pool) ─────────────────────────────────────────────────
+
+export type AgentItem = components['schemas']['AgentItem']
+
+export const useAllAgents = (refetchMs = 5000) =>
+  useQuery<{ agents: AgentItem[] }>({
+    queryKey: ['agents-all'],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/agents')
+      if (error) throw new Error(JSON.stringify(error))
+      return { agents: data?.agents ?? [] }
+    },
+    refetchInterval: refetchMs,
+    refetchIntervalInBackground: false,
+  })
+
+export const useAssignAgent = () => {
+  const qc = useQueryClient()
+  return useMutation<AgentItem, Error, { id: string; project_slug: string }>({
+    mutationFn: async ({ id, project_slug }) => {
+      const { data, error } = await client.POST('/api/agents/{id}/assign', {
+        params: { path: { id } },
+        body: { project_slug },
+      })
+      if (error) {
+        const e = error as { detail?: string; title?: string }
+        throw new Error(e.detail ?? e.title ?? JSON.stringify(error))
+      }
+      return data!
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['agents-all'] }),
+  })
+}
+
+export const useUnassignAgent = () => {
+  const qc = useQueryClient()
+  return useMutation<AgentItem, Error, string>({
+    mutationFn: async (id) => {
+      const { data, error } = await client.DELETE('/api/agents/{id}/assign', {
+        params: { path: { id } },
+      })
+      if (error) {
+        const e = error as { detail?: string; title?: string }
+        throw new Error(e.detail ?? e.title ?? JSON.stringify(error))
+      }
+      return data!
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['agents-all'] }),
+  })
+}
+
+export const useAgentCommand = () => {
+  const qc = useQueryClient()
+  return useMutation<void, Error, { id: string; command: 'pause' | 'resume' | 'drain' }>({
+    mutationFn: async ({ id, command }) => {
+      const { error } = await client.POST('/api/agents/{id}/command', {
+        params: { path: { id } },
+        body: { command },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['agents-all'] }),
+  })
+}

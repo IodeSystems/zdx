@@ -75,8 +75,6 @@ For the long-running work loop, use ` + "`dx agent loop --provider=X`" + `.`,
 			return runManagedFromFlags(cmd.Context(), cmd, provider, alias, issue, model, complexity, mcpContainer)
 		},
 	}
-	cmd.PersistentFlags().Bool("global", false, "force srcless mode using ~/.zdx/config.yaml instead of project config")
-
 	// Persistent identity/role flags — inherited by every subcommand so the
 	// grammar is "dx agent --provider=X --alias=Y <verb>" regardless of verb.
 	cmd.PersistentFlags().StringVar(&provider, "provider", "", "agent provider: "+providerNames()+" (required for managed run)")
@@ -104,10 +102,10 @@ For the long-running work loop, use ` + "`dx agent loop --provider=X`" + `.`,
 // the user-facing entry point for "make this agent visible in the server's
 // /agents nav" — it covers both project-scoped and global-pool registration.
 //
-// With --global (parent-persistent flag), the agent registers without a
-// project binding; appears in /agents under "global" scope; receives no work
-// until assigned (Stream-2 follow-up). Without --global, registration
-// inherits the project from .zdx/config.yaml just like `dx agent loop`.
+// With --global, the agent registers without a project binding; appears in
+// /agents under "global" scope; receives no work until assigned (Stream-2
+// follow-up). Without --global, registration inherits the project from
+// .zdx/config.yaml just like `dx agent loop`.
 //
 // With --idle, registration completes but the work loop never starts. The
 // agent stays connected (WS heartbeat alive, control channel open),
@@ -126,13 +124,13 @@ func agentConnectCmd() *cobra.Command {
 		Use:   "connect",
 		Short: "Register agent to the zdx server pool; start work loop unless --idle",
 		Long: `Connect registers this agent in the server's agent pool (visible in
-/agents nav) and starts the work loop by default. With --global (parent
-flag) registration goes into the cross-project global pool; without it,
-the agent is project-scoped and claims from this project's queue.
+/agents nav) and starts the work loop by default. With --global registration
+goes into the cross-project global pool; without it, the agent is project-
+scoped and claims from this project's queue.
 
   dx agent connect --provider=claude              # project-scoped, working
   dx agent connect --provider=claude --idle       # project-scoped, idle
-  dx agent --global connect --provider=claude     # global pool, idle until assigned
+  dx agent connect --provider=claude --global     # global pool, idle until assigned
 
 Honors all parent flags (--container, --worktree, --branch, --complexity,
 --alias, --model). With --idle the work loop never runs — the WS stays
@@ -194,6 +192,7 @@ open so the UI can pause/resume/drain or eventually push work.`,
 			return DispatchLoop(cmd.Context(), provider, opts)
 		},
 	}
+	cmd.Flags().Bool("global", false, "register into the server-wide global pool instead of this project's pool")
 	cmd.Flags().BoolVar(&idle, "idle", false, "register but don't start the work loop; UI controls the agent")
 	cmd.Flags().IntVar(&maxTurns, "max-turns", 0, "cap on assistant turns per session (0 = unlimited; opencode/local only)")
 	cmd.Flags().BoolVar(&keepContainer, "keep-container", false, "keep slot containers after exit (skip --rm; useful for debugging)")
@@ -208,7 +207,7 @@ open so the UI can pause/resume/drain or eventually push work.`,
 // only way the agent does anything once registered.
 func runIdleDaemon(ctx context.Context, providerName string, opts ProviderOpts) error {
 	if opts.RC.url == "" || opts.RC.key == "" {
-		return fmt.Errorf("--idle requires a configured remote (RC.url + RC.key); pass --global with credentials or run inside a project")
+		return fmt.Errorf("--idle requires a configured remote (RC.url + RC.key); set up ~/.zdx/config.yaml or run inside a project")
 	}
 	holder := agentdaemon.NewLoopTaskHolder()
 	startDaemon(ctx, providerName, opts, holder, nil)
@@ -371,31 +370,35 @@ type agentRuntime struct {
 	WorkDir  string // only set in srcless mode (from global agent config)
 }
 
-// loadAgentRuntime reads --global, then config.Load() / config.LoadGlobal()
-// and produces a populated agentRuntime. Returns an error when neither a
-// project config nor a global config is available — callers can't run an
-// agent without somewhere to send results.
+// loadAgentRuntime resolves config in this order: DX_GLOBAL=1 forces srcless;
+// else project config (.zdx/config.yaml) if present; else fall back to
+// ~/.zdx/config.yaml. Returns an error when no source is available.
+//
+// The cmd parameter is retained for future per-command flag reads (was used
+// to read --global before that flag moved to `connect`-local).
 func loadAgentRuntime(cmd *cobra.Command) (agentRuntime, error) {
-	global, _ := cmd.Flags().GetBool("global")
-	global = global || config.IsGlobalMode()
+	_ = cmd
+	forceGlobal := config.IsGlobalMode()
+	cfg := config.Load()
 
-	if global {
+	if forceGlobal || cfg == nil {
 		gc := config.LoadGlobal()
-		if gc == nil {
-			return agentRuntime{}, fmt.Errorf("--global set but ~/.zdx/config.yaml not found")
+		if gc != nil {
+			ga := gc.ResolvedGlobalAgent()
+			return agentRuntime{
+				RC:       remoteConfig{url: gc.Remote.URL, key: config.GlobalRemoteAPIKey()},
+				AgentCfg: config.AgentConfig{ClaudeModel: ga.ClaudeModel, MaxWorktrees: ga.MaxWorktrees, LeaseMinutes: ga.LeaseMinutes},
+				Srcless:  true,
+				WorkDir:  ga.WorkDir,
+			}, nil
 		}
-		ga := gc.ResolvedGlobalAgent()
-		return agentRuntime{
-			RC:       remoteConfig{url: gc.Remote.URL, key: config.GlobalRemoteAPIKey()},
-			AgentCfg: config.AgentConfig{ClaudeModel: ga.ClaudeModel, MaxWorktrees: ga.MaxWorktrees, LeaseMinutes: ga.LeaseMinutes},
-			Srcless:  true,
-			WorkDir:  ga.WorkDir,
-		}, nil
+		if forceGlobal {
+			return agentRuntime{}, fmt.Errorf("DX_GLOBAL set but ~/.zdx/config.yaml not found")
+		}
 	}
 
-	cfg := config.Load()
 	if cfg == nil {
-		return agentRuntime{}, fmt.Errorf("no project config found; run from a project root or pass --global")
+		return agentRuntime{}, fmt.Errorf("no project config found; run from a project root or set up ~/.zdx/config.yaml for srcless mode")
 	}
 	return agentRuntime{
 		RC:       remoteConfig{url: cfg.RemoteURL(), slug: cfg.RemoteSlug(), key: config.RemoteAPIKey()},

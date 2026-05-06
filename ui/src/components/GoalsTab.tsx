@@ -19,15 +19,10 @@ import {
   useCreateGoal,
   useUpdateGoal,
   useDeleteGoal,
-  useConstraints,
-  useCreateConstraint,
-  useUpdateConstraint,
-  useDeleteConstraint,
   type GoalItem,
-  type ConstraintItem,
 } from '../api'
 
-type Entity = GoalItem | ConstraintItem
+type Entity = GoalItem
 
 interface FormState {
   id?: number
@@ -221,9 +216,8 @@ function Section({
 
 export function GoalsTab({ slug }: { slug: string }) {
   const { data: goals, isLoading: goalsLoading } = useGoals(slug)
-  const { data: constraints, isLoading: constraintsLoading } = useConstraints(slug)
 
-  if (goalsLoading || constraintsLoading) {
+  if (goalsLoading) {
     return <Typography color="text.secondary">Loading...</Typography>
   }
 
@@ -236,14 +230,6 @@ export function GoalsTab({ slug }: { slug: string }) {
         useCreate={useCreateGoal}
         useUpdate={useUpdateGoal}
         useDelete={useDeleteGoal}
-      />
-      <Section
-        label="Constraints"
-        items={constraints ?? []}
-        slug={slug}
-        useCreate={useCreateConstraint}
-        useUpdate={useUpdateConstraint}
-        useDelete={useDeleteConstraint}
       />
     </Box>
   )

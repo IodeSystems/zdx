@@ -640,6 +640,20 @@ function DrawerNav({ onNavigate }: { onNavigate?: () => void }) {
           <ListItemText primary="Activity" />
         </ListItemButton>
         <ListItemButton
+          selected={lastPath === '/agents'}
+          component={Link as any}
+          to={'/agents' as any}
+          onClick={() => {
+            setManualProject(null)
+            onNavigate?.()
+          }}
+        >
+          <ListItemIcon sx={{ minWidth: 36 }}>
+            <SmartToyIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Agents" />
+        </ListItemButton>
+        <ListItemButton
           selected={isAdminActive && lastPath !== '/admin/activity'}
           component={Link as any}
           to={'/admin' as any}
