@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -140,11 +141,42 @@ func runGen() {
 	sqlc := findSqlc()
 	cmd := exec.Command(sqlc, "generate")
 	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		log.Fatalf("sqlc generate: %v", err)
+	var stderr bytes.Buffer
+	cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
+	err := cmd.Run()
+	if err == nil {
+		log.Println("sqlc generate complete")
+		return
 	}
-	log.Println("sqlc generate complete")
+	// Worker contract: schema/shipped.sql is owned by the merge-train. On a
+	// worker branch that adds new migrations, queries referencing new schema
+	// will fail sqlc against the stale shipped.sql. The merge-train regens
+	// shipped.sql via bin/regen-schema before re-running sqlc, so this failure
+	// is expected and recoverable without worker action.
+	if hasNewMigrationsVsDev() && looksLikeShippedSQLDrift(stderr.String()) {
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "[db gen] sqlc failed against schema/shipped.sql, but this branch")
+		fmt.Fprintln(os.Stderr, "[db gen] adds new migrations vs dev. shipped.sql is owned by the")
+		fmt.Fprintln(os.Stderr, "[db gen] merge-train and is expected to be stale here.")
+		fmt.Fprintln(os.Stderr, "[db gen] To validate locally: ./bin/regen-schema (requires Docker).")
+		fmt.Fprintln(os.Stderr, "[db gen] Otherwise the merge-train will regen shipped.sql and rerun sqlc.")
+		fmt.Fprintln(os.Stderr, "[db gen] skipping sqlc generate.")
+		return
+	}
+	log.Fatalf("sqlc generate: %v", err)
+}
+
+func hasNewMigrationsVsDev() bool {
+	out, err := exec.Command("git", "log", "dev..HEAD", "--diff-filter=A",
+		"--name-only", "--format=", "--", "internal/migrate/sql/*.up.sql").Output()
+	if err != nil {
+		return false
+	}
+	return len(bytes.TrimSpace(out)) > 0
+}
+
+func looksLikeShippedSQLDrift(sqlcStderr string) bool {
+	return strings.Contains(sqlcStderr, "does not exist")
 }
 
 func findSqlc() string {
