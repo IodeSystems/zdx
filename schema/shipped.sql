@@ -4,6 +4,7 @@
 
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -777,12 +778,12 @@ ALTER SEQUENCE public.zdx_error_events_id_seq OWNED BY public.zdx_error_events.i
 
 CREATE TABLE public.zdx_error_reports (
     id bigint NOT NULL,
+    project_id integer,
     source text NOT NULL,
     endpoint text DEFAULT ''::text NOT NULL,
     error_name text DEFAULT ''::text NOT NULL,
     stack_trace text DEFAULT ''::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    project_id integer
+    created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -2310,13 +2311,13 @@ ALTER SEQUENCE public.zdx_sessions_id_seq OWNED BY public.zdx_sessions.id;
 
 CREATE TABLE public.zdx_slow_queries (
     id bigint NOT NULL,
+    project_id integer,
     sql_hash text NOT NULL,
     sql_text text NOT NULL,
     endpoint text DEFAULT ''::text NOT NULL,
     duration_ms integer NOT NULL,
     explain_json text DEFAULT ''::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    project_id integer
+    created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -2458,6 +2459,19 @@ CREATE TABLE public.zdx_state (
     key text NOT NULL,
     value text DEFAULT ''::text NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_target_comments_seen; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_target_comments_seen (
+    project_id integer NOT NULL,
+    target_type text NOT NULL,
+    target_id text NOT NULL,
+    last_comment_id integer DEFAULT 0 NOT NULL,
+    seen_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -3803,11 +3817,11 @@ ALTER TABLE ONLY public.zdx_goal_issues
 
 
 --
--- Name: zdx_id_seq zdx_id_seq_global_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: zdx_id_seq zdx_id_seq_pkey1; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.zdx_id_seq
-    ADD CONSTRAINT zdx_id_seq_global_pkey PRIMARY KEY (kind);
+    ADD CONSTRAINT zdx_id_seq_pkey1 PRIMARY KEY (kind);
 
 
 --
@@ -4299,6 +4313,14 @@ ALTER TABLE ONLY public.zdx_state
 
 
 --
+-- Name: zdx_target_comments_seen zdx_target_comments_seen_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_target_comments_seen
+    ADD CONSTRAINT zdx_target_comments_seen_pkey PRIMARY KEY (project_id, target_type, target_id);
+
+
+--
 -- Name: zdx_task_code_refs zdx_task_code_refs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4563,13 +4585,6 @@ CREATE INDEX idx_error_reports_created_at ON public.zdx_error_reports USING btre
 
 
 --
--- Name: idx_error_reports_project_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_error_reports_project_id ON public.zdx_error_reports USING btree (project_id);
-
-
---
 -- Name: idx_error_reports_source; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4735,13 +4750,6 @@ CREATE INDEX idx_slow_queries_created_at ON public.zdx_slow_queries USING btree 
 --
 
 CREATE INDEX idx_slow_queries_endpoint ON public.zdx_slow_queries USING btree (endpoint);
-
-
---
--- Name: idx_slow_queries_project_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_slow_queries_project_id ON public.zdx_slow_queries USING btree (project_id);
 
 
 --
@@ -6035,6 +6043,14 @@ ALTER TABLE ONLY public.zdx_sprints
 
 ALTER TABLE ONLY public.zdx_state
     ADD CONSTRAINT zdx_state_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_target_comments_seen zdx_target_comments_seen_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_target_comments_seen
+    ADD CONSTRAINT zdx_target_comments_seen_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --

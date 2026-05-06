@@ -503,3 +503,65 @@ var ListTargetsWithCommentsCols = struct {
 	TargetType: metaquery.NewTextCol("target_type"),
 	TargetID:   metaquery.NewTextCol("target_id"),
 }
+
+var MetaListTargetsWithUnreadComments = metaquery.Query{
+	Name:   "ListTargetsWithUnreadComments",
+	Cmd:    ":many",
+	Source: "comments.sql",
+	SQL: `SELECT DISTINCT c.target_type, c.target_id
+FROM zdx_comments c
+LEFT JOIN zdx_target_comments_seen s
+       ON s.project_id  = c.project_id
+      AND s.target_type = c.target_type
+      AND s.target_id   = c.target_id
+WHERE c.project_id = $1
+  AND c.id > COALESCE(s.last_comment_id, 0)
+ORDER BY c.target_type, c.target_id`,
+	Columns: []metaquery.Column{
+		{Name: "target_type", OriginalName: "target_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_comments"},
+		{Name: "target_id", OriginalName: "target_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_comments"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapListTargetsWithUnreadComments returns a metaquery.Builder over MetaListTargetsWithUnreadComments, pre-bound with typed arguments.
+func WrapListTargetsWithUnreadComments(projectID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListTargetsWithUnreadComments, projectID)
+}
+
+// ListTargetsWithUnreadCommentsCols gives typed, name-safe access to ListTargetsWithUnreadComments's output columns.
+var ListTargetsWithUnreadCommentsCols = struct {
+	TargetType metaquery.TextCol
+	TargetID   metaquery.TextCol
+}{
+	TargetType: metaquery.NewTextCol("target_type"),
+	TargetID:   metaquery.NewTextCol("target_id"),
+}
+
+var MetaMarkTargetCommentsSeen = metaquery.Query{
+	Name:   "MarkTargetCommentsSeen",
+	Cmd:    ":exec",
+	Source: "comments.sql",
+	SQL: `INSERT INTO zdx_target_comments_seen (project_id, target_type, target_id, last_comment_id, seen_at)
+SELECT $1::int, $2::text, $3::text, COALESCE(MAX(id), 0), NOW()
+FROM zdx_comments
+WHERE project_id = $1::int
+  AND target_type = $2::text
+  AND target_id   = $3::text
+ON CONFLICT (project_id, target_type, target_id) DO UPDATE SET
+    last_comment_id = GREATEST(zdx_target_comments_seen.last_comment_id, EXCLUDED.last_comment_id),
+    seen_at         = NOW()`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "int4", NotNull: true},
+		{Position: 2, Name: "target_type", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 3, Name: "target_id", GoType: "string", DBType: "text", NotNull: true},
+	},
+	Table: &metaquery.Table{Name: "zdx_target_comments_seen"},
+}
+
+// WrapMarkTargetCommentsSeen returns a metaquery.Builder over MetaMarkTargetCommentsSeen, pre-bound with typed arguments.
+func WrapMarkTargetCommentsSeen(arg MarkTargetCommentsSeenParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaMarkTargetCommentsSeen, arg.ProjectID, arg.TargetType, arg.TargetID)
+}

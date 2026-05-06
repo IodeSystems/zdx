@@ -481,3 +481,71 @@ func (q *Queries) ListTargetsWithComments(ctx context.Context, projectID int32) 
 	}
 	return items, nil
 }
+
+const listTargetsWithUnreadComments = `-- name: ListTargetsWithUnreadComments :many
+SELECT DISTINCT c.target_type, c.target_id
+FROM zdx_comments c
+LEFT JOIN zdx_target_comments_seen s
+       ON s.project_id  = c.project_id
+      AND s.target_type = c.target_type
+      AND s.target_id   = c.target_id
+WHERE c.project_id = $1
+  AND c.id > COALESCE(s.last_comment_id, 0)
+ORDER BY c.target_type, c.target_id
+`
+
+type ListTargetsWithUnreadCommentsRow struct {
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
+}
+
+// Targets with a comment newer than the seen high-water mark. Used by the
+// solo-queue regenerator to emit the synthetic read:comments todo only when
+// there is actually unread content to surface — otherwise the todo would
+// regenerate every loop iteration even after the agent claims and "reads"
+// it, producing the cycle observed in IS-1040.
+func (q *Queries) ListTargetsWithUnreadComments(ctx context.Context, projectID int32) ([]ListTargetsWithUnreadCommentsRow, error) {
+	rows, err := q.db.Query(ctx, listTargetsWithUnreadComments, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTargetsWithUnreadCommentsRow
+	for rows.Next() {
+		var i ListTargetsWithUnreadCommentsRow
+		if err := rows.Scan(&i.TargetType, &i.TargetID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markTargetCommentsSeen = `-- name: MarkTargetCommentsSeen :exec
+INSERT INTO zdx_target_comments_seen (project_id, target_type, target_id, last_comment_id, seen_at)
+SELECT $1::int, $2::text, $3::text, COALESCE(MAX(id), 0), NOW()
+FROM zdx_comments
+WHERE project_id = $1::int
+  AND target_type = $2::text
+  AND target_id   = $3::text
+ON CONFLICT (project_id, target_type, target_id) DO UPDATE SET
+    last_comment_id = GREATEST(zdx_target_comments_seen.last_comment_id, EXCLUDED.last_comment_id),
+    seen_at         = NOW()
+`
+
+type MarkTargetCommentsSeenParams struct {
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
+}
+
+// Advance the seen high-water mark for one target to the current max comment
+// id. Idempotent: replaying with no new comments leaves the watermark put.
+// Called when an agent resolves a read:comments synthetic todo.
+func (q *Queries) MarkTargetCommentsSeen(ctx context.Context, arg MarkTargetCommentsSeenParams) error {
+	_, err := q.db.Exec(ctx, markTargetCommentsSeen, arg.ProjectID, arg.TargetType, arg.TargetID)
+	return err
+}

@@ -216,7 +216,7 @@ type Querier interface {
 	GetDiscussion(ctx context.Context, arg GetDiscussionParams) (ZdxDiscussion, error)
 	GetEnvironment(ctx context.Context, arg GetEnvironmentParams) (GetEnvironmentRow, error)
 	GetErrorEventByID(ctx context.Context, id int64) (ZdxErrorEvent, error)
-	GetErrorReportByID(ctx context.Context, id int64) (GetErrorReportByIDRow, error)
+	GetErrorReportByID(ctx context.Context, id int64) (ZdxErrorReport, error)
 	GetEventByID(ctx context.Context, id int64) (ZdxEvent, error)
 	GetFeature(ctx context.Context, arg GetFeatureParams) (GetFeatureRow, error)
 	GetFeatureByID(ctx context.Context, id int32) (GetFeatureByIDRow, error)
@@ -285,7 +285,7 @@ type Querier interface {
 	InsertBlockerQuestion(ctx context.Context, arg InsertBlockerQuestionParams) (ZdxBlockerQuestion, error)
 	InsertCounterEvent(ctx context.Context, arg InsertCounterEventParams) error
 	InsertErrorEvent(ctx context.Context, arg InsertErrorEventParams) error
-	InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (InsertErrorReportRow, error)
+	InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (ZdxErrorReport, error)
 	InsertEvent(ctx context.Context, arg InsertEventParams) (ZdxEvent, error)
 	InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (InsertJournalEntryRow, error)
 	InsertKpiSample(ctx context.Context, arg InsertKpiSampleParams) (ZdxKpiSample, error)
@@ -295,7 +295,7 @@ type Querier interface {
 	InsertQuestionProposal(ctx context.Context, arg InsertQuestionProposalParams) (ZdxQuestionProposal, error)
 	InsertReservation(ctx context.Context, arg InsertReservationParams) (ZdxReservation, error)
 	InsertSideEffectIfNew(ctx context.Context, arg InsertSideEffectIfNewParams) (ZdxIncompleteReportSideEffect, error)
-	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (InsertSlowQueryRow, error)
+	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error)
 	InsertTestFixIssue(ctx context.Context, arg InsertTestFixIssueParams) error
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
 	InsertTimedEvent(ctx context.Context, arg InsertTimedEventParams) error
@@ -392,7 +392,7 @@ type Querier interface {
 	ListErrorEvents(ctx context.Context, arg ListErrorEventsParams) ([]ZdxErrorEvent, error)
 	ListErrorEventsDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
 	ListErrorEventsDistinctTagValues(ctx context.Context, arg ListErrorEventsDistinctTagValuesParams) ([]interface{}, error)
-	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ListErrorReportsRow, error)
+	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ZdxErrorReport, error)
 	ListEventsByTarget(ctx context.Context, arg ListEventsByTargetParams) ([]ZdxEvent, error)
 	ListEventsByThread(ctx context.Context, arg ListEventsByThreadParams) ([]ZdxEvent, error)
 	ListFeatureFocuses(ctx context.Context, featureID int32) ([]ListFeatureFocusesRow, error)
@@ -506,7 +506,7 @@ type Querier interface {
 	ListRevisionsByTarget(ctx context.Context, arg ListRevisionsByTargetParams) ([]ListRevisionsByTargetRow, error)
 	ListSessionAuditEvents(ctx context.Context, sessionPk int64) ([]ZdxSessionAuditEvent, error)
 	ListSideEffects(ctx context.Context, projectID int32) ([]ZdxIncompleteReportSideEffect, error)
-	ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ListSlowQueriesRow, error)
+	ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ZdxSlowQuery, error)
 	ListSpecDeferrals(ctx context.Context, specID int32) ([]ListSpecDeferralsRow, error)
 	ListSpecIssues(ctx context.Context, specID int32) ([]ListSpecIssuesRow, error)
 	// ── Specs ────────────────────────────────────────────────────────────────────
@@ -535,6 +535,12 @@ type Querier interface {
 	ListStaleTasks(ctx context.Context, projectID int32) ([]ListStaleTasksRow, error)
 	ListStaleTasksByIssue(ctx context.Context, arg ListStaleTasksByIssueParams) ([]ListStaleTasksByIssueRow, error)
 	ListTargetsWithComments(ctx context.Context, projectID int32) ([]ListTargetsWithCommentsRow, error)
+	// Targets with a comment newer than the seen high-water mark. Used by the
+	// solo-queue regenerator to emit the synthetic read:comments todo only when
+	// there is actually unread content to surface — otherwise the todo would
+	// regenerate every loop iteration even after the agent claims and "reads"
+	// it, producing the cycle observed in IS-1040.
+	ListTargetsWithUnreadComments(ctx context.Context, projectID int32) ([]ListTargetsWithUnreadCommentsRow, error)
 	ListTaskReviews(ctx context.Context, arg ListTaskReviewsParams) ([]ListTaskReviewsRow, error)
 	ListTasks(ctx context.Context, arg ListTasksParams) ([]ListTasksRow, error)
 	ListTasksByAgent(ctx context.Context, claimedBy string) ([]ListTasksByAgentRow, error)
@@ -587,6 +593,10 @@ type Querier interface {
 	MarkFeatureReviewed(ctx context.Context, arg MarkFeatureReviewedParams) error
 	MarkInviteUsed(ctx context.Context, id int32) error
 	MarkJournalEntryReviewed(ctx context.Context, id int32) error
+	// Advance the seen high-water mark for one target to the current max comment
+	// id. Idempotent: replaying with no new comments leaves the watermark put.
+	// Called when an agent resolves a read:comments synthetic todo.
+	MarkTargetCommentsSeen(ctx context.Context, arg MarkTargetCommentsSeenParams) error
 	MarkTaskDone(ctx context.Context, arg MarkTaskDoneParams) error
 	MarkTaskReviewed(ctx context.Context, id string) error
 	MarkTaskUndone(ctx context.Context, id string) error
