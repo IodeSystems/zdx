@@ -59,8 +59,10 @@ func (b *ScenarioBuilder) Goal(title string) *ScenarioBuilder {
 	return b
 }
 
-func (b *ScenarioBuilder) Constraint(title string) *ScenarioBuilder {
-	b.driver.AddConstraint(title)
+// Constraint was a project-constraint helper. zdx_project_constraints was
+// dropped in IS-627 (migration 147), so this is a no-op kept for source
+// compatibility with existing scenario chains. Remove call sites at leisure.
+func (b *ScenarioBuilder) Constraint(_ string) *ScenarioBuilder {
 	return b
 }
 
@@ -85,12 +87,17 @@ func (b *ScenarioBuilder) ReviewedFeature(name string) *ScenarioBuilder {
 	return b
 }
 
-// HealthPrereqs sets up goals, constraints, and journals so solo doesn't gate on health checks.
-// Uses yesterday's date so the 7-day standup threshold never trips regardless of when tests run.
+// HealthPrereqs sets up goals + journals so solo doesn't gate on health
+// checks. Constraints were dropped in IS-627 (migration 147 removed
+// zdx_project_constraints + the /api/constraint endpoint); the synthetic
+// owner:constraints health-check is also gone, so seeding constraints is
+// unnecessary and would 404.
+//
+// Uses yesterday's date so the 7-day standup threshold never trips regardless
+// of when tests run.
 func (b *ScenarioBuilder) HealthPrereqs() *ScenarioBuilder {
 	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
 	b.driver.AddGoal("Test goal")
-	b.driver.AddConstraint("Test constraint")
 	b.driver.CheckinJournal("owner", yesterday)
 	b.driver.CheckinJournal("tech", yesterday)
 	return b

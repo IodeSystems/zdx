@@ -274,7 +274,7 @@ func listSoloQueue(t *testing.T, slug, status string) []TodoItem {
 func TestSoloApplyUpsertsAndResolvesStale(t *testing.T) {
 	d := NewApiDriver(t, "td-stale", "Solo Apply Stale Resolution")
 	d.AddGoal("Test goal")
-	d.AddConstraint("No breaking changes")
+	// AddConstraint dropped — /api/constraint was removed in IS-627.
 
 	issueID1 := d.AddIssue("Stale test issue one", "first issue for stale test")
 	issueID2 := d.AddIssue("Stale test issue two", "second issue for stale test")

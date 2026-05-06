@@ -135,10 +135,11 @@ func (d *ApiDriver) AddGoal(title string) {
 		map[string]any{"slug": d.Slug, "title": title, "description": "test goal", "priority": 1, "status": "active"}, nil))
 }
 
-func (d *ApiDriver) AddConstraint(title string) {
+// AddConstraint is a no-op shim. zdx_project_constraints + /api/constraint
+// were removed in IS-627 (migration 147). Kept on the Driver to satisfy the
+// ConstraintSteps interface and source-compat with existing tests.
+func (d *ApiDriver) AddConstraint(_ string) {
 	d.t.Helper()
-	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/constraint",
-		map[string]any{"slug": d.Slug, "title": title, "description": "test constraint", "priority": 1, "status": "active"}, nil))
 }
 
 func (d *ApiDriver) AddComment(targetType, targetID, body string) {

@@ -112,17 +112,8 @@ func TestQueueKindOwnerGoals(t *testing.T) {
 	requireNoKind(t, items, "owner:goals")
 }
 
-func TestQueueKindOwnerConstraints(t *testing.T) {
-	d := NewApiDriver(t, "q-constraints", "Queue Constraints")
-	d.AddGoal("Ship v1")
-
-	items := d.EvaluateQueue("")
-	requireKind(t, items, "owner:constraints")
-
-	d.AddConstraint("No breaking changes")
-	items = d.EvaluateQueue("")
-	requireNoKind(t, items, "owner:constraints")
-}
+// TestQueueKindOwnerConstraints removed in IS-627: zdx_project_constraints
+// dropped, owner:constraints synthetic kind no longer emitted.
 
 func TestQueueKindTriageExcludesTracker(t *testing.T) {
 	d := NewApiDriver(t, "q-tracker", "Queue Tracker")

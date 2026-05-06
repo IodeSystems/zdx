@@ -87,21 +87,8 @@ func TestSoloOwnerGoals(t *testing.T) {
 	}
 }
 
-func TestSoloOwnerConstraints(t *testing.T) {
-	d := NewApiDriver(t, "solo-constraints", "Solo Constraints")
-	d.AddGoal("Ship v1.0")
-
-	_, constraintCount, _, _, _ := d.GetHealth()
-	if constraintCount != 0 {
-		t.Fatalf("expected 0 constraints, got %d", constraintCount)
-	}
-
-	d.AddConstraint("No external dependencies without review")
-	_, constraintCount, _, _, _ = d.GetHealth()
-	if constraintCount != 1 {
-		t.Fatalf("expected 1 constraint, got %d", constraintCount)
-	}
-}
+// TestSoloOwnerConstraints removed in IS-627: zdx_project_constraints dropped,
+// /api/constraint endpoint gone, GetHealth's constraint_count is always 0.
 
 func TestSoloJournal(t *testing.T) {
 	d := NewApiDriver(t, "solo-journal", "Solo Journal")

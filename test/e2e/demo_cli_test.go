@@ -811,10 +811,9 @@ func TestDemoCLI_QueueTrackerExcluded(t *testing.T) {
 	rec := newRecorder(t, "queue-tracker-excluded", "bin/dx")
 	t.Cleanup(rec.Save)
 
-	// Health prereqs so owner:goals / owner:constraints don't dominate the queue
-	// and obscure the tracker-exclusion behavior under test.
+	// Health prereqs so owner:goals doesn't dominate the queue and obscure the
+	// tracker-exclusion behavior under test. Constraint dropped in IS-627.
 	rec.Run("goal", "add", "Ship v1")
-	rec.Run("constraint", "add", "No breaking changes")
 
 	// Tracker issue with --auto-ready: without the tracker carve-out this would
 	// otherwise surface as an [add] item (triaged but no tasks).
@@ -954,45 +953,8 @@ func TestDemoCLI_SoloOwnerGoalsGate(t *testing.T) {
 	}
 }
 
-// TestDemoCLI_SoloOwnerConstraintsGate is the demo for spec 54: when dx todo solo
-// runs on a project with zero constraints, it emits an [owner:constraints] gate
-// instructing the user to define a constraint before further work proceeds. Once a
-// constraint exists, the gate clears and solo advances to the next item.
-func TestDemoCLI_SoloOwnerConstraintsGate(t *testing.T) {
-	rec := newRecorder(t, "solo-owner-constraints-gate", "bin/dx")
-	t.Cleanup(rec.Save)
-
-	// Seed an issue and a goal so [bootstrap] and [owner:goals] do not pre-empt
-	// the owner:constraints gate under test.
-	rec.Run("issue", "add", "--title=Wire up rate limiting", "--auto-ready")
-	rec.Run("goal", "add", "Ship v1")
-
-	// With zero constraints, solo must emit [owner:constraints] and stop.
-	rec.Run("todo", "solo")
-	gateOut := rec.steps[len(rec.steps)-1].Stdout + rec.steps[len(rec.steps)-1].Stderr
-	if !strings.Contains(gateOut, "[owner:constraints]") {
-		t.Errorf("expected '[owner:constraints]' in solo output before constraint exists, got:\n%s", gateOut)
-	}
-	if !strings.Contains(gateOut, "dx constraint add") {
-		t.Errorf("expected guidance to run 'dx constraint add', got:\n%s", gateOut)
-	}
-
-	// Define a constraint — the gate's advance condition.
-	rec.Run("constraint", "add", "No breaking changes without an RFC")
-
-	// Solo should no longer emit the owner:constraints gate now that a constraint exists.
-	rec.Run("todo", "solo")
-	clearedOut := rec.steps[len(rec.steps)-1].Stdout + rec.steps[len(rec.steps)-1].Stderr
-	if strings.Contains(clearedOut, "[owner:constraints]") {
-		t.Errorf("did not expect '[owner:constraints]' after constraint added, got:\n%s", clearedOut)
-	}
-
-	for _, s := range rec.steps {
-		if s.ExitCode != 0 {
-			t.Errorf("step %q exited %d:\n%s", s.Cmd, s.ExitCode, s.Stderr)
-		}
-	}
-}
+// TestDemoCLI_SoloOwnerConstraintsGate removed in IS-627: zdx_project_constraints
+// dropped, owner:constraints gate kind no longer emitted, dx constraint CLI gone.
 
 // TestDemoCLI_TodoShowDetail is the demo for spec 81: given an issue, task, or
 // feature identifier, dx todo show renders detailed information — status, context,
