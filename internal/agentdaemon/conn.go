@@ -67,6 +67,14 @@ type Daemon struct {
 	// daemon can read this file to know it was paused.
 	StateFile string
 
+	// EventLog, when non-nil, receives structured lifecycle events the
+	// daemon would otherwise log via log.Printf — connected, disconnected,
+	// control received, pause/resume/drain, dial retry. Wiring this lets
+	// the host's tracelog see the daemon's chain without agentdaemon
+	// importing tracelog (no back-coupling). nil disables emission;
+	// log.Printf still fires for human-readable stderr output.
+	EventLog func(name string, kv ...any)
+
 	// now is injectable for tests; defaults to time.Now.
 	now func() time.Time
 
@@ -84,6 +92,14 @@ type Daemon struct {
 	pausedIssueID string
 	pauseHoldStop chan struct{}
 	pauseHoldDone chan struct{}
+}
+
+// emit calls EventLog when set; no-op otherwise. Lets callers wire a
+// structured logger (tracelog) without making agentdaemon import it.
+func (d *Daemon) emit(name string, kv ...any) {
+	if d.EventLog != nil {
+		d.EventLog(name, kv...)
+	}
 }
 
 // Run dials the server, sends the registration handshake, and blocks until the
@@ -122,6 +138,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		return fmt.Errorf("read ack: %w", err)
 	}
 	log.Printf("registered with server as %s", d.AgentID)
+	d.emit("daemon.connected", "agent_id", d.AgentID, "server", d.ServerURL)
 
 	d.connMu.Lock()
 	d.wsConn = conn
@@ -209,6 +226,7 @@ func (d *Daemon) RunForever(ctx context.Context) error {
 
 		if err != nil {
 			log.Printf("connection lost (attempt %d): %v — retrying in %s", attempt, err, backoff)
+			d.emit("daemon.disconnected", "agent_id", d.AgentID, "attempt", attempt, "err", err.Error(), "retry_in_seconds", int(backoff.Seconds()))
 		}
 
 		select {
@@ -261,6 +279,7 @@ func (d *Daemon) handleIncoming(data []byte) {
 		d.mu.Unlock()
 
 		log.Printf("agent paused — holding lease (session=%s issue=%s)", sid, issueID)
+		d.emit("daemon.control", "type", "pause", "session_id", sid, "issue_id", issueID)
 		d.writePauseState(sid, issueID)
 		go d.runPauseHold(stop, done, sid, issueID)
 
@@ -292,6 +311,7 @@ func (d *Daemon) handleIncoming(data []byte) {
 		}
 		d.removePauseState()
 		log.Printf("agent resumed (session=%s issue=%s)", sid, issueID)
+		d.emit("daemon.control", "type", "resume", "session_id", sid, "issue_id", issueID)
 		if d.ControlCh != nil {
 			select {
 			case d.ControlCh <- ControlMsg{Type: "resume", SessionID: sid, IssueID: issueID}:
@@ -315,6 +335,7 @@ func (d *Daemon) handleIncoming(data []byte) {
 			issueID = task.IssueID
 		}
 		log.Printf("agent draining (session=%s issue=%s)", sid, issueID)
+		d.emit("daemon.control", "type", "drain", "session_id", sid, "issue_id", issueID)
 		if d.ControlCh != nil {
 			select {
 			case d.ControlCh <- ControlMsg{Type: "drain", SessionID: sid, IssueID: issueID}:

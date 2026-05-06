@@ -174,6 +174,32 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 	stateFile := filepath.Join(".zdx", "cache", providerName+"-agent-state")
 	_ = os.MkdirAll(filepath.Join(".zdx", "cache"), 0o755)
 
+	// Loop-level tracelog: one logger for this entire loop run. Constant
+	// tags (alias, provider, slug, branch) make every event from this run
+	// filterable as a chain in the UI by alias=X. Per-iteration sub-tags
+	// (iteration_id, todo_id) are added per take via loopLog.With.
+	loopLog, loopSink := setupLoopTracelog(opts.RC, providerName, opts.Alias)
+	if loopSink != nil {
+		defer func() {
+			closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = loopSink.Close(closeCtx)
+		}()
+	}
+	if loopLog != nil {
+		defer loopLog.Close()
+		if u := loopLog.FilteredURL(opts.RC.url, opts.RC.slug); u != "" {
+			fmt.Printf("View loop events: %s\n", u)
+		}
+		loopLog.Info("loop.started", "lease_minutes", leaseMin)
+		defer loopLog.Info("loop.exited")
+	}
+	emit := func(name string, kv ...any) {
+		if loopLog != nil {
+			loopLog.Info(name, kv...)
+		}
+	}
+
 	// Crash-recovery: if a previous run left a state file, the claim it
 	// references is still held until the lease expires. Release it now so
 	// the next claim picks up fresh work instead of duplicating effort.
@@ -182,6 +208,7 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 		if len(lines) >= 3 {
 			if id, perr := parseInt32(lines[2]); perr == nil && id > 0 {
 				fmt.Fprintf(os.Stderr, "[%s] crash-recovery: releasing orphaned claim %d (sid=%s)\n", providerName, id, lines[1])
+				emit("crash_recovery.released_orphan", "todo_id", id, "session_id", lines[1])
 				releaseTodo(opts.RC, id, opts.Alias, lines[1], "", "", "", false)
 			}
 		}
@@ -198,7 +225,7 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 	// effort: dial failures fall back to file-only operation so a working
 	// unattended loop never depends on an unavailable server.
 	holder := agentdaemon.NewLoopTaskHolder()
-	startDaemon(ctx, providerName, opts, holder)
+	startDaemon(ctx, providerName, opts, holder, loopLog)
 
 	// Self-update detection: hash the running binary at startup, re-hash each
 	// iteration, and re-exec if the hash changes. Long-running loops survive
@@ -221,8 +248,10 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 		}
 		if h := fileHash(selfPath); h != "" && selfHash != "" && h != selfHash {
 			fmt.Fprintf(os.Stderr, "[%s] self-update: %s → %s, re-execing\n", providerName, shortHash(selfHash), shortHash(h))
+			emit("self_update.detected", "old", shortHash(selfHash), "new", shortHash(h))
 			if err := selfReexec(selfPath, os.Args); err != nil {
 				fmt.Fprintf(os.Stderr, "[%s] re-exec failed: %v\n", providerName, err)
+				emit("self_update.reexec_failed", "err", err.Error())
 			}
 		}
 
@@ -238,11 +267,13 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 		// cleanly so the next deploy / shutdown isn't waiting on us.
 		if holder.DrainSignaled() {
 			fmt.Fprintf(os.Stderr, "[%s] drain signaled, exiting loop\n", providerName)
+			emit("drain.exited")
 			return nil
 		}
 
 		todo, err := claimNextTodo(opts.RC, opts.Alias, leaseMin)
 		if err != nil || todo == nil {
+			emit("claim.idle", "err", errString(err))
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -257,6 +288,17 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 		}
 		sid := uuid.New().String()
 		_ = os.WriteFile(stateFile, []byte(fmt.Sprintf("%s\n%s\n%d\n", issueID, sid, todo.ID)), 0o644)
+
+		iterationID := uuid.New().String()
+		emit("claim.acquired",
+			"iteration_id", iterationID,
+			"todo_id", todo.ID,
+			"todo_key", todo.Key,
+			"todo_kind", todo.Kind,
+			"issue_id", issueID,
+			"target_type", todo.TargetType,
+			"target_id", todo.TargetID,
+			"session_id", sid)
 
 		// Hand the daemon a real TaskHolder snapshot for the duration of
 		// this session. The daemon's pause hold-loop calls holder.Renew
@@ -308,6 +350,14 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 		if runErr != nil {
 			fmt.Fprintf(os.Stderr, "[%s] session error: %v\n", providerName, runErr)
 		}
+		emit("claim.released",
+			"iteration_id", iterationID,
+			"todo_id", todo.ID,
+			"todo_key", todo.Key,
+			"resolve", runErr == nil,
+			"churn_downgraded", release.ChurnDowngraded,
+			"cycle_detected", release.CycleDetected,
+			"err", errString(runErr))
 		_ = os.Remove(stateFile)
 
 		// Update churn tracking, then maybe back off before the next claim.
@@ -336,6 +386,7 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 			backoff := time.Duration(1<<shift) * time.Minute
 			fmt.Fprintf(os.Stderr, "[%s] churn backoff: key %s churned %d times; sleeping %s\n",
 				providerName, lastChurnTodoKey, consecutiveChurns, backoff.Truncate(time.Second))
+			emit("churn.backoff", "key", lastChurnTodoKey, "count", consecutiveChurns, "backoff_seconds", int(backoff.Seconds()))
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -353,6 +404,15 @@ func parseInt32(s string) (int32, error) {
 	return n, err
 }
 
+// errString returns err.Error() or "" when err is nil. Convenience for
+// emit("name", "err", errString(err)) so the tag is always present.
+func errString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
 // setupSessionTracelog is the small-touch helper for callers that have
 // already minted their own auth and just need a tracelog logger + sink for
 // a session. Used by claude's runSession (which mints its own scoped token
@@ -366,6 +426,59 @@ func setupSessionTracelog(rc remoteConfig, providerName, model, sid, issueID, al
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "tracelog: %v (continuing without structured logging)\n", err)
 		return nil, nil
+	}
+	return logger, client
+}
+
+// setupLoopTracelog builds the loop-scoped logger used by RunManagedLoop.
+// Constant tags (alias, provider, slug, branch, worktree, pid) make it
+// possible to filter every event from one loop run with a single
+// alias=X filter in the UI. Per-iteration sub-tags (todo_id, iteration_id)
+// are added by callers via loopLog.With.
+func setupLoopTracelog(rc remoteConfig, providerName, alias string) (*tracelog.Logger, *zdxclient.Client) {
+	branch, _ := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+	worktree := "main"
+	if out, err := exec.Command("git", "rev-parse", "--git-dir").Output(); err == nil {
+		if strings.Contains(string(out), "/worktrees/") {
+			worktree = "worktree"
+		}
+	}
+	tags := map[string]string{
+		"agent":    providerName,
+		"alias":    alias,
+		"slug":     rc.slug,
+		"branch":   strings.TrimSpace(string(branch)),
+		"worktree": worktree,
+		"pid":      fmt.Sprintf("%d", os.Getpid()),
+		"scope":    "loop",
+	}
+	var sink tracelog.Sink
+	var client *zdxclient.Client
+	if rc.url != "" && rc.key != "" {
+		c, err := zdxclient.New(zdxclient.Config{
+			Endpoint:    rc.url,
+			Token:       rc.key,
+			AuthMode:    zdxclient.AuthApiKey,
+			ProjectSlug: rc.slug,
+			Component:   "agent-" + providerName,
+			OnError: func(err error, n int) {
+				fmt.Fprintf(os.Stderr, "tracelog ingest: %v (%d events)\n", err, n)
+			},
+		})
+		if err == nil {
+			client = c
+			sink = c
+		}
+	}
+	logger, err := tracelog.New(tracelog.Options{
+		BaseTags:  tags,
+		FilePath:  filepath.Join(".zdx", "logs", providerName+"-loop.jsonl"),
+		Sink:      sink,
+		Component: "agent-" + providerName,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "tracelog (loop): %v (continuing without loop event chain)\n", err)
+		return nil, client
 	}
 	return logger, client
 }
@@ -436,13 +549,22 @@ func newManagedTraceLogger(rc remoteConfig, providerName, model, sid, issueID, a
 // messages into LoopTaskHolder state changes. Best-effort: dial failures
 // fall back to file-only operation so a working unattended loop never
 // depends on an unavailable server. ctx cancellation closes the daemon.
-func startDaemon(ctx context.Context, providerName string, opts ProviderOpts, holder *agentdaemon.LoopTaskHolder) {
+//
+// loopLog, when non-nil, receives daemon lifecycle events
+// (daemon.connected, daemon.disconnected, daemon.control) so the loop's
+// trace surface is one event chain.
+func startDaemon(ctx context.Context, providerName string, opts ProviderOpts, holder *agentdaemon.LoopTaskHolder, loopLog *tracelog.Logger) {
 	if opts.RC.url == "" || opts.RC.key == "" {
 		return // no server to connect to
 	}
 	hostname, _ := os.Hostname()
 	ctrlCh := make(chan agentdaemon.ControlMsg, 16)
 
+	emit := func(name string, kv ...any) {
+		if loopLog != nil {
+			loopLog.Info(name, kv...)
+		}
+	}
 	d := &agentdaemon.Daemon{
 		ServerURL:    opts.RC.url,
 		AgentID:      opts.Alias,
@@ -454,6 +576,7 @@ func startDaemon(ctx context.Context, providerName string, opts ProviderOpts, ho
 		Holder:       holder,
 		PauseRenewer: holder, // LoopTaskHolder satisfies LeaseRenewer
 		ControlCh:    ctrlCh,
+		EventLog:     emit,
 	}
 
 	go func() {

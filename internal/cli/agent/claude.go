@@ -257,12 +257,16 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 	// the for-loop checks each iteration. Best-effort dial; failure falls
 	// back to file-only operation.
 	holder := agentdaemon.NewLoopTaskHolder()
+	// claude's runLoop has its own log fn; tracelog wiring for it is a
+	// follow-up. For now, daemon events still fire via log.Printf and the
+	// claude runLoop's own log file. Pass nil so startDaemon stays
+	// emit-aware without forcing a tracelog dependency on this path.
 	startDaemon(ctx, "claude", ProviderOpts{
 		RC:       rc,
 		AgentCfg: agentCfg,
 		Alias:    agentID,
 		WorkDir:  workDir,
-	}, holder)
+	}, holder, nil)
 
 	selfPath, _ := os.Executable()
 	selfHash := fileHash(selfPath)
