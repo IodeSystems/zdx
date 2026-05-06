@@ -19,6 +19,15 @@ const (
 	backoffMax           = 30 * time.Second
 	backoffResetAge      = 10 * time.Second // connection survived this long → reset backoff
 	defaultPauseRenewInt = 5 * time.Minute  // mirrors take.go (lease/2 with min 1m), conservative default
+
+	// pingInterval keeps the WS connection from being killed by idle timeouts
+	// in intermediate proxies (nginx default 60s; observed ~50s with the
+	// production deployment). Pinging at half-the-cutoff gives us a margin
+	// against scheduling jitter and one missed pong.
+	pingInterval = 25 * time.Second
+	// pingTimeout bounds a single Ping round-trip. nhooyr.io/websocket's Ping
+	// blocks until pong returns, ctx expires, or the conn is closed.
+	pingTimeout = 10 * time.Second
 )
 
 // LeaseRenewer is invoked by the pause hold loop to keep a paused agent's task
@@ -74,6 +83,15 @@ type Daemon struct {
 	// importing tracelog (no back-coupling). nil disables emission;
 	// log.Printf still fires for human-readable stderr output.
 	EventLog func(name string, kv ...any)
+
+	// PingInterval overrides the heartbeat ping cadence (default 25s). Tests
+	// inject a sub-second value to observe pings without slowing the suite.
+	// Production should leave this zero.
+	PingInterval time.Duration
+
+	// PingTimeout overrides how long a single ping waits for pong (default
+	// 10s). Tests pair this with PingInterval to fail fast.
+	PingTimeout time.Duration
 
 	// now is injectable for tests; defaults to time.Now.
 	now func() time.Time
@@ -165,6 +183,13 @@ func (d *Daemon) Run(ctx context.Context) error {
 		}
 	}()
 
+	// Heartbeat: periodically ping the server so idle proxies don't drop the
+	// connection. On ping failure we close the conn — the read goroutine will
+	// observe the close and propagate the error to RunForever for retry.
+	pingCtx, stopPings := context.WithCancel(context.Background())
+	defer stopPings()
+	go d.pingLoop(pingCtx, conn)
+
 	select {
 	case err := <-readErr:
 		return err
@@ -238,6 +263,45 @@ func (d *Daemon) RunForever(ctx context.Context) error {
 		backoff *= 2
 		if backoff > backoffMax {
 			backoff = backoffMax
+		}
+	}
+}
+
+// pingLoop sends periodic application-level WS pings until ctx is cancelled or
+// a ping fails. On failure it closes the conn so the read pump errors out and
+// RunForever can reconnect. Library handles inbound pings (auto-pong) on its
+// own — this loop only generates outbound traffic.
+func (d *Daemon) pingLoop(ctx context.Context, conn *websocket.Conn) {
+	interval := d.PingInterval
+	if interval <= 0 {
+		interval = pingInterval
+	}
+	timeout := d.PingTimeout
+	if timeout <= 0 {
+		timeout = pingTimeout
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			pctx, cancel := context.WithTimeout(ctx, timeout)
+			err := conn.Ping(pctx)
+			cancel()
+			if err != nil {
+				if ctx.Err() != nil {
+					return // shutting down — not a real failure
+				}
+				log.Printf("ping failed: %v — closing connection", err)
+				d.emit("daemon.ping_failed", "agent_id", d.AgentID, "err", err.Error())
+				// CloseNow skips the close handshake — pointless when the peer
+				// stopped responding. This unblocks the read goroutine fast so
+				// RunForever can reconnect.
+				conn.CloseNow() //nolint:errcheck
+				return
+			}
 		}
 	}
 }
