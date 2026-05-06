@@ -10,20 +10,27 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  IconButton,
   List,
   ListItem,
   ListItemText,
   Paper,
   Switch,
+  TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
-import { Refresh as RefreshIcon } from '@mui/icons-material'
+import {
+  Refresh as RefreshIcon,
+  ArrowUpward as BumpIcon,
+} from '@mui/icons-material'
 import {
   useSolo,
   useBlockerQuestions,
   useEvaluateSolo,
   useApplySolo,
   useUnblockAllTodos,
+  useSetTodoPriority,
   type SoloItem,
   type EvaluateDiff,
 } from '../api'
@@ -51,15 +58,36 @@ function TodoRow({ slug, item }: { slug: string; item: SoloItem }) {
   const link = targetLink(slug, item.target_type, item.target_id)
   const todoHref = `/project/${slug}/todos/${encodeURIComponent(item.key)}`
   const hasFooter = (item.issue_ref && item.issue_ref !== item.target_id) || item.blocked || item.persona
+  const setPriority = useSetTodoPriority()
+  const [priorityOpen, setPriorityOpen] = useState(false)
+  const [priorityDraft, setPriorityDraft] = useState('')
   return (
     <Box sx={{ py: 0.75, borderBottom: 1, borderColor: 'divider' }}>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.5 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.5, alignItems: 'center' }}>
         <Chip
           label={item.kind}
           size="small"
           color={KIND_COLORS[item.kind] || 'default'}
           variant="outlined"
         />
+        <Chip label={`p${item.priority}`} size="small" variant="outlined" />
+        <Tooltip title="Bump priority (lower = earlier; survives re-evaluate)">
+          <span>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setPriorityDraft(String(Math.max(0, item.priority - 1)))
+                setPriorityOpen(true)
+              }}
+              disabled={setPriority.isPending}
+              sx={{ p: 0.25 }}
+            >
+              <BumpIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
         {link ? (
           <Chip
             label={item.target_id}
@@ -125,6 +153,41 @@ function TodoRow({ slug, item }: { slug: string; item: SoloItem }) {
           {item.persona && <Chip label={item.persona} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />}
         </Box>
       )}
+      <Dialog open={priorityOpen} onClose={() => setPriorityOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Bump priority</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Lower number = earlier in the claim queue. The next solo
+            re-evaluate keeps this value (LEAST clause), so the bump sticks.
+            Current: <strong>{item.priority}</strong>.
+          </Typography>
+          <TextField
+            autoFocus
+            type="number"
+            label="New priority"
+            value={priorityDraft}
+            onChange={e => setPriorityDraft(e.target.value)}
+            fullWidth
+            slotProps={{ htmlInput: { min: 0, max: 1000 } }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPriorityOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={setPriority.isPending || !priorityDraft.trim() || isNaN(Number(priorityDraft))}
+            onClick={() => {
+              const n = Math.max(0, Math.floor(Number(priorityDraft)))
+              setPriority.mutate(
+                { slug, key: item.key, priority: n },
+                { onSuccess: () => setPriorityOpen(false) },
+              )
+            }}
+          >
+            Bump
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

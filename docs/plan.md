@@ -234,26 +234,36 @@ endpoints → UI.
 Global agents can pick up cross-project work without manual pinning;
 operator escalates urgent work via mark-as-priority; auth story is proper.
 
-- [x] **Priority push** — operator escalation as an integer push, not a
+- [x] **Priority bump** — operator escalation as an integer bump, not a
   separate flag column. `UpsertTodo` now uses
   `priority = LEAST(zdx_todos.priority, EXCLUDED.priority)` so the bump
   survives re-evaluate (the natural priority computed for each kind
-  becomes a ceiling — once an operator pushes lower, the lower value
+  becomes a ceiling — once an operator bumps lower, the lower value
   stays). Endpoint: `PUT /api/dx/projects/{slug}/todos/{key}/priority`
-  body `{priority}`. UI verb: ↑ Push button on the todo detail page
+  body `{priority}`. UI verb: ↑ Bump button on the todo detail page
   next to the priority chip; opens a small dialog with a number input.
-  Adding the push verb to the queue-row and per-issue todo lists is a
-  follow-up.
+  (Originally landed as "Push" in `2625eb18`; renamed to "Bump"
+  alongside the QueueView/Timeline spread to avoid the agent-dispatch
+  collision — see "No push semantics" in the locked-in design.)
 - [x] **Project priority schema** (`686633f9`) — `zdx_projects.priority
   INT NOT NULL DEFAULT 5` (1=highest, 9=lowest convention; not enforced
   at the DB layer). `/api/projects` payload carries it; `PUT
   /api/admin/project-priority` sets it. Consumer (cross-project claim)
   still gated on the costing pass below.
-- [ ] **Push verb on queue rows + per-issue todo lists.** Push is on
-  the todo detail page (`/todos/{key}`) only. Add the same ↑ Push
-  control to the QueueView `TodoRow` (`ui/src/components/QueueView.tsx`)
-  and to the issue page's todo list so operators don't have to drill
-  into a todo to escalate it.
+- [x] **Bump verb on queue rows + per-issue todos.** Done. Renamed
+  the existing TodoDetail "Push" surface to **Bump** (terminology
+  collision: "push" reads as agent dispatch, which we explicitly do
+  not build — the mechanism is just lowering the priority integer).
+  Spread the bump control to:
+  - `QueueView` `TodoRow` (`ui/src/components/QueueView.tsx`) — chip
+    `pN` + ↑ icon on every queue item, primary card and upcoming list.
+  - `UnifiedTimeline` `TodoRow` (`ui/src/components/UnifiedTimeline.tsx`)
+    — chip + ↑ on `created` events for unresolved todos only. The
+    issue page renders its todos as timeline events rather than as a
+    flat list, so this is the natural surface; if a flat
+    issue-page todo list is wanted later, gate it as a separate task.
+  Hook re-used: `useSetTodoPriority`. Dialog copy says "Bump" and
+  "the bump sticks" (LEAST-preserved on re-evaluate).
 - [ ] **Cross-project queue browsing for unpinned global agents.**
   - Server: cached cross-project priority list (`zdx_solo_global_view`,
     materialized view, or trigger-rebuilt cache — TBD after costing pass).
@@ -350,19 +360,11 @@ under `dx test --layer demo`:
 
 ## Pickup — next session
 
-Phase 2 shipped; phase 3 is in flight. Pick one of the open items below.
-Pieces are roughly ordered by setup-cost (smallest first) and
-dependency (push-verb spread doesn't block anything else; cross-project
-claim is gated on the costing pass).
+Phase 2 shipped; phase 3 is in flight. Bump-verb spread is done.
+Remaining items, ordered by setup-cost (smallest first) and dependency
+(cross-project claim is gated on the costing pass).
 
-1. **Push verb on queue rows + per-issue todo lists.** Smallest. The
-   piece is already on `TodoDetail` — copy the IconButton + Dialog
-   pattern into `ui/src/components/QueueView.tsx`'s `TodoRow`, and
-   into the issue-page's todo list. Hook is `useSetTodoPriority`
-   from `ui/src/api/index.ts`. Any TodoRow already shows
-   `priority`; just add a Push button next to it.
-
-2. **Admin-token auth for `dx agent connect --global`.** Today's WS
+1. **Admin-token auth for `dx agent connect --global`.** Today's WS
    handshake accepts any project token. Recognize server-admin tokens
    (`zdx_api_keys` rows where the user is `role='admin'`) and reject
    project tokens for `project_slug=""` registrations — or accept both
@@ -370,7 +372,7 @@ claim is gated on the costing pass).
    `internal/server/handlers/handlers_agent_conn.go` and the project
    `getProjectByToken` lookup chain.
 
-3. **Cross-project queue costing pass + claim path.** Deferred until
+2. **Cross-project queue costing pass + claim path.** Deferred until
    queue size + access pattern data warrants the cache. Worth a brief
    measurement in prod before designing — open prod dashboard, scan
    solo claim rate per project, decide cache strategy
@@ -378,11 +380,18 @@ claim is gated on the costing pass).
    composite scan). Once the path is chosen, schema is small but the
    invalidation contract isn't.
 
-4. **Dedicated reap for globals.** Admin-triggered, separate from
+3. **Dedicated reap for globals.** Admin-triggered, separate from
    per-project sweeps. Today's reap (`dx agent reap`) operates per
    project; a global agent that misses a heartbeat for an unrelated
    reason shouldn't be torn down. Add `POST /api/admin/agents/reap`
    that targets `project_id IS NULL` rows.
+
+4. **(maybe) Flat issue-page todo list.** Bump now lives on the
+   timeline `created` event for each issue's todos. If operators
+   want a flat actionable list (parallel to the existing "Tasks"
+   section in `IssueDetail`), add a small "Open todos" section
+   above `BlockerQuestionsSection` and put the bump there too.
+   Defer until an operator asks.
 
 ### Local dev env recap
 
@@ -429,3 +438,4 @@ generated file, unstages it, then commits the remainder.
 - `66fa83e7` test(e2e): rewrite direction-tab demo Goals-only after IS-627
 - `686633f9` feat(projects): priority column for cross-project agent claim ordering
 - `2625eb18` feat(todos): operator priority-push as integer (LEAST-preserved)
+- (this commit) feat(ui): rename Push → Bump and spread to QueueView + issue timeline

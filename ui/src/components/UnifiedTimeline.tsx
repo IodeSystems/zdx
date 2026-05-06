@@ -2,20 +2,28 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import {
   Box,
+  Button,
   Chip,
   Dialog,
+  DialogActions,
   DialogContent,
   DialogTitle,
   IconButton,
+  TextField,
   Tooltip,
   Typography,
 } from '@mui/material'
-import { Close as CloseIcon, CompareArrows as DiffIcon } from '@mui/icons-material'
+import {
+  Close as CloseIcon,
+  CompareArrows as DiffIcon,
+  ArrowUpward as BumpIcon,
+} from '@mui/icons-material'
 import {
   useComments,
   useHistory,
   useIssueResolutions,
   useReservationsByIssue,
+  useSetTodoPriority,
   useTodosByIssue,
   type CommentItem,
   type HistoryEvent,
@@ -156,8 +164,12 @@ const TODO_EVENT_LABEL: Record<TodoEventKind, string> = {
   resolved: 'resolved',
 }
 
-function TodoRow({ t, subKind, releasedBy }: { t: SoloItem; subKind: TodoEventKind; releasedBy?: string }) {
+function TodoRow({ t, subKind, releasedBy, slug }: { t: SoloItem; subKind: TodoEventKind; releasedBy?: string; slug: string }) {
   const eventColor = TODO_EVENT_COLOR[subKind]
+  const setPriority = useSetTodoPriority()
+  const [bumpOpen, setBumpOpen] = useState(false)
+  const [bumpDraft, setBumpDraft] = useState('')
+  const canBump = subKind === 'created' && !t.resolved_at && t.status !== 'resolved' && t.status !== 'closed'
   return (
     <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}>
       <Chip label={TODO_EVENT_LABEL[subKind]} size="small" color={eventColor} variant="outlined" />
@@ -176,10 +188,69 @@ function TodoRow({ t, subKind, releasedBy }: { t: SoloItem; subKind: TodoEventKi
           sx={{ fontSize: '0.65rem' }}
         />
       )}
+      {canBump && (
+        <>
+          <Chip label={`p${t.priority}`} size="small" variant="outlined" sx={{ fontSize: '0.65rem' }} />
+          <Tooltip title="Bump priority (lower = earlier; survives re-evaluate)">
+            <span>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setBumpDraft(String(Math.max(0, t.priority - 1)))
+                  setBumpOpen(true)
+                }}
+                disabled={setPriority.isPending}
+                sx={{ p: 0.25 }}
+              >
+                <BumpIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </>
+      )}
       <Box sx={{ flex: 1 }}>
         <Typography variant="body2">{t.title || t.text.slice(0, 80)}</Typography>
         <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>{t.key}</Typography>
       </Box>
+      {canBump && (
+        <Dialog open={bumpOpen} onClose={() => setBumpOpen(false)} maxWidth="xs" fullWidth>
+          <DialogTitle>Bump priority</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Lower number = earlier in the claim queue. The next solo
+              re-evaluate keeps this value (LEAST clause), so the bump sticks.
+              Current: <strong>{t.priority}</strong>.
+            </Typography>
+            <TextField
+              autoFocus
+              type="number"
+              label="New priority"
+              value={bumpDraft}
+              onChange={e => setBumpDraft(e.target.value)}
+              fullWidth
+              slotProps={{ htmlInput: { min: 0, max: 1000 } }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setBumpOpen(false)}>Cancel</Button>
+            <Button
+              variant="contained"
+              disabled={setPriority.isPending || !bumpDraft.trim() || isNaN(Number(bumpDraft))}
+              onClick={() => {
+                const n = Math.max(0, Math.floor(Number(bumpDraft)))
+                setPriority.mutate(
+                  { slug, key: t.key, priority: n },
+                  { onSuccess: () => setBumpOpen(false) },
+                )
+              }}
+            >
+              Bump
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Box>
   )
 }
@@ -564,7 +635,7 @@ export function UnifiedTimeline({
                     {ts.toLocaleString()}
                   </Typography>
                 </Box>
-                {ev.kind === 'todo' && <TodoRow t={ev.payload} subKind={ev.subKind} releasedBy={'releasedBy' in ev ? ev.releasedBy : undefined} />}
+                {ev.kind === 'todo' && <TodoRow t={ev.payload} subKind={ev.subKind} releasedBy={'releasedBy' in ev ? ev.releasedBy : undefined} slug={slug} />}
                 {ev.kind === 'reservation' && <ReservationRow r={ev.payload} slug={slug} />}
                 {ev.kind === 'resolution' && <ResolutionRow r={ev.payload} />}
                 {ev.kind === 'work' && <WorkRow e={ev.payload} />}

@@ -16,7 +16,7 @@ import {
 } from '@mui/material'
 import {
   ArrowBack as ArrowBackIcon,
-  ArrowUpward as PushIcon,
+  ArrowUpward as BumpIcon,
 } from '@mui/icons-material'
 import { useTodoDetail, useCreateIssue, useSetTodoPriority } from '../api'
 import { MarkdownContent } from './MarkdownContent'
@@ -95,7 +95,7 @@ export function TodoDetail({ slug, todoKey }: { slug: string; todoKey: string })
       <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
         <Chip label={todo.kind} size="small" color={KIND_COLORS[todo.kind] || 'default'} variant="outlined" />
         <Chip label={`priority ${todo.priority}`} size="small" variant="outlined" />
-        <Tooltip title="Push priority (lower number = higher claim order; survives re-evaluate)">
+        <Tooltip title="Bump priority (lower number = higher claim order; survives re-evaluate)">
           <span>
             <IconButton
               size="small"
@@ -106,7 +106,7 @@ export function TodoDetail({ slug, todoKey }: { slug: string; todoKey: string })
               disabled={setPriority.isPending}
               sx={{ p: 0.25 }}
             >
-              <PushIcon fontSize="small" />
+              <BumpIcon fontSize="small" />
             </IconButton>
           </span>
         </Tooltip>
@@ -322,11 +322,11 @@ export function TodoDetail({ slug, todoKey }: { slug: string; todoKey: string })
       </Dialog>
 
       <Dialog open={priorityOpen} onClose={() => setPriorityOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Push priority</DialogTitle>
+        <DialogTitle>Bump priority</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Lower number = earlier in the claim queue. The next solo
-            re-evaluate keeps this value (LEAST clause), so the push sticks.
+            re-evaluate keeps this value (LEAST clause), so the bump sticks.
             Current: <strong>{todo.priority}</strong>.
           </Typography>
           <TextField
@@ -352,7 +352,7 @@ export function TodoDetail({ slug, todoKey }: { slug: string; todoKey: string })
               )
             }}
           >
-            Push
+            Bump
           </Button>
         </DialogActions>
       </Dialog>
