@@ -47,6 +47,32 @@ type ContainerProvider interface {
 	RunContainerLoop(ctx context.Context, opts ProviderOpts) error
 }
 
+// Container modes exposed via --container. The flag is an *execution
+// environment*, not a yes/no — "docker" runs in MCP-slot containers
+// (worktree-isolated, sandboxed); "local" runs claude directly on the
+// operator's host. We default to docker because container is the
+// production-style execution path and operators should opt down to local
+// only when debugging or when docker is unavailable.
+const (
+	ContainerDocker = "docker"
+	ContainerLocal  = "local"
+
+	DefaultContainer = ContainerDocker
+)
+
+// NormalizeContainer accepts the --container flag and returns the
+// canonical mode. Empty / "auto" return DefaultContainer (docker today).
+// "host" is a friendly synonym for "local".
+func NormalizeContainer(s string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "", "auto", ContainerDocker:
+		return ContainerDocker, nil
+	case ContainerLocal, "host":
+		return ContainerLocal, nil
+	}
+	return "", fmt.Errorf("--container must be one of docker|local (got %q)", s)
+}
+
 // Complexity tiers exposed via --complexity. See IS-1031 for the planned
 // expansion to {low, medium, high, xhigh, max}; for now we settle on three.
 const (
@@ -61,16 +87,19 @@ const (
 )
 
 // NormalizeComplexity collapses common spellings to a canonical tier and
-// errors on unknown input. Empty input returns DefaultComplexity.
+// errors on unknown input. Empty input or "auto" returns DefaultComplexity —
+// the resolver layer can replace DefaultComplexity with config-derived values
+// later without changing this signature.
 //
 // Accepted spellings:
 //
+//	auto   | (empty) — DefaultComplexity (currently "high")
 //	low    | l
 //	medium | med | m
 //	high   | h
 func NormalizeComplexity(s string) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
-	case "":
+	case "", "auto":
 		return DefaultComplexity, nil
 	case "low", "l":
 		return ComplexityLow, nil
@@ -79,5 +108,5 @@ func NormalizeComplexity(s string) (string, error) {
 	case "high", "h":
 		return ComplexityHigh, nil
 	}
-	return "", fmt.Errorf("--complexity must be one of low|medium|high (got %q)", s)
+	return "", fmt.Errorf("--complexity must be one of auto|low|medium|high (got %q)", s)
 }

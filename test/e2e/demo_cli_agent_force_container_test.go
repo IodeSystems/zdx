@@ -14,25 +14,24 @@ import (
 // host process.
 //
 // The enforcement mechanism is the DX_AGENT_FORCE_CONTAINER environment
-// variable.  When it is set, `dx agent --provider=claude` without --container
-// exits immediately with a non-zero status and an error message that cites
-// spec-117 and instructs the user to pass --container.  When it is unset (the
-// dev default), the host path is allowed through the gate.
+// variable. When it is set, host execution (--container=local) exits
+// immediately with a spec-117 error. When it is unset (the dev default),
+// host execution is allowed.
 //
-// e5ac0ad4 removed the legacy `dx agent claude` subcommand in favour of a
-// unified `dx agent --provider=claude` parent. This test was not updated at
-// the time, so it kept invoking the old shape and failed with a "--provider is
-// required" error (which masked a quieter regression: enforceContainerExecution
-// had been threaded through dx agent loop's RunE only, leaving single-session
-// `dx agent` ungated). Both are addressed: the gate is back on
-// runManagedFromFlags, and the invocation here is the new shape.
+// History: --container started as a bool flag on `dx agent loop` only; later
+// became a string flag with values docker|local on the parent (default
+// docker). The test now exercises `dx agent --provider=claude
+// --container=local` as the host path, since that's the only way to opt out
+// of the new docker default — and that's what spec-117 needs to refuse when
+// DX_AGENT_FORCE_CONTAINER=1.
 //
 // The demo exercises both branches end-to-end through the compiled dx binary:
 //
-//   - gate unset: the command reaches past enforceContainerExecution and fails
-//     later (no remote config or claude binary), but NOT with a spec-117 error.
-//   - gate set: the command exits immediately; stderr contains "spec-117" and
-//     "container" and "DX_AGENT_FORCE_CONTAINER".
+//   - gate unset: --container=local is allowed; the command reaches past
+//     enforceContainerExecution and fails later (no remote config or claude
+//     binary), but NOT with a spec-117 error.
+//   - gate set: --container=local exits immediately; stderr contains
+//     "spec-117" and "container" and "DX_AGENT_FORCE_CONTAINER".
 func TestDemoCLI_AgentForceContainerBlocksHost(t *testing.T) {
 	writeDemoCoderefs(t, t.Name(), []coderef{
 		{FilePath: "test/e2e/demo_cli_agent_force_container_test.go", Note: "agent force-container demo source"},
@@ -61,7 +60,7 @@ func TestDemoCLI_AgentForceContainerBlocksHost(t *testing.T) {
 
 	run := func(extraEnv []string) (stderr string, exitCode int) {
 		t.Helper()
-		cmd := exec.Command(dxBin, "agent", "--provider=claude")
+		cmd := exec.Command(dxBin, "agent", "--provider=claude", "--container=local")
 		cmd.Dir = projectDir
 		env := os.Environ()
 		env = append(env, extraEnv...)

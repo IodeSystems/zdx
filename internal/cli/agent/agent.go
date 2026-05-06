@@ -21,8 +21,23 @@ import (
 	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
+// AgentCmd is the parent for every agent verb (run/loop/serve/lifecycle).
+// The execution-mode flags — --container, --worktree, --branch, --complexity
+// — are persistent so any verb inherits them without redeclaration. That
+// keeps the grammar coherent: the verb says *what* (single task vs loop vs
+// managed daemon); the persistent adjectives say *how* (in a container or
+// on the host, on which worktree/branch, at what model tier).
+//
+// Defaults are "auto" / "docker" — the system picks. Operators only specify
+// these flags when they want to override.
+//
+// Phase-1 scope (today): the flags are accepted and parsed. --container=docker
+// and --complexity=auto take their full effect (loop dispatches to container
+// mode by default; complexity resolves through the existing provider chain).
+// --worktree and --branch parse and reject non-"auto" values until Stream 1
+// (per-issue branch lifecycle, IS-1048) lands.
 func AgentCmd() *cobra.Command {
-	var provider, alias, issue, model, complexity, mcpContainer string
+	var provider, alias, issue, model, complexity, container, worktree, branch, mcpContainer string
 	cmd := &cobra.Command{
 		Use:   "agent",
 		Short: "Run a single agent session (use `dx agent loop` for the work loop)",
@@ -32,35 +47,81 @@ provider, so dx agent --provider=claude --complexity=high picks claude-opus-4-7,
 while --provider=opencode --complexity=high picks the project's configured
 high-tier model from admin/llm-configs.
 
-For the long-running work loop, use ` + "`dx agent loop --provider=X`" + ` (which
-also accepts --container for claude's docker-orchestrated parallel slots).`,
+Execution environment is selected via --container=docker|local (default
+docker). Container mode runs the agent inside MCP-slot containers with an
+isolated worktree per slot; local mode runs claude directly on the host
+against the operator's working tree.
+
+For the long-running work loop, use ` + "`dx agent loop --provider=X`" + `.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// When invoked with no flags, show usage rather than mint tokens.
 			if provider == "" && len(args) == 0 {
 				return cmd.Help()
 			}
+			mode, err := NormalizeContainer(container)
+			if err != nil {
+				return err
+			}
+			if mode == ContainerDocker {
+				return fmt.Errorf("single-session container mode (--container=docker) is not yet wired for `dx agent run`; use `dx agent loop --container=docker` or pass --container=local")
+			}
+			if err := rejectUnimplementedExplicit("worktree", worktree); err != nil {
+				return err
+			}
+			if err := rejectUnimplementedExplicit("branch", branch); err != nil {
+				return err
+			}
 			return runManagedFromFlags(cmd.Context(), cmd, provider, alias, issue, model, complexity, mcpContainer)
 		},
 	}
 	cmd.PersistentFlags().Bool("global", false, "force srcless mode using ~/.zdx/config.yaml instead of project config")
-	cmd.Flags().StringVar(&provider, "provider", "", "agent provider: "+providerNames()+" (required for managed run)")
-	cmd.Flags().StringVar(&alias, "alias", "", "agent alias for identification")
+
+	// Persistent identity/role flags — inherited by every subcommand so the
+	// grammar is "dx agent --provider=X --alias=Y <verb>" regardless of verb.
+	cmd.PersistentFlags().StringVar(&provider, "provider", "", "agent provider: "+providerNames()+" (required for managed run)")
+	cmd.PersistentFlags().StringVar(&alias, "alias", "", "agent alias for identification")
+	cmd.PersistentFlags().StringVar(&model, "model", "", "explicit model name (overrides --complexity)")
+	cmd.PersistentFlags().StringVar(&complexity, "complexity", "auto", "model tier: auto|low|medium|high (auto = high or config-derived; resolved by the provider)")
+
+	// Persistent execution-environment flags — the *how*, orthogonal to the
+	// verb. Defaults are "auto" / "docker"; operators override when they want
+	// host execution or pinned worktree/branch.
+	cmd.PersistentFlags().StringVar(&container, "container", "docker", "execution environment: docker (default) | local")
+	cmd.PersistentFlags().StringVar(&worktree, "worktree", "auto", "worktree path (auto = system picks/creates per claim) — non-auto pending IS-1048")
+	cmd.PersistentFlags().StringVar(&branch, "branch", "auto", "git branch (auto = derived per claim) — non-auto pending IS-1048")
+
+	// Single-session-only flags.
 	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
-	cmd.Flags().StringVar(&model, "model", "", "explicit model name (overrides --complexity)")
-	cmd.Flags().StringVar(&complexity, "complexity", DefaultComplexity, "model tier: low|medium|high (resolved by the provider)")
 	cmd.Flags().StringVar(&mcpContainer, "mcp-container", "", "dispatch tool calls through dx-agent --mcp-stdio running inside this container (opencode/local only)")
+
 	cmd.AddCommand(agentLoopCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd(), agentDrainCmd(), agentBudgetCmd())
 	return cmd
 }
 
+// rejectUnimplementedExplicit refuses any value other than "auto" / empty for
+// flags whose runtime support isn't wired yet. Surfaces the dependency so
+// users learn the right path instead of seeing the flag silently ignored.
+func rejectUnimplementedExplicit(flag, value string) error {
+	v := strings.ToLower(strings.TrimSpace(value))
+	if v == "" || v == "auto" {
+		return nil
+	}
+	return fmt.Errorf("--%s=%q not yet supported (tracked in IS-1048 — per-issue branch lifecycle); only --%s=auto is wired today", flag, value, flag)
+}
+
 // agentLoopCmd is the loop equivalent of dx agent. Dispatches through
-// DispatchLoop (or DispatchContainerLoop with --container) so providers
-// that implement LoopProvider/ContainerProvider get their own runtime;
-// plain providers get the universal RunManagedLoop.
+// DispatchLoop (or DispatchContainerLoop with --container=docker) so
+// providers that implement LoopProvider/ContainerProvider get their own
+// runtime; plain providers get the universal RunManagedLoop.
+//
+// Identity/role/environment flags (--provider, --alias, --model,
+// --complexity, --container, --worktree, --branch) are inherited from
+// the parent. Loop-only flags (--max-turns, --keep-container,
+// --max-worktrees, --chrome, --mcp-container) live here.
 func agentLoopCmd() *cobra.Command {
-	var provider, alias, model, complexity, mcpContainer string
+	var mcpContainer string
 	var maxTurns, maxWorktrees int
-	var container, keepContainer, chrome bool
+	var keepContainer, chrome bool
 	cmd := &cobra.Command{
 		Use:   "loop",
 		Short: "Loop: claim work, run a managed session per pick, repeat",
@@ -68,11 +129,31 @@ func agentLoopCmd() *cobra.Command {
 agent session per pick. Atomic claim/lease/release, churn backoff,
 self-update re-exec, and crash-recovery release work for all providers.
 
-With --container, runs N parallel slot containers (sleep infinity,
-/workspace mounted, sandboxed) and N host-side loops in parallel —
-LLM loops on the host, tool calls dispatch into the slot via
-docker exec dx-agent --mcp-stdio. Same shape across all three providers.`,
+Default --container=docker runs N parallel slot containers (sleep infinity,
+/workspace mounted, sandboxed) with one host-side loop per slot — LLM loops
+on the host, tool calls dispatch into the slot via docker exec dx-agent
+--mcp-stdio. Pass --container=local to run claude directly on the host
+against the operator's working tree (debug / no-docker fallback).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			provider := cmd.Flag("provider").Value.String()
+			alias := cmd.Flag("alias").Value.String()
+			model := cmd.Flag("model").Value.String()
+			complexity := cmd.Flag("complexity").Value.String()
+			containerVal := cmd.Flag("container").Value.String()
+			worktree := cmd.Flag("worktree").Value.String()
+			branch := cmd.Flag("branch").Value.String()
+
+			mode, err := NormalizeContainer(containerVal)
+			if err != nil {
+				return err
+			}
+			if err := rejectUnimplementedExplicit("worktree", worktree); err != nil {
+				return err
+			}
+			if err := rejectUnimplementedExplicit("branch", branch); err != nil {
+				return err
+			}
+
 			tier, err := NormalizeComplexity(complexity)
 			if err != nil {
 				return err
@@ -88,24 +169,22 @@ docker exec dx-agent --mcp-stdio. Same shape across all three providers.`,
 			if cmd.Flags().Changed("max-worktrees") && maxWorktrees > 0 {
 				opts.AgentCfg.MaxWorktrees = maxWorktrees
 			}
-			if container {
+			if mode == ContainerDocker {
 				return DispatchContainerLoop(cmd.Context(), provider, opts)
 			}
-			if err := enforceContainerExecution(container); err != nil {
+			// Local execution. enforceContainerExecution still gates on
+			// DX_AGENT_FORCE_CONTAINER (spec 117) — operators can refuse
+			// host execution at the env level even when --container=local.
+			if err := enforceContainerExecution(false); err != nil {
 				return err
 			}
 			return DispatchLoop(cmd.Context(), provider, opts)
 		},
 	}
-	cmd.Flags().StringVar(&provider, "provider", "", "agent provider: "+providerNames()+" (required)")
-	cmd.Flags().StringVar(&alias, "alias", "", "agent alias for identification")
-	cmd.Flags().StringVar(&model, "model", "", "explicit model name (overrides --complexity)")
-	cmd.Flags().StringVar(&complexity, "complexity", DefaultComplexity, "model tier: low|medium|high (resolved by the provider)")
 	cmd.Flags().IntVar(&maxTurns, "max-turns", 0, "cap on assistant turns per session (0 = unlimited; opencode/local only)")
-	cmd.Flags().BoolVar(&container, "container", false, "run agent in MCP-slot containers (N idle sandboxes with /workspace mounted; host runs the LLM loop, tool calls dispatch via 'docker exec dx-agent --mcp-stdio'; requires dev.Dockerfile)")
-	cmd.Flags().BoolVar(&keepContainer, "keep-container", false, "keep containers after exit (skip --rm; useful for debugging)")
+	cmd.Flags().BoolVar(&keepContainer, "keep-container", false, "keep slot containers after exit (skip --rm; useful for debugging)")
 	cmd.Flags().BoolVar(&chrome, "chrome", true, "pass --chrome to claude CLI (claude only; ignored otherwise)")
-	cmd.Flags().IntVar(&maxWorktrees, "max-worktrees", 0, "override agent.max_worktrees from config (container slots in --container mode)")
+	cmd.Flags().IntVar(&maxWorktrees, "max-worktrees", 0, "override agent.max_worktrees from config (container slot count in --container=docker mode)")
 	cmd.Flags().StringVar(&mcpContainer, "mcp-container", "", "dispatch tool calls through dx-agent --mcp-stdio running inside this container (opencode/local only)")
 	return cmd
 }
