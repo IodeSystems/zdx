@@ -21,27 +21,27 @@ type AgentItem struct {
 	// endpoint (/api/agents) so the UI can render scope without a
 	// secondary lookup. Empty when the agent is global or when called
 	// from the project-scoped list (which already knows the project).
-	ProjectSlug     string `json:"project_slug,omitempty"`
-	ProjectName     string `json:"project_name,omitempty"`
-	SessionID       string `json:"session_id"`
-	WorktreePath    string `json:"worktree_path"`
-	WorktreeBranch  string `json:"worktree_branch"`
-	Pid             int32  `json:"pid"`
-	Status          string `json:"status"`
-	TaskGroup       string `json:"task_group"`
-	ComposeProject  string `json:"compose_project"`
-	ServerPort      int32  `json:"server_port"`
-	DatabaseUrl     string `json:"database_url"`
-	ValkeyUrl       string `json:"valkey_url"`
-	Idle            bool   `json:"idle"`
+	ProjectSlug    string `json:"project_slug,omitempty"`
+	ProjectName    string `json:"project_name,omitempty"`
+	SessionID      string `json:"session_id"`
+	WorktreePath   string `json:"worktree_path"`
+	WorktreeBranch string `json:"worktree_branch"`
+	Pid            int32  `json:"pid"`
+	Status         string `json:"status"`
+	TaskGroup      string `json:"task_group"`
+	ComposeProject string `json:"compose_project"`
+	ServerPort     int32  `json:"server_port"`
+	DatabaseUrl    string `json:"database_url"`
+	ValkeyUrl      string `json:"valkey_url"`
+	Idle           bool   `json:"idle"`
 	// OriginallyGlobal is true when the agent was first registered into
 	// the global pool. Drives the assign/unassign rule: only originally-
 	// global agents can be pinned/unpinned.
 	OriginallyGlobal bool   `json:"originally_global"`
 	LastHeartbeat    string `json:"last_heartbeat"`
-	CreatedAt       string `json:"created_at"`
-	ConnectionState string `json:"connection_state"` // connected | disconnected | paused | draining
-	ConnectedAt     string `json:"connected_at"`     // non-empty when connection_state=connected
+	CreatedAt        string `json:"created_at"`
+	ConnectionState  string `json:"connection_state"` // connected | disconnected | paused | draining
+	ConnectedAt      string `json:"connected_at"`     // non-empty when connection_state=connected
 }
 
 type AgentTaskItem struct {
