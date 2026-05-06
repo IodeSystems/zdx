@@ -1,9 +1,12 @@
 package server
 
 import (
+	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -552,6 +555,18 @@ type statusCapture struct {
 func (w *statusCapture) WriteHeader(code int) {
 	w.code = code
 	w.ResponseWriter.WriteHeader(code)
+}
+
+// Hijack delegates to the underlying writer when it supports http.Hijacker.
+// nhooyr.io/websocket needs Hijacker to upgrade an HTTP connection at
+// /api/agents/connect; without this method, statusCapture (returned from
+// errorMiddleware) hides the inner ResponseWriter's Hijacker and WS
+// handshakes fail with "http.ResponseWriter does not implement http.Hijacker".
+func (w *statusCapture) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if h, ok := w.ResponseWriter.(http.Hijacker); ok {
+		return h.Hijack()
+	}
+	return nil, nil, errors.New("inner ResponseWriter does not implement http.Hijacker")
 }
 
 // errorMiddleware catches panics and 5xx responses, reporting them through
