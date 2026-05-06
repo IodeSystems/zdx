@@ -15,6 +15,7 @@ jest.mock('../../../../api', () => {
     useDeleteBranch: jest.fn(),
     useUpdateBranch: jest.fn(),
     useCreateBranch: jest.fn(),
+    useSeedBranches: jest.fn(),
   }
 })
 
@@ -29,7 +30,7 @@ jest.mock('@tanstack/react-router', () => ({
   Link: (props: any) => <a href={props.to}>{props.children}</a>,
 }))
 
-import { useBranches, useBranchDoctorRung, useDeferDoctorCheck, useMarkBranchEOL, useDeleteBranch, useUpdateBranch, useCreateBranch } from '../../../../api'
+import { useBranches, useBranchDoctorRung, useDeferDoctorCheck, useMarkBranchEOL, useDeleteBranch, useUpdateBranch, useCreateBranch, useSeedBranches } from '../../../../api'
 
 const mockedUseBranches = jest.mocked(useBranches)
 const mockedUseBranchDoctorRung = jest.mocked(useBranchDoctorRung)
@@ -38,6 +39,7 @@ const mockedUseMarkBranchEOL = jest.mocked(useMarkBranchEOL)
 const mockedUseDeleteBranch = jest.mocked(useDeleteBranch)
 const mockedUseUpdateBranch = jest.mocked(useUpdateBranch)
 const mockedUseCreateBranch = jest.mocked(useCreateBranch)
+const mockedUseSeedBranches = jest.mocked(useSeedBranches)
 
 function makeBranch(overrides: Partial<VersionBranchItem> = {}): VersionBranchItem {
   return {
@@ -72,6 +74,7 @@ beforeEach(() => {
   mockedUseDeleteBranch.mockReturnValue({ mutate: jest.fn(), isPending: false } as any)
   mockedUseUpdateBranch.mockReturnValue({ mutate: jest.fn(), isPending: false, isError: false } as any)
   mockedUseCreateBranch.mockReturnValue({ mutate: jest.fn(), isPending: false, isError: false } as any)
+  mockedUseSeedBranches.mockReturnValue({ mutate: jest.fn(), isPending: false, isError: false } as any)
 })
 
 afterEach(() => {
@@ -513,5 +516,127 @@ describe('CutReleaseDialog (TK-1684)', () => {
     fe.click(screen.getByTestId('cut-release-button'))
 
     expect(screen.getByTestId('cut-release-error')).toHaveTextContent('semver conflict')
+  })
+})
+
+describe('Empty-state seed preview (TK-1674)', () => {
+  beforeEach(() => {
+    mockedUseBranches.mockReturnValue({ data: [], isLoading: false } as any)
+  })
+
+  test('library classification previews single main branch', async () => {
+    mockedUseBranchDoctorRung.mockReturnValue({
+      data: makeRung({ classification: 'library', current_rung: 1 }),
+      isLoading: false,
+    } as any)
+
+    await renderPage()
+
+    expect(screen.getByTestId('seed-preview-main')).toBeInTheDocument()
+    expect(screen.queryByTestId('seed-preview-dev')).not.toBeInTheDocument()
+    expect(screen.getByTestId('seed-branches-button')).toBeInTheDocument()
+  })
+
+  test('tool classification previews single main branch', async () => {
+    mockedUseBranchDoctorRung.mockReturnValue({
+      data: makeRung({ classification: 'tool', current_rung: 1 }),
+      isLoading: false,
+    } as any)
+
+    await renderPage()
+
+    expect(screen.getByTestId('seed-preview-main')).toBeInTheDocument()
+    expect(screen.queryByTestId('seed-preview-dev')).not.toBeInTheDocument()
+  })
+
+  test('site classification previews single main branch', async () => {
+    mockedUseBranchDoctorRung.mockReturnValue({
+      data: makeRung({ classification: 'site', current_rung: 1 }),
+      isLoading: false,
+    } as any)
+
+    await renderPage()
+
+    expect(screen.getByTestId('seed-preview-main')).toBeInTheDocument()
+    expect(screen.queryByTestId('seed-preview-dev')).not.toBeInTheDocument()
+  })
+
+  test('service classification previews dev + main', async () => {
+    mockedUseBranchDoctorRung.mockReturnValue({
+      data: makeRung({ classification: 'service', current_rung: 1 }),
+      isLoading: false,
+    } as any)
+
+    await renderPage()
+
+    expect(screen.getByTestId('seed-preview-dev')).toBeInTheDocument()
+    expect(screen.getByTestId('seed-preview-main')).toBeInTheDocument()
+  })
+
+  test('saas classification previews dev + main', async () => {
+    mockedUseBranchDoctorRung.mockReturnValue({
+      data: makeRung({ classification: 'saas', current_rung: 1 }),
+      isLoading: false,
+    } as any)
+
+    await renderPage()
+
+    expect(screen.getByTestId('seed-preview-dev')).toBeInTheDocument()
+    expect(screen.getByTestId('seed-preview-main')).toBeInTheDocument()
+  })
+
+  test('unknown classification falls back to manual help text without seed button', async () => {
+    mockedUseBranchDoctorRung.mockReturnValue({
+      data: makeRung({ classification: '', current_rung: 1 }),
+      isLoading: false,
+    } as any)
+
+    await renderPage()
+
+    expect(screen.getByTestId('empty-state')).toBeInTheDocument()
+    expect(screen.queryByTestId('seed-branches-button')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('seed-preview-main')).not.toBeInTheDocument()
+  })
+
+  test('clicking Seed Branches calls mutate with slug', async () => {
+    const mutate = jest.fn()
+    mockedUseSeedBranches.mockReturnValue({ mutate, isPending: false, isError: false } as any)
+    mockedUseBranchDoctorRung.mockReturnValue({
+      data: makeRung({ classification: 'service', current_rung: 1 }),
+      isLoading: false,
+    } as any)
+
+    const { fireEvent: fe } = await import('@testing-library/react')
+    await renderPage()
+
+    fe.click(screen.getByTestId('seed-branches-button'))
+
+    expect(mutate).toHaveBeenCalledWith({ slug: 'test-project' })
+  })
+
+  test('seed error renders inline', async () => {
+    mockedUseSeedBranches.mockReturnValue({ mutate: jest.fn(), isPending: false, isError: true, error: new Error('seed failed: db down') } as any)
+    mockedUseBranchDoctorRung.mockReturnValue({
+      data: makeRung({ classification: 'service', current_rung: 1 }),
+      isLoading: false,
+    } as any)
+
+    await renderPage()
+
+    expect(screen.getByTestId('seed-branches-error')).toHaveTextContent('seed failed: db down')
+  })
+
+  test('button shows pending label while seeding', async () => {
+    mockedUseSeedBranches.mockReturnValue({ mutate: jest.fn(), isPending: true, isError: false } as any)
+    mockedUseBranchDoctorRung.mockReturnValue({
+      data: makeRung({ classification: 'service', current_rung: 1 }),
+      isLoading: false,
+    } as any)
+
+    await renderPage()
+
+    const btn = screen.getByTestId('seed-branches-button') as HTMLButtonElement
+    expect(btn).toBeDisabled()
+    expect(btn).toHaveTextContent(/Seeding/)
   })
 })

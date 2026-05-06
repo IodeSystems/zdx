@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, IconButton, InputLabel, MenuItem, Select, Skeleton, Snackbar, TextField, Tooltip, Typography } from '@mui/material'
 import { Add as AddIcon, ArrowUpward as UpgradeIcon, Delete as DeleteIcon, Edit as EditIcon, PowerSettingsNew as EolIcon, Snooze as SnoozeIcon } from '@mui/icons-material'
 import { useState } from 'react'
-import { useCreateBranch, useBranches, useBranchDoctorRung, useDeferDoctorCheck, useDeleteBranch, useMarkBranchEOL, useUpdateBranch, useUpdateBranchSettings, type CreateVersionBranchResult, type VersionBranchItem } from '../../../../api'
+import { useCreateBranch, useBranches, useBranchDoctorRung, useDeferDoctorCheck, useDeleteBranch, useMarkBranchEOL, useSeedBranches, useUpdateBranch, useUpdateBranchSettings, type CreateVersionBranchResult, type VersionBranchItem } from '../../../../api'
 
 const ROLE_ORDER = ['rolling-release', 'dev', 'pr-target', 'named-release']
 
@@ -714,6 +714,94 @@ function RungBanner({ slug, onUpgrade }: { slug: string; onUpgrade?: () => void 
   )
 }
 
+type SeedPreview = { name: string; role: string; source?: string }
+
+function classificationSeedPreview(classification: string | undefined): SeedPreview[] {
+  switch (classification) {
+    case 'library':
+    case 'tool':
+    case 'site':
+      return [{ name: 'main', role: 'rolling-release' }]
+    case 'service':
+    case 'saas':
+      return [
+        { name: 'dev', role: 'dev' },
+        { name: 'main', role: 'rolling-release', source: 'dev' },
+      ]
+    default:
+      return []
+  }
+}
+
+function EmptyState({ slug }: { slug: string }) {
+  const { data: rung } = useBranchDoctorRung(slug)
+  const seed = useSeedBranches()
+  const classification = rung?.classification
+  const preview = classificationSeedPreview(classification)
+
+  if (preview.length === 0) {
+    return (
+      <Box data-testid="empty-state">
+        <Typography color="text.secondary" sx={{ mb: 1 }}>No branches configured.</Typography>
+        <Typography variant="body2" color="text.secondary">
+          {classification
+            ? `No seed defined for classification "${classification}".`
+            : 'Project classification not set yet — add one via dx classify, then return here to seed.'}
+          {' '}Add a branch manually via{' '}
+          <Typography component="span" variant="body2" sx={{ fontFamily: 'monospace' }}>
+            dx branch add
+          </Typography>
+          {' '}or the Add Branch button above.
+        </Typography>
+      </Box>
+    )
+  }
+
+  return (
+    <Card variant="outlined" data-testid="empty-state">
+      <CardContent>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
+          No branches yet
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          Based on this project's classification (<strong>{classification}</strong>),
+          {preview.length === 1 ? ' one branch will be seeded:' : ` ${preview.length} branches will be seeded:`}
+        </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, mb: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+          {preview.map(s => (
+            <Box key={s.name} sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }} data-testid={`seed-preview-${s.name}`}>
+              <Typography sx={{ fontFamily: 'monospace', fontWeight: 600 }}>{s.name}</Typography>
+              <Chip
+                label={s.role}
+                size="small"
+                color={ROLE_CHIP_COLOR[s.role] ?? 'default'}
+                sx={{ fontSize: '0.7rem', height: 20 }}
+              />
+              {s.source && (
+                <Typography variant="caption" color="text.secondary">→ {s.source}</Typography>
+              )}
+            </Box>
+          ))}
+        </Box>
+        <Button
+          variant="contained"
+          size="small"
+          onClick={() => seed.mutate({ slug })}
+          disabled={seed.isPending}
+          data-testid="seed-branches-button"
+        >
+          {seed.isPending ? 'Seeding…' : 'Seed Branches'}
+        </Button>
+        {seed.isError && (
+          <Typography variant="caption" color="error" sx={{ display: 'block', mt: 1 }} data-testid="seed-branches-error">
+            {seed.error?.message ?? 'Seed failed'}
+          </Typography>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 function BranchesPage() {
   const { slug } = Route.useParams()
   const { data: branches, isLoading } = useBranches(slug)
@@ -750,19 +838,7 @@ function BranchesPage() {
       {isLoading ? (
         <CircularProgress sx={{ m: 4 }} />
       ) : sorted.length === 0 ? (
-        <Box data-testid="empty-state">
-          <Typography color="text.secondary" sx={{ mb: 1 }}>No branches configured.</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Add one via{' '}
-            <Typography component="span" variant="body2" sx={{ fontFamily: 'monospace' }}>
-              dx branch add
-            </Typography>
-            {' '}or{' '}
-            <Typography component="span" variant="body2" sx={{ fontFamily: 'monospace' }}>
-              POST /api/dx/projects/{'{'}slug{'}'}/branches
-            </Typography>
-          </Typography>
-        </Box>
+        <EmptyState slug={slug} />
       ) : (
         <>
           <SourceChain branches={sorted} />

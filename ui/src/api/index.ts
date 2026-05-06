@@ -3188,6 +3188,25 @@ export const useDeleteBranch = () => {
 
 export type CreateVersionBranchResult = components['schemas']['CreateVersionBranchResult']
 
+export const useSeedBranches = () => {
+  const qc = useQueryClient()
+  return useMutation<void, Error, { slug: string }>({
+    mutationFn: async ({ slug }) => {
+      const { error } = await client.POST('/api/dx/projects/{slug}/branches/seed' as never, {
+        params: { path: { slug } },
+      } as never)
+      if (error) {
+        const detail = (error as any).detail ?? JSON.stringify(error)
+        throw new Error(detail)
+      }
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['branches', v.slug] })
+      qc.invalidateQueries({ queryKey: ['branch-doctor-rung', v.slug] })
+    },
+  })
+}
+
 export const useCreateBranch = () => {
   const qc = useQueryClient()
   return useMutation<CreateVersionBranchResult, Error, { slug: string; name: string; role?: string; semver?: string; source_branch_name?: string }>({
