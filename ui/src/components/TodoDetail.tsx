@@ -9,11 +9,16 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
-import { useTodoDetail, useCreateIssue } from '../api'
+import {
+  ArrowBack as ArrowBackIcon,
+  ArrowUpward as PushIcon,
+} from '@mui/icons-material'
+import { useTodoDetail, useCreateIssue, useSetTodoPriority } from '../api'
 import { MarkdownContent } from './MarkdownContent'
 
 const KIND_COLORS: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
@@ -37,9 +42,12 @@ export function TodoDetail({ slug, todoKey }: { slug: string; todoKey: string })
   const router = useRouter()
   const { data, isLoading, error } = useTodoDetail(slug, todoKey)
   const createIssue = useCreateIssue()
+  const setPriority = useSetTodoPriority()
   const [issueOpen, setIssueOpen] = useState(false)
   const [issueContext, setIssueContext] = useState('')
   const [createdIssueId, setCreatedIssueId] = useState<number | null>(null)
+  const [priorityOpen, setPriorityOpen] = useState(false)
+  const [priorityDraft, setPriorityDraft] = useState('')
 
   if (isLoading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
@@ -87,6 +95,21 @@ export function TodoDetail({ slug, todoKey }: { slug: string; todoKey: string })
       <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
         <Chip label={todo.kind} size="small" color={KIND_COLORS[todo.kind] || 'default'} variant="outlined" />
         <Chip label={`priority ${todo.priority}`} size="small" variant="outlined" />
+        <Tooltip title="Push priority (lower number = higher claim order; survives re-evaluate)">
+          <span>
+            <IconButton
+              size="small"
+              onClick={() => {
+                setPriorityDraft(String(Math.max(1, todo.priority - 1)))
+                setPriorityOpen(true)
+              }}
+              disabled={setPriority.isPending}
+              sx={{ p: 0.25 }}
+            >
+              <PushIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
         {todo.persona && <Chip label={todo.persona} size="small" variant="outlined" />}
         {todo.blocked && todo.reference_issue_id ? (
           <Chip
@@ -295,6 +318,42 @@ export function TodoDetail({ slug, todoKey }: { slug: string; todoKey: string })
               Create issue
             </Button>
           )}
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={priorityOpen} onClose={() => setPriorityOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Push priority</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Lower number = earlier in the claim queue. The next solo
+            re-evaluate keeps this value (LEAST clause), so the push sticks.
+            Current: <strong>{todo.priority}</strong>.
+          </Typography>
+          <TextField
+            autoFocus
+            type="number"
+            label="New priority"
+            value={priorityDraft}
+            onChange={e => setPriorityDraft(e.target.value)}
+            fullWidth
+            slotProps={{ htmlInput: { min: 0, max: 1000 } }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPriorityOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={setPriority.isPending || !priorityDraft.trim() || isNaN(Number(priorityDraft))}
+            onClick={() => {
+              const n = Math.max(0, Math.floor(Number(priorityDraft)))
+              setPriority.mutate(
+                { slug, key: todoKey, priority: n },
+                { onSuccess: () => setPriorityOpen(false) },
+              )
+            }}
+          >
+            Push
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

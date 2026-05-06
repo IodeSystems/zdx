@@ -260,6 +260,45 @@ func (h *Handler) registerTodoRoutes(api huma.API) {
 			}}, nil
 		})
 
+	// Operator-driven priority push — bumps a todo to the front of the claim
+	// queue by writing a smaller `priority` integer. UpsertTodo's LEAST()
+	// clause makes pushes survive re-evaluate, so this isn't a one-shot.
+	// Per docs/plan.md (GAPD phase 3, mark-as-priority element).
+	huma.Register(api, huma.Operation{OperationID: "set-todo-priority", Method: http.MethodPut, Path: "/api/dx/projects/{slug}/todos/{key}/priority"},
+		func(ctx context.Context, in *struct {
+			Slug string `path:"slug"`
+			Key  string `path:"key"`
+			Body struct {
+				Priority int32 `json:"priority" required:"true"`
+			}
+		}) (*struct {
+			Body struct {
+				Priority int32 `json:"priority"`
+			}
+		}, error) {
+			if in.Body.Priority < 0 {
+				return nil, apiErr(http.StatusBadRequest, "priority must be >= 0")
+			}
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if err := h.Q.SetTodoPriority(ctx, db.SetTodoPriorityParams{
+				Priority:  in.Body.Priority,
+				ProjectID: p.ID,
+				Key:       in.Key,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct {
+				Body struct {
+					Priority int32 `json:"priority"`
+				}
+			}{Body: struct {
+				Priority int32 `json:"priority"`
+			}{Priority: in.Body.Priority}}, nil
+		})
+
 	type postIncompleteReportInput struct {
 		Slug string `path:"slug"`
 		Key  string `path:"key"`

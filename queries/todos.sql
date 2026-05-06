@@ -44,7 +44,12 @@ ON CONFLICT (project_id, key) DO UPDATE SET
   title = EXCLUDED.title,
   description = EXCLUDED.description,
   persona = EXCLUDED.persona,
-  priority = EXCLUDED.priority,
+  -- priority: take the lower (more urgent) value so operator-pushed pri stays
+  -- bumped across re-evaluate. The natural priority computed for each kind is
+  -- a ceiling — once an operator escalates, only an even-higher escalation
+  -- (smaller integer) replaces it. To restore natural priority, write the
+  -- desired value via PUT /api/dx/projects/{slug}/todos/{key}/priority.
+  priority = LEAST(zdx_todos.priority, EXCLUDED.priority),
   status = CASE WHEN zdx_todos.status = 'resolved' THEN 'open' ELSE zdx_todos.status END,
   target_type = EXCLUDED.target_type,
   target_id = EXCLUDED.target_id,
@@ -90,6 +95,13 @@ SELECT id, project_id, text, title, description, key, persona, priority, status,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
        claim_base_sha, claim_base_branch
 FROM zdx_todos WHERE id = $1;
+
+-- name: SetTodoPriority :exec
+-- Operator-driven push: set the todo's priority directly. UpsertTodo's
+-- LEAST() clause preserves the value across re-evaluate, so a push sticks
+-- until another operator write or until natural priority drops below it.
+UPDATE zdx_todos SET priority = @priority
+WHERE project_id = @project_id AND key = @key;
 
 -- name: ResolveTodosNotInKeys :exec
 UPDATE zdx_todos SET status = 'resolved', resolved_at = NOW()

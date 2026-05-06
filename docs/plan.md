@@ -234,10 +234,16 @@ endpoints → UI.
 Global agents can pick up cross-project work without manual pinning;
 operator escalates urgent work via mark-as-priority; auth story is proper.
 
-- [ ] **Mark as priority.** Per-todo flag (or priority-bump column) that
-  overrides normal queue ordering. Surfaces the todo at the top of the
-  next claim regardless of kind/priority. UI verb on the todo row + per-
-  issue page.
+- [x] **Priority push** — operator escalation as an integer push, not a
+  separate flag column. `UpsertTodo` now uses
+  `priority = LEAST(zdx_todos.priority, EXCLUDED.priority)` so the bump
+  survives re-evaluate (the natural priority computed for each kind
+  becomes a ceiling — once an operator pushes lower, the lower value
+  stays). Endpoint: `PUT /api/dx/projects/{slug}/todos/{key}/priority`
+  body `{priority}`. UI verb: ↑ Push button on the todo detail page
+  next to the priority chip; opens a small dialog with a number input.
+  Adding the push verb to the queue-row and per-issue todo lists is a
+  follow-up.
 - [ ] **Cross-project queue browsing for unpinned global agents.**
   - Schema: `zdx_projects.priority INT NOT NULL DEFAULT 5`
   - Server: cached cross-project priority list (`zdx_solo_global_view`,

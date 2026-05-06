@@ -600,6 +600,24 @@ export const useTodoDetail = (slug: string, key: string) =>
     enabled: !!slug && !!key,
   })
 
+export const useSetTodoPriority = () => {
+  const qc = useQueryClient()
+  return useMutation<{ priority: number }, Error, { slug: string; key: string; priority: number }>({
+    mutationFn: async ({ slug, key, priority }) => {
+      const { data, error } = await client.PUT('/api/dx/projects/{slug}/todos/{key}/priority' as any, {
+        params: { path: { slug, key } } as any,
+        body: { priority } as any,
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as { priority: number }
+    },
+    onSuccess: (_, { slug, key }) => {
+      qc.invalidateQueries({ queryKey: ['todo-detail', slug, key] })
+      qc.invalidateQueries({ queryKey: ['solo-todos'] })
+    },
+  })
+}
+
 export const useEvaluateSolo = () => {
   return useMutation<EvaluateDiff, Error, { slug: string; issue?: string }>({
     mutationFn: async ({ slug, issue }) => {
