@@ -15,7 +15,7 @@ import {
   ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material'
 import { useFeature, useTasks, useSpecTests, useFeatureCoverage, useListConcernsForFeature, useListConcernsForSpec, type TaskItem, type SpecItem as BaseSpecItem, type SpecCoverageItem } from '../api'
-import { CommentsAndRevisions } from './CommentsAndRevisions'
+import { EventStream } from './EventStream'
 import { ConcernBadge } from './ConcernBadge'
 import { DemosSection } from './DemoPlayer'
 import { MarkdownContent } from './MarkdownContent'
@@ -361,7 +361,7 @@ export function FeatureDetail({
           </Box>
         ))
       )}
-      <CommentsAndRevisions slug={slug} targetType="feature" targetId={name} />
+      <EventStream slug={slug} targetType="feature" targetId={name} />
     </Box>
   )
 }
