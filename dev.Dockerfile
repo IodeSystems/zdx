@@ -16,8 +16,12 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
  && rm -rf /var/lib/apt/lists/* \
  && npm install -g pnpm
 
-# sqlc (query codegen)
-RUN go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+# sqlc (query codegen) — pinned per CLAUDE.md "Codegen Toolchain — Verified
+# Versions". @latest pulls v1.31.x which requires Go 1.26+, breaking the
+# image build against the golang:1.25 base. The pin is also load-bearing
+# for the merge-train invariant ("bit-identical codegen output across
+# workers") — bumping requires the double-regen idempotency audit (TK-1416).
+RUN go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
 
 # Non-root agent user; matches default UID on most Linux dev hosts.
 RUN useradd -m -u 1000 -s /bin/bash agent

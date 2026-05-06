@@ -201,7 +201,14 @@ func runMCPContainerLoop(parentCtx context.Context, providerName string, opts Pr
 			slotOpts := opts
 			slotOpts.Alias = fmt.Sprintf("%s-%d", opts.Alias, slot)
 			slotOpts.ClusterID = clusterID
-			slotOpts.MCPCommand = []string{"docker", "exec", "-i", slotName, "dx-agent", "--mcp-stdio"}
+			// /workspace/bin/dx-agent — absolute path, not bare `dx-agent`. The
+			// dev image (dev.Dockerfile) builds without /workspace/bin on $PATH,
+			// so a bare command resolves to "executable not found in $PATH" and
+			// claude's --mcp-config silently fails to wire up the dx-tools
+			// server. With --tools "" disabling claude's built-ins, that left
+			// the in-slot session with only the host's chrome/LSP MCP tools and
+			// no Bash/Read/Edit — the agents kept reporting they couldn't act.
+			slotOpts.MCPCommand = []string{"docker", "exec", "-i", slotName, "/workspace/bin/dx-agent", "--mcp-stdio"}
 			if err := RunManagedLoop(ctx, providerName, slotOpts); err != nil && ctx.Err() == nil {
 				fmt.Fprintf(os.Stderr, "slot %d (%s) loop error: %v\n", slot, slotName, err)
 			}

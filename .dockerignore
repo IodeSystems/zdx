@@ -1,0 +1,24 @@
+# Anything reproducible from the source tree shouldn't be in the build
+# context. The image build runs `chown -R agent:agent /workspace`, and
+# without these excludes that walks ~1.2GB of node_modules + cached repos
+# and stalls the container babysit before slots ever come up.
+.git/
+.idea/
+.vite/
+.zdx/
+.claude/
+ui/node_modules/
+ui/dist/
+ui/.tanstack/
+ui/.eslintcache
+node_modules/
+bin/
+vec/
+test/e2e/vec/
+test/e2e/repos/
+repos/
+data/
+deploy/
+schema/compat-result.txt
+**/*.tsbuildinfo
+**/*.eslintcache
