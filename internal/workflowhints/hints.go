@@ -442,20 +442,6 @@ func NoGoalsText() Hint {
 	}
 }
 
-// NoConstraintsText builds a Hint for a project with no constraints.
-func NoConstraintsText() Hint {
-	return Hint{
-		Title:       "No constraints defined",
-		Description: "Constraints capture non-negotiable boundaries.",
-		Instructions: "Project has no constraints defined.\n\n" +
-			"Constraints capture non-negotiable boundaries (latency budgets, compliance requirements, data locality, etc.).\n" +
-			"For each: `dx constraint add \"<constraint>\"`.\n" +
-			"Stop after adding — let the next solo pick drive next steps." +
-			BlockerQuestionCriteriaFragment +
-			ContractFooter("owner:constraints"),
-	}
-}
-
 // StandupOverdueText builds a Hint for an overdue standup check-in.
 //
 // The standup report is the agent's value proposition to the stakeholder:

@@ -307,15 +307,6 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 				Kind: "owner:goals", TargetType: "project", Priority: 15, Persona: "owner",
 			})
 		}
-		constraintCount, _ := h.Q.CountProjectConstraints(ctx, projectID)
-		if constraintCount == 0 {
-			ch := workflowhints.NoConstraintsText()
-			candidates = append(candidates, soloCandidate{
-				Key: "health-constraints", Title: ch.Title, Description: ch.Description, Text: ch.Instructions,
-				Kind: "owner:constraints", TargetType: "project", Priority: 15, Persona: "owner",
-			})
-		}
-
 		closedTaskCount, _ := h.Q.CountClosedTasks(ctx, projectID)
 		if closedTaskCount > 0 {
 			var ownerDate, techDate string

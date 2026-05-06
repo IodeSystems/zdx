@@ -32,7 +32,6 @@ func main() {
 		project.FeatureCmd(),
 		project.GoalCmd(),
 		project.VisionCmd(),
-		work.ConstraintCmd(),
 		project.JournalCmd(),
 		project.FocusCmd(),
 		project.ThemeCmd(), // legacy alias

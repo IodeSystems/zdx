@@ -480,10 +480,6 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 				fmt.Println("[owner:goals]  project has no goals defined — dx goal add <title>")
 				return nil
 			}
-			if health.ConstraintCount == 0 {
-				fmt.Println("[owner:constraints]  project has no constraints defined — dx constraint add <title>")
-				return nil
-			}
 			if overdue, role := journalOverdue(health.OwnerJournalDate, health.TechJournalDate, health.ClosedTaskCount); overdue {
 				fmt.Printf("[%s:standup]  %s standup check-in overdue — dx standup checkin --%s\n", role, role, role)
 				return nil
