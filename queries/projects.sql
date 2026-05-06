@@ -1,6 +1,12 @@
 -- name: ListProjects :many
 SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects ORDER BY name;
 
+-- name: ListProjectsByPriority :many
+-- Used by the cross-project claim path so generateSoloQueue runs first
+-- against the highest-priority project and the persisted queue is
+-- freshest where it matters most. Tie-break by name for stable order.
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects ORDER BY priority, name;
+
 -- name: GetProjectBySlug :one
 SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects WHERE slug = $1;
 

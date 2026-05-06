@@ -15,7 +15,7 @@ resume on remaining work.
 |-------|-------|
 | 1 — schema + connect verb + list endpoint | ✅ shipped (`21bc378f`) |
 | 2 — UI panel + pin/unpin + flag fix | ✅ shipped 2026-05-06 — API smoke + Playwright e2e (`TestDemoBrowser_AgentsPoolPanel`) cover the full pin/unpin loop |
-| 3 — priority bump + cross-project queue + admin auth | 🟡 in flight — project priority schema (`686633f9`), per-todo priority bump (`2625eb18`), bump-verb spread to QueueView + timeline, transitional admin-token auth, and periodic in-server reaper shipped; cross-project claim path and the strict-reject flip on global auth still open |
+| 3 — priority bump + cross-project queue + admin auth | 🟡 in flight — project priority schema (`686633f9`), per-todo priority bump (`2625eb18`), bump-verb spread to QueueView + timeline, transitional admin-token auth, periodic in-server reaper, and cross-project /api/dx/solo/claim-any shipped; only the strict-reject flip on global auth still open before phase-3 close |
 
 ## Why stabilization mode
 
@@ -264,14 +264,39 @@ operator escalates urgent work via mark-as-priority; auth story is proper.
     issue-page todo list is wanted later, gate it as a separate task.
   Hook re-used: `useSetTodoPriority`. Dialog copy says "Bump" and
   "the bump sticks" (LEAST-preserved on re-evaluate).
-- [ ] **Cross-project queue browsing for unpinned global agents.**
-  - Server: cached cross-project priority list (`zdx_solo_global_view`,
-    materialized view, or trigger-rebuilt cache — TBD after costing pass).
-  - Claim path: global agents (no `project_id`, not pinned) call
-    `POST /api/dx/solo/claim-any` against the cross-project view.
-  - Composite ordering: project_priority × todo.priority. Lower-is-
-    earlier on both axes; LEAST() on the upsert side (already in place
-    for todos) keeps operator pushes durable.
+- [x] **Cross-project queue browsing for unpinned global agents.**
+  Done. Costing pass first: prod (migration 148, 4 projects, 1
+  active, 0 globals ever, 12/hr avg claims, 168/hr peak — all
+  single-project) does not warrant any caching layer. No
+  `zdx_solo_global_view`, no materialized view, no triggers.
+  Composite ordering pushed straight to the live tables:
+  - New SQL `ClaimNextTodoAny` (queries/todos.sql) — single
+    atomic CTE-UPDATE ordered by `p.priority, t.priority,
+    t.created_at` with `FOR UPDATE OF t SKIP LOCKED`. Returns
+    `project_slug` so the caller can route follow-ups.
+  - New SQL `ListProjectsByPriority` (queries/projects.sql) —
+    used by the new endpoint to refresh persisted queues in
+    priority order before the atomic claim, mirroring today's
+    per-project /claim invariant (stale persisted state can't
+    hide claimable work).
+  - New endpoint `POST /api/dx/solo/claim-any`
+    (handlers_solo.go) body `{agent_id, lease_minutes, mode}`.
+    Refreshes every project's queue, then ClaimNextTodoAny;
+    404 when the union is empty.
+  - Existing `POST /api/dx/solo/claim` with `slug=""` retains
+    its first-project-with-anything-claimable behavior so
+    older daemons keep working — the new endpoint is
+    additive. Daemon migration to claim-any is a follow-up.
+  Smoke-tested against the local 7601 dev DB: claim-any on a
+  project with no real work produced a synthetic
+  owner:goals health todo with `project_slug: "smoke"`,
+  status 200; with no projects-with-claimable-work the
+  endpoint would 404. With many globals colliding on the
+  same row, SKIP LOCKED hands them different items (same
+  guarantee as ClaimNextTodo). When prod scales past ~50
+  projects with concurrent globals, revisit caching against
+  measured numbers — the costing pass note above gives the
+  thresholds to watch.
 - [x] **Admin token auth — transitional.** Done. WS handshake now
   authorizes the registration against the token's role +
   `project_scope` (already stamped on ctx by `apiKeyMiddleware`).
@@ -405,13 +430,14 @@ gated on the costing pass).
    plus a test flip. Don't do this until operators have migrated
    their `dx agent connect --global` workflows.
 
-2. **Cross-project queue costing pass + claim path.** Deferred until
-   queue size + access pattern data warrants the cache. Worth a brief
-   measurement in prod before designing — open prod dashboard, scan
-   solo claim rate per project, decide cache strategy
-   (materialized view vs. trigger-rebuilt cache vs. per-claim
-   composite scan). Once the path is chosen, schema is small but the
-   invalidation contract isn't.
+2. **Migrate the daemon onto `/claim-any`.** Today's `dx agent connect`
+   path still calls `/api/dx/solo/claim` with `slug=""` for global
+   agents. The new endpoint exists but has no caller yet. Plumb the
+   dxclient `SoloClaimAny` method (regenerated when the OpenAPI spec
+   reaches the merge-train) through `agentdaemon` so global agents
+   pick up the composite-priority ordering. Existing `/claim` with
+   empty slug stays in place for back-compat until the migration
+   lands.
 
 3. **(maybe) Flat issue-page todo list.** Bump now lives on the
    timeline `created` event for each issue's todos. If operators
@@ -469,3 +495,4 @@ generated file, unstages it, then commits the remainder.
 - (this commit) feat(server): admin-token auth for global agent connect (transitional)
 - (this commit) fix(devmode): write api.gen.ts to absolute path (avoid ui/ui ghost)
 - (this commit) feat(server): periodic in-server reaper, drop manual /api/agents/reap + CLI
+- (this commit) feat(server): /api/dx/solo/claim-any cross-project claim ordered by project_priority×todo_priority

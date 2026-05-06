@@ -1132,6 +1132,112 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			return &struct{ Body soloClaimBody }{Body: soloClaimBody{TodoItem: *item, Debug: debugOutput(ctx)}}, nil
 		})
 
+	// POST /api/dx/solo/claim-any — cross-project claim for unpinned global agents.
+	// Refreshes every project's persisted queue in priority order (so
+	// generateSoloQueue's invariants — same as the per-project /claim path —
+	// hold here too: stale persisted state can't cause a missed claim), then
+	// runs a single atomic ClaimNextTodoAny that picks the best todo across
+	// projects ordered by project.priority, todo.priority, created_at. The
+	// claimed item carries project_slug so the caller can route follow-up
+	// API calls to the right namespace. See docs/plan.md GAPD phase 3.
+	huma.Register(api, huma.Operation{OperationID: "solo-claim-any", Method: http.MethodPost, Path: "/api/dx/solo/claim-any"},
+		func(ctx context.Context, in *struct {
+			Debug       string `query:"debug" required:"false"`
+			XAtlasDebug string `header:"X-Atlas-Debug" required:"false"`
+			Body        struct {
+				AgentID      string `json:"agent_id"`
+				LeaseMinutes int32  `json:"lease_minutes" required:"false"`
+				Mode         string `json:"mode" required:"false"`
+			}
+		}) (*struct{ Body soloClaimBody }, error) {
+			var err error
+			ctx, _, err = debugStart(ctx, in.Debug, in.XAtlasDebug)
+			if err != nil {
+				return nil, err
+			}
+
+			leaseMin := in.Body.LeaseMinutes
+			if leaseMin == 0 {
+				leaseMin = 10
+			}
+			autonomous := in.Body.Mode == "autonomous"
+			trace.Note(ctx, "lease_minutes", leaseMin)
+
+			projects, err := h.Q.ListProjectsByPriority(ctx)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			for _, p := range projects {
+				if expired, _ := h.Q.ReclaimExpiredTodos(ctx, p.ID); len(expired) > 0 {
+					for _, t := range expired {
+						_ = h.Q.ReleaseReservation(ctx, db.ReleaseReservationParams{
+							ProjectID:  t.ProjectID,
+							TargetType: "todo",
+							TargetID:   fmt.Sprintf("%d", t.ID),
+						})
+					}
+				}
+				proposed, err := h.generateSoloQueue(ctx, p.ID, "", autonomous)
+				if err != nil {
+					trace.Note(ctx, "queue_refresh_skipped", map[string]any{"slug": p.Slug, "err": err.Error()})
+					continue
+				}
+				existingBlocked, existingReason := loadExistingBlockedByKey(ctx, h.Q, p.ID)
+				for _, c := range proposed {
+					blocked := c.Blocked
+					blockedReason := c.BlockedReason
+					if existingBlocked[c.Key] {
+						blocked = true
+						if blockedReason == "" {
+							blockedReason = existingReason[c.Key]
+						}
+					}
+					_, _ = h.Q.UpsertTodo(ctx, db.UpsertTodoParams{
+						ProjectID:     p.ID,
+						Title:         c.Title,
+						Description:   c.Description,
+						Text:          c.Text,
+						Key:           c.Key,
+						Persona:       c.Persona,
+						Priority:      c.Priority,
+						Status:        "open",
+						TargetType:    c.TargetType,
+						TargetID:      c.TargetID,
+						Kind:          c.Kind,
+						IssueRef:      c.IssueRef,
+						Blocked:       blocked,
+						BlockedReason: blockedReason,
+					})
+				}
+			}
+
+			baseSha, baseBranch := resolveGitHead()
+			row, err := h.Q.ClaimNextTodoAny(ctx, db.ClaimNextTodoAnyParams{
+				AgentID:         in.Body.AgentID,
+				LeaseMinutes:    leaseMin,
+				ClaimBaseSha:    baseSha,
+				ClaimBaseBranch: baseBranch,
+			})
+			if err != nil {
+				// pgx returns ErrNoRows when the CTE produced zero rows.
+				return nil, apiErr(404, "no claimable todo items")
+			}
+			trace.Note(ctx, "claimed_any_atomic", map[string]any{
+				"id":   row.ID,
+				"key":  row.Key,
+				"slug": row.ProjectSlug,
+			})
+			_, _ = h.Q.InsertReservation(ctx, db.InsertReservationParams{
+				ProjectID:      row.ProjectID,
+				TargetType:     "todo",
+				TargetID:       fmt.Sprintf("%d", row.ID),
+				ClaimedBy:      row.ClaimedBy,
+				LeaseExpiresAt: row.LeaseExpiresAt,
+			})
+			item := toTodoItemFromAnyClaim(row)
+			return &struct{ Body soloClaimBody }{Body: soloClaimBody{TodoItem: item, Debug: debugOutput(ctx)}}, nil
+		})
+
 	// POST /api/dx/solo/release — release or resolve a claimed todo
 	//
 	// When resolve=true the todo is marked resolved. Two guards prevent a
@@ -1477,6 +1583,35 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			})
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
+}
+
+func toTodoItemFromAnyClaim(r db.ClaimNextTodoAnyRow) TodoItem {
+	return TodoItem{
+		ID:               r.ID,
+		Text:             r.Text,
+		Title:            r.Title,
+		Description:      r.Description,
+		Key:              r.Key,
+		Persona:          r.Persona,
+		Priority:         r.Priority,
+		Status:           r.Status,
+		TargetType:       r.TargetType,
+		TargetID:         r.TargetID,
+		Kind:             r.Kind,
+		IssueRef:         r.IssueRef,
+		TargetBranch:     r.TargetBranch,
+		ProjectSlug:      r.ProjectSlug,
+		Blocked:          r.Blocked,
+		BlockedReason:    r.BlockedReason,
+		CycleCount:       r.CycleCount,
+		ReferenceIssueID: r.ReferenceIssueID,
+		SuggestedAction:  suggestedActionForKind(r.Kind, r.TargetType, r.TargetID),
+		ClaimBaseSha:     r.ClaimBaseSha,
+		ClaimedBy:        r.ClaimedBy,
+		ClaimedAt:        fmtTS(r.ClaimedAt),
+		CreatedAt:        fmtTS(r.CreatedAt),
+		ResolvedAt:       fmtTS(r.ResolvedAt),
+	}
 }
 
 func toTodoItemFromClaim(r db.ClaimNextTodoRow) TodoItem {

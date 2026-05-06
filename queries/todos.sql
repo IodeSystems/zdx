@@ -141,6 +141,49 @@ SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.p
 FROM claimed c
 LEFT JOIN zdx_issues i ON i.id = c.issue_ref;
 
+-- name: ClaimNextTodoAny :one
+-- Cross-project atomic claim for unpinned global agents. Picks the
+-- single best todo across every project, ordered by project.priority
+-- (lower=earlier, default 5), then todo.priority, then created_at.
+-- The composite ordering means a low-priority project can still
+-- starve out a high-priority project's stale low-priority work, and
+-- operator priority bumps (LEAST-preserved on UpsertTodo) cut through
+-- the same way they do per-project. Same FOR UPDATE SKIP LOCKED
+-- semantics as ClaimNextTodo so concurrent global agents don't
+-- collide. Returns project_slug so the caller can route follow-up
+-- API calls to the right project namespace.
+WITH claimed AS (
+  UPDATE zdx_todos SET
+    claimed_by        = @agent_id,
+    claimed_at        = NOW(),
+    lease_expires_at  = NOW() + (@lease_minutes::int || ' minutes')::interval,
+    claim_base_sha    = @claim_base_sha,
+    claim_base_branch = @claim_base_branch
+  WHERE id = (
+    SELECT t.id FROM zdx_todos t
+    JOIN zdx_projects p ON p.id = t.project_id
+    WHERE t.status = 'open'
+      AND t.blocked = false
+      AND (t.claimed_by = '' OR t.lease_expires_at < NOW())
+    ORDER BY p.priority, t.priority, t.created_at
+    LIMIT 1
+    FOR UPDATE OF t SKIP LOCKED
+  )
+  RETURNING id, project_id, text, title, description, key, persona, priority, status,
+            target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
+            claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+            claim_base_sha, claim_base_branch
+)
+SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
+       c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
+       c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
+       c.claim_base_sha, c.claim_base_branch,
+       COALESCE(i.target_branch, 'dev') AS target_branch,
+       p.slug AS project_slug
+FROM claimed c
+LEFT JOIN zdx_issues i ON i.id = c.issue_ref
+JOIN zdx_projects p ON p.id = c.project_id;
+
 -- name: ReleaseTodo :exec
 -- Release a claimed todo (agent finished or abandoned).
 UPDATE zdx_todos SET
