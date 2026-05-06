@@ -133,8 +133,18 @@ func (h *Handler) HandleLogStream() http.HandlerFunc {
 				// id: is the RFC3339Nano timestamp so a Last-Event-ID
 				// reconnect resumes from the right cursor.
 				fmt.Fprintf(w, "id: %s\ndata: %s\n\n", ts, body)
-				if row.CreatedAt.Valid && row.CreatedAt.Time.After(cursor) {
-					cursor = row.CreatedAt.Time.Add(time.Nanosecond)
+				// IS-1038: postgres timestamptz has microsecond precision;
+				// time.Time → timestamptz round-trips drop nanoseconds. A
+				// +1ns advance gets truncated server-side, leaving cursor
+				// equal to the just-served row's stored time, so the next
+				// poll's `created_at >= cursor` re-fetches the same event.
+				// Bump by 1µs unconditionally to land strictly past the
+				// stored value.
+				if row.CreatedAt.Valid {
+					next := row.CreatedAt.Time.Add(time.Microsecond)
+					if next.After(cursor) {
+						cursor = next
+					}
 				}
 				sent = true
 			}
