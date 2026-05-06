@@ -758,6 +758,31 @@ type EvaluateDiff struct {
 	Unchanged []SoloQueueItem  `json:"unchanged"`
 }
 
+// loadExistingBlockedByKey returns maps of key→blocked and key→blocked_reason
+// for every currently-blocked todo on a project. Used by claim and refresh
+// paths to propagate prior block state onto regenerated synthetic candidates,
+// whose c.Blocked is always false (the regenerator has no source-of-truth for
+// it). Without this, UpsertTodo's ON CONFLICT would clobber the cycle-detector
+// or churn-guard's blocked=true with the regenerator's false on every claim,
+// re-opening the very cycles those guards exist to prevent (IS-1041 — the
+// deeper layer of IS-1040, which only fixed read:comments by side-channel
+// tracking unread state).
+func loadExistingBlockedByKey(ctx context.Context, q *db.Queries, projectID int32) (blocked map[string]bool, reason map[string]string) {
+	blocked = map[string]bool{}
+	reason = map[string]string{}
+	rows, err := q.ListTodos(ctx, projectID)
+	if err != nil {
+		return
+	}
+	for _, r := range rows {
+		if r.Blocked {
+			blocked[r.Key] = true
+			reason[r.Key] = r.BlockedReason
+		}
+	}
+	return
+}
+
 // refreshQueueAsync regenerates and applies the solo queue for a project in the background.
 // Call fire-and-forget after any state mutation that affects queue composition.
 func (h *Handler) refreshQueueAsync(projectID int32) {
@@ -767,9 +792,18 @@ func (h *Handler) refreshQueueAsync(projectID int32) {
 		if err != nil {
 			return
 		}
+		existingBlocked, existingReason := loadExistingBlockedByKey(ctx, h.Q, projectID)
 		keys := make([]string, 0, len(proposed))
 		for _, c := range proposed {
 			keys = append(keys, c.Key)
+			blocked := c.Blocked
+			blockedReason := c.BlockedReason
+			if existingBlocked[c.Key] {
+				blocked = true
+				if blockedReason == "" {
+					blockedReason = existingReason[c.Key]
+				}
+			}
 			_, _ = h.Q.UpsertTodo(ctx, db.UpsertTodoParams{
 				ProjectID:     projectID,
 				Title:         c.Title,
@@ -783,8 +817,8 @@ func (h *Handler) refreshQueueAsync(projectID int32) {
 				TargetID:      c.TargetID,
 				Kind:          c.Kind,
 				IssueRef:      c.IssueRef,
-				Blocked:       c.Blocked,
-				BlockedReason: c.BlockedReason,
+				Blocked:       blocked,
+				BlockedReason: blockedReason,
 			})
 		}
 		if len(keys) > 0 {
@@ -1014,7 +1048,16 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 						"blocked":  c.Blocked,
 					})
 				}
+				existingBlocked, existingReason := loadExistingBlockedByKey(ctx, h.Q, p.ID)
 				for _, c := range proposed {
+					blocked := c.Blocked
+					blockedReason := c.BlockedReason
+					if existingBlocked[c.Key] {
+						blocked = true
+						if blockedReason == "" {
+							blockedReason = existingReason[c.Key]
+						}
+					}
 					_, _ = h.Q.UpsertTodo(ctx, db.UpsertTodoParams{
 						ProjectID:     p.ID,
 						Title:         c.Title,
@@ -1028,8 +1071,8 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 						TargetID:      c.TargetID,
 						Kind:          c.Kind,
 						IssueRef:      c.IssueRef,
-						Blocked:       c.Blocked,
-						BlockedReason: c.BlockedReason,
+						Blocked:       blocked,
+						BlockedReason: blockedReason,
 					})
 				}
 				baseSha, baseBranch := resolveGitHead()
