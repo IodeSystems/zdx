@@ -1,15 +1,21 @@
 # GAPD — Global Agent Pool Design + Implementation
 
-Single source of truth for the global-agent-pool stream. Captured 2026-05-06,
-updated as decisions firm up.
+Single source of truth for the global-agent-pool stream. Last refresh 2026-05-06.
 
-**Stabilization mode** — phase 3 effectively closed; only the
-admin-auth strict-reject flip remains, gated on prod telemetry. The
-agent stream can exit stabilization once that flip lands and the
-daemon-on-claim-any path has logged at least one cycle in prod
-without falling back. Until then, GAPD work continues direct
-(human → branch → PR → dev) so we don't fight the merge-train on
-the same stream we're stabilizing.
+**Where this stream stands:** phases 1–3 effectively closed. One blocked
+follow-up remains (admin-auth strict-reject) and it cannot land until
+prod telemetry shows zero `agent connect: DEPRECATED:` log lines for a
+release cycle. **Pick something else** in the meantime — the next
+session should start by opening a different stream's plan, not this one.
+The blocked follow-up plus a small UI "maybe" are listed under
+[Pickup](#pickup--next-session) for completeness, but neither is ready
+to start today.
+
+**Why stabilization is over:** the agent loop, worktree provisioning,
+codegen drift checks, and merge-train were co-evolving when this stream
+opened. They are now stable enough that ordinary worker mode (claim
+todo → branch → merge-train) is safe again on agent-side work. Use the
+worker contract (`./bin/dx commit --intent`).
 
 ## Status
 
@@ -17,16 +23,7 @@ the same stream we're stabilizing.
 |-------|-------|
 | 1 — schema + connect verb + list endpoint | ✅ shipped (`21bc378f`) |
 | 2 — UI panel + pin/unpin + flag fix | ✅ shipped 2026-05-06 — API smoke + Playwright e2e (`TestDemoBrowser_AgentsPoolPanel`) cover the full pin/unpin loop |
-| 3 — priority bump + cross-project queue + admin auth | 🟢 effectively closed — bump-spread, transitional admin auth, periodic reaper, /api/dx/solo/claim-any, and the daemon migration onto claim-any all shipped; the only remaining work is the strict-reject flip on global auth, which is gated on prod telemetry showing zero `agent connect: DEPRECATED:` log lines |
-
-## Why stabilization mode
-
-The agent loop, worktree provisioning, codegen drift checks, and merge-train
-are co-evolving. Self-hosting GAPD on the agent system right now means
-fighting the system we're stabilizing — codegen races, slot collisions,
-merge-train rewrites of in-flight branches. Until phase 2 lands cleanly,
-GAPD work goes direct: human → branch → PR → dev. The agent loop can
-resume on this stream once it is itself stable.
+| 3 — priority bump + cross-project queue + admin auth | 🟢 effectively closed — bump-spread, transitional admin auth, periodic reaper, `/api/dx/solo/claim-any`, and daemon migration shipped. Strict-reject flip on global auth held until prod telemetry is quiet. |
 
 ## Goal
 
@@ -68,13 +65,16 @@ see (cross-project priority — phase 3).
 Once pinned to a project, the agent claims from that project's queue
 exactly like a project-scoped agent.
 
-### Cross-project priority (phase 3)
+### Cross-project priority (phase 3 — landed without cache)
 
-Project-priority × todo-priority composite score. Global browsers pick the
-highest composite item across every project they have access to.
-Implementation needs a server-wide cached priority list (re-scanning every
-project's queue on every claim is too expensive). Defer until we have a
-cost model for cache invalidation.
+Project-priority × todo-priority composite score. Global agents pick the
+highest composite item across every project they have access to. The
+costing pass (prod: 4 projects, 1 active, 0 globals ever, 12/hr avg
+claims) showed no cache layer was warranted. Implementation went
+straight onto the live tables: `ClaimNextTodoAny` is a single CTE-UPDATE
+ordered `p.priority, t.priority, t.created_at` with `FOR UPDATE OF t
+SKIP LOCKED`. Revisit caching only if prod scales past ~50 projects
+with concurrent globals.
 
 ### Operator → agent dispatch (phase 3)
 
@@ -98,22 +98,35 @@ lookup chain, dx-agent MCP server's `--mcp-root`. Not a phase 2 blocker —
 phase 2 ships against the current layout. Schedule a focused pass after
 phase 2.
 
-### Authentication
+### Authentication (phase 3 — transitional)
 
 `dx agent connect --global` should use a server-admin token, not a project
-API key. Today's WS auth is `?api_key=…` (project token) which technically
-works for the WS upgrade but is wrong semantically. Phase 3 wires the
-admin-token path properly. Until then: operators with admin-tier API keys
-use those for global registration.
+API key. Phase 3 wired the admin-token path through `authorizeAgentRegister`
+in `internal/server/handlers/handlers_agent_conn.go`:
+- **Global registration with admin role + unscoped key** → silent allow.
+- **Global registration with anything else** → allow + `agent connect:
+  DEPRECATED: …` log line spelling out the role and scope so operators
+  can find the callsite.
+- **Project-scoped registration with a token whose `project_scope` does
+  not include the slug** → hard reject with `StatusPolicyViolation`.
 
-### Heartbeat / liveness
+Strict-reject for the deprecated global path is held until prod
+telemetry shows zero deprecation log lines for a release cycle (see
+[Pickup](#pickup--next-session)).
+
+### Heartbeat / liveness (phase 3 — server-driven reaper)
 
 `last_heartbeat` is the source of truth. The WS connection is the
 real-time liveness signal; the column persists last-known-alive so the UI
 shows "online 4m ago" for agents that disconnected without clean shutdown.
-**Reap** (`dx agent reap`) deletes rows older than threshold. Today it
-sweeps per-project. For globals: separate admin-triggered reap so a slow
-heartbeat doesn't get an agent reaped by an unrelated project sweep.
+Cleanup runs as a server-driven goroutine (`StartReaper` in
+`internal/server/server.go`) — wakes every 1m, deletes rows with
+`last_heartbeat < NOW() - 5m`. The original "separate admin-triggered
+global reap" idea was abandoned: `ReapStaleAgents` was already a
+single global DELETE with no project filter, so a per-project sweep
+never existed. The manual `POST /api/agents/reap` endpoint and
+`dx agent reap` CLI are gone (`123a71f2`); the periodic loop is the
+only reap path now.
 
 ### Web UI is the primary control surface
 
@@ -379,31 +392,6 @@ separately to keep the stream coherent.
   the `startDaemon` call. Re-tested: `dx agent connect --provider=claude
   --idle` registers as `claude-<8hex>`.
 
-## Out-of-band backlog (orthogonal to GAPD)
-
-Items uncovered along the way that don't belong to a specific phase.
-File as tracker issues if they grow beyond a sentence; otherwise pick
-straight from here.
-
-- **Workspace relocation** to `~/.zdx/workspaces/<project>/...`. Big
-  refactor across agent provisioning, ship hooks, dx config lookup,
-  dx-agent `--mcp-root`. Decouples agent worktrees from the operator's
-  project tree. The next significant pass after phase 3.
-- **Browser-demo cross-test flake.** `TestDemoBrowser_ProjectDirectionTab`
-  passes alone (~3s) but times out on the Goals heading when run after
-  another browser demo in the same process. Pre-rewrite tests had the
-  same binary-level isolation, so this likely predates phase 2 — but
-  was masked by the universal SPA-404 regression. Suspected:
-  `.zdx/demo/video/` accumulating per context, or the shared
-  playwright-go runtime not actually disposing between tests.
-  Repro: `STATIC_DIR=… TEST_DRIVER=ui dx test --layer demo --filter
-  TestDemoBrowser_`. Not blocking; demos are individually reliable
-  and demo runs are rarely batched.
-- **Vitest preexisting failures** — 6 environment-card tests fail with
-  `useNavigate is not a function` at `EnvironmentCard` (`ui/src/routes/
-  project/$slug/environments/index.test.tsx`). Surfaces on every
-  `dx test --layer demo` run. Predates this stream entirely.
-
 ## Harness-fix knock-on findings (2026-05-06)
 
 The `STATIC_DIR` and `srv.DSN` fixes that landed with
@@ -432,41 +420,88 @@ under `dx test --layer demo`:
 
 ## Pickup — next session
 
-Phase 2 shipped; phase 3 is in flight. Bump-verb spread is done.
-Admin-token auth landed transitionally (deprecation logs on global
-registration with non-admin or scoped tokens; strict reject for the
-project-token-out-of-scope case). Remaining items, ordered by
-setup-cost (smallest first) and dependency (cross-project claim is
-gated on the costing pass).
+This stream is **not the right place to start work today.** Both
+remaining items are cold:
 
-1. **Strict-reject the deprecated global-auth path.** When prod logs
-   are quiet of `agent connect: DEPRECATED: …` lines for a release
-   cycle, flip `authorizeAgentRegister`'s global branch to return
-   `"requires admin token"` instead of a deprecation. One-line change
-   plus a test flip. Don't do this until operators have migrated
-   their `dx agent connect --global` workflows.
+1. 🚫 **Strict-reject the deprecated global-auth path.** Blocked.
+   `authorizeAgentRegister`
+   (`internal/server/handlers/handlers_agent_conn.go`) currently logs
+   `agent connect: DEPRECATED: …` and accepts globals registered with
+   non-admin or project-scoped tokens. Flip the global branch to
+   return `"requires admin token"` once **prod telemetry shows zero
+   such lines for a full release cycle.** That's a one-line change in
+   the helper plus flipping the matching cases in
+   `TestAuthorizeAgentRegister` from `wantDeprecated: true` to
+   `wantReject: true`. Do not flip until prod logs are quiet — flipping
+   too early breaks every operator's `dx agent connect --global`
+   workflow simultaneously.
 
-2. **(maybe) Flat issue-page todo list.** Bump now lives on the
-   timeline `created` event for each issue's todos. If operators
-   want a flat actionable list (parallel to the existing "Tasks"
-   section in `IssueDetail`), add a small "Open todos" section
-   above `BlockerQuestionsSection` and put the bump there too.
-   Defer until an operator asks.
+2. 💤 **(maybe) Flat issue-page todo list.** Bump now lives on the
+   `UnifiedTimeline` `created` event for each issue's todos. If an
+   operator asks for a flat actionable list (parallel to the existing
+   "Tasks" section in `IssueDetail`), add a small "Open todos" section
+   above `BlockerQuestionsSection` and put the bump there too. **No
+   one has asked.** Don't volunteer it.
 
-### Local dev env recap
+If neither is ready, open another stream's `plan/plan.md` (the
+project-wide roadmap) and pick the next item there — GAPD is paged out.
 
-- Postgres in `tmp-postgres` container, host port **7601**.
-- dx-server on **7600**, vite on **7610** (loopback `::1` — bind via
-  `./node_modules/.bin/vite --host 0.0.0.0` if you need LAN access;
-  `pnpm run dev` swallows the `--host` flag and `server.host` in
-  `vite.config.ts` is also ignored by vite v8).
-- Local admin token bootstrapped via `POST /api/setup/bootstrap` and
-  promoted to `role='admin'` via SQL. User: `smoke@local`. Project
-  `smoke` (id=1) created via `POST /api/project`.
-- Live DB at migration **150** (project priority). The session's
-  rejected boolean-flag attempt (151) was rolled back; if your DB
-  already had it, drop the column manually and update
-  `schema_migrations` to `(150, false)`.
+## Out-of-band follow-ups (not part of GAPD, but discovered here)
+
+These were uncovered while landing phase 3 and don't belong to a
+specific phase. Each is small enough to grab as a one-off. None
+blocks the GAPD stream from being considered done.
+
+- **Workspace relocation** to `~/.zdx/workspaces/<project>/...`. Big
+  refactor across agent provisioning, ship hooks, dx config lookup,
+  and dx-agent's `--mcp-root`. Decouples agent worktrees from the
+  operator's project tree, fixing the operator-vs-agent collision
+  class at the directory level rather than per-slot. Sized days, not
+  hours; worth a fresh design pass before starting.
+- **Daemon claim is still raw `http`** (`internal/cli/agent/claim.go`).
+  Switch to the typed `dxclient.SoloClaimWithResponse` /
+  `SoloClaimAnyWithResponse` to clear the advisory `raw-api-calls`
+  lint warning. Trivial once the merge-train has regenerated the
+  client.
+- **Browser-demo cross-test flake.**
+  `TestDemoBrowser_ProjectDirectionTab` passes alone (~3s) but times
+  out on the Goals heading when run after another browser demo in the
+  same process. Pre-rewrite tests had the same binary-level isolation,
+  so this likely predates phase 2 — it was masked by a universal
+  SPA-404 regression. Suspected: `.zdx/demo/video/` accumulating per
+  context, or shared playwright-go runtime not actually disposing
+  between tests. Repro:
+  `STATIC_DIR=… TEST_DRIVER=ui dx test --layer demo --filter TestDemoBrowser_`.
+  Not blocking — demos are individually reliable and demo runs are
+  rarely batched.
+- **Vitest preexisting failures** — 6 environment-card tests fail
+  with `useNavigate is not a function` at `EnvironmentCard`
+  (`ui/src/routes/project/$slug/environments/index.test.tsx`).
+  Surfaces on every `dx test --layer demo` run. Predates this stream
+  entirely.
+
+## Reference
+
+### Local dev env (verified end of session 2026-05-06)
+
+- Postgres in `tmp-postgres` container, host port **7601**, DSN
+  `postgres://zdx:zdx@127.0.0.1:7601/zdx?sslmode=disable`.
+- Production dx-server pid is bound to **7600**; if you need a
+  side-by-side instance, start one on `PORT=7699` so it doesn't
+  collide. The session's smoke tests all hit 7699.
+- Vite dev server (when run) on **7610**, loopback `::1`. `pnpm run dev`
+  swallows `--host`; `server.host` in `vite.config.ts` is also ignored
+  by vite v8. If you need LAN access, run
+  `./node_modules/.bin/vite --host 0.0.0.0` directly.
+- DB at migration **150** (project priority). Latest GAPD migrations
+  are `148_agents_global_pool` and `149_agent_originally_global`.
+- Bootstrap user: `smoke@local`, role `admin`. Project `smoke`
+  (id=1) created via `POST /api/project`. Token in
+  `zdx_api_keys ORDER BY created_at DESC LIMIT 1`.
+- Periodic reaper (`StartReaper`) deletes any agent row with
+  `last_heartbeat < NOW() - 5m` every 1m; smoke-test daemons left
+  running in stale state will be gone before the next session
+  starts. No manual cleanup needed.
 
 ### How to run the demo regression
 
@@ -479,28 +514,42 @@ STATIC_DIR="$PWD/ui/dist" TEST_DRIVER=ui \
     ./bin/dx test --layer demo --filter AgentsPool
 ```
 
-Expected: `1 passed 0 failed 0 skipped` for the e2e adapter; vitest
-adapter still fails 6 preexisting environment-card tests (see
-out-of-band backlog).
+Expected: `1 passed 0 failed 0 skipped` for the e2e adapter. Vitest
+adapter fails 6 preexisting environment-card tests (see out-of-band
+follow-ups).
 
 ### Worker-contract reminder
 
 Workers commit intent only. Do not stage `internal/db/*.sql.go`,
 `internal/dxclient/models.gen.go`, `ui/src/api.gen.ts`,
-`schema/shipped.sql`, or `ui/src/routeTree.gen.ts`. Use
-`./bin/dx commit --intent` — it inspects the staged set, warns on each
-generated file, unstages it, then commits the remainder.
+`schema/shipped.sql`, `internal/db/models.go`, or `ui/src/routeTree.gen.ts`.
+Use `./bin/dx commit --intent` — it inspects the staged set, warns on
+each generated file, unstages it, then commits the remainder.
 
-### Session log (2026-05-06)
+`internal/dxclient/openapi.json` IS intent (committed by author when
+handlers change the OpenAPI shape). The dev-server regenerates it on
+boot — start `bin/dx-server` briefly after handler edits to refresh
+both `openapi.json` and the downstream gen files, then commit
+openapi.json with the rest of your intent.
+
+### Phase-3 commits (2026-05-06)
+
+The order is the order they landed; later commits assume earlier
+ones in the same chain.
+
+- `91f5c0af` style(server): gofmt agents handler struct alignment
+- `cd7b09be` feat(ui): rename Push → Bump and spread to QueueView + issue timeline
+- `cbe187e7` feat(server): admin-token auth for global agent connect (transitional)
+- `ae5d2045` fix(devmode): write api.gen.ts to absolute path (avoid ui/ui ghost dir)
+- `123a71f2` feat(server): periodic reaper, drop manual /api/agents/reap + CLI
+- `c3313b43` feat(server): /api/dx/solo/claim-any cross-project todo claim
+- `4dc6ded0` feat(agent): route empty-slug daemon claims to /claim-any
+
+Earlier phase-3 commits (prior session):
 
 - `b1a12266` test(e2e): automate GAPD phase-2 UI walkthrough
 - `a669d3ab` test(e2e): drop empty PageGetByTextOptions to avoid library nil-deref
 - `66fa83e7` test(e2e): rewrite direction-tab demo Goals-only after IS-627
 - `686633f9` feat(projects): priority column for cross-project agent claim ordering
 - `2625eb18` feat(todos): operator priority-push as integer (LEAST-preserved)
-- (this commit) feat(ui): rename Push → Bump and spread to QueueView + issue timeline
-- (this commit) feat(server): admin-token auth for global agent connect (transitional)
-- (this commit) fix(devmode): write api.gen.ts to absolute path (avoid ui/ui ghost)
-- (this commit) feat(server): periodic in-server reaper, drop manual /api/agents/reap + CLI
-- (this commit) feat(server): /api/dx/solo/claim-any cross-project claim ordered by project_priority×todo_priority
-- (this commit) feat(agent): daemon claimNextTodo routes empty-slug to /claim-any
+- `21bc378f` feat: phase 1 (schema + connect verb + list endpoint)
