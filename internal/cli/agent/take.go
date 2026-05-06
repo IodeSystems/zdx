@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,6 +17,14 @@ import (
 	"github.com/iodesystems/zdx-go/internal/cli/agent/tracelog"
 	"github.com/iodesystems/zdx-go/internal/config"
 )
+
+// wipSyncMu serializes wip→dev fast-forwards across slots in the same
+// orchestrator. Two slots resolving simultaneously would race on the dev
+// ref otherwise — git's update-ref is atomic per-call but the
+// "rebase, then ff" sequence isn't. With the mutex, slot B always sees
+// slot A's just-merged work and rebases its own branch onto it before
+// advancing dev.
+var wipSyncMu sync.Mutex
 
 func countLines(s string) int {
 	if s == "" {
@@ -354,6 +364,17 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 			log("todo %d [%s] released (churn — no mutations detected)", activeTodo.ID, activeTodo.Key)
 		default:
 			log("todo %d resolved", activeTodo.ID)
+			// Container slots commit their work to wip/<alias> in an
+			// isolated worktree. After a successful resolve we fast-forward
+			// dev to absorb those commits so subsequent claims see the
+			// up-to-date code and the operator doesn't have to integrate
+			// by hand. No-op when there's no wip branch (host mode) or
+			// when there are no new commits.
+			if synced, syncErr := syncSlotWipToDev(cfg.AgentID, log); syncErr != nil {
+				log("sync wip→dev: %v", syncErr)
+			} else if synced != "" {
+				log("sync: dev advanced to %s (%s)", synced, "wip/"+cfg.AgentID)
+			}
 		}
 	}
 
@@ -380,4 +401,109 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 		result.Err = sessionErr
 	}
 	return result
+}
+
+// syncSlotWipToDev fast-forwards dev to absorb commits from the slot's
+// wip/<agentID> branch, without disturbing the operator's working tree.
+//
+// Returns the new dev tip SHA (truncated) on success, or "" if there was
+// nothing to sync (no wip branch, no new commits). Errors are surfaced;
+// rebase conflicts are aborted cleanly and reported so the operator can
+// integrate manually.
+//
+// Concurrency: serialized via package-level wipSyncMu so two slots can't
+// race on advancing the dev ref. Within the lock the sequence is
+// "rebase wip onto current dev → if clean, update-ref dev = wip-tip".
+// The rebase happens in the slot's *own worktree* (`git worktree list`
+// resolves where wip/<alias> is checked out), not in the operator's tree
+// — so the operator's checkout stays untouched.
+//
+// Skips when wip/<agentID> doesn't exist (host mode never created one)
+// or when wip is already an ancestor of dev (no work).
+func syncSlotWipToDev(agentID string, log func(string, ...any)) (string, error) {
+	if strings.TrimSpace(agentID) == "" {
+		return "", nil
+	}
+	branch := "wip/" + agentID
+
+	// Branch existence check — gentle no-op for host mode.
+	if err := exec.Command("git", "rev-parse", "--verify", "refs/heads/"+branch).Run(); err != nil {
+		return "", nil
+	}
+
+	wipSyncMu.Lock()
+	defer wipSyncMu.Unlock()
+
+	// If wip is already in dev (no commits past dev), nothing to do.
+	if err := exec.Command("git", "merge-base", "--is-ancestor", "refs/heads/"+branch, "refs/heads/dev").Run(); err == nil {
+		return "", nil
+	}
+
+	// If wip is a fast-forward of dev (dev is ancestor of wip), advance
+	// dev directly via update-ref — no rebase, no checkout, operator's
+	// working tree is untouched.
+	if err := exec.Command("git", "merge-base", "--is-ancestor", "refs/heads/dev", "refs/heads/"+branch).Run(); err == nil {
+		return advanceDevToBranchTip(branch, log)
+	}
+
+	// dev moved (a sibling slot merged first). Rebase wip onto dev in the
+	// slot's worktree, then advance.
+	wt, err := worktreePathFor(branch)
+	if err != nil {
+		return "", fmt.Errorf("locate worktree for %s: %w", branch, err)
+	}
+	if wt == "" {
+		// Branch exists but isn't checked out anywhere — operator workflow
+		// or post-cleanup state. Skip rebase, refuse to merge dirty
+		// histories without a checkout.
+		return "", fmt.Errorf("branch %s has no worktree to rebase in; skipping sync", branch)
+	}
+	if out, rerr := exec.Command("git", "-C", wt, "rebase", "refs/heads/dev").CombinedOutput(); rerr != nil {
+		// Rebase conflicted (or other failure). Abort to leave the slot
+		// in a clean state so the next session can claim work; surface
+		// the original error so the operator notices.
+		_ = exec.Command("git", "-C", wt, "rebase", "--abort").Run()
+		return "", fmt.Errorf("rebase %s onto dev: %s", branch, strings.TrimSpace(string(out)))
+	}
+	return advanceDevToBranchTip(branch, log)
+}
+
+// advanceDevToBranchTip writes dev → <branch>'s current tip via
+// update-ref. Atomic at the git layer; safe under wipSyncMu.
+func advanceDevToBranchTip(branch string, log func(string, ...any)) (string, error) {
+	tipBytes, err := exec.Command("git", "rev-parse", "refs/heads/"+branch).Output()
+	if err != nil {
+		return "", fmt.Errorf("rev-parse %s: %w", branch, err)
+	}
+	tip := strings.TrimSpace(string(tipBytes))
+	if out, uerr := exec.Command("git", "update-ref", "refs/heads/dev", tip).CombinedOutput(); uerr != nil {
+		return "", fmt.Errorf("update-ref dev → %s: %s", tip[:8], strings.TrimSpace(string(out)))
+	}
+	if len(tip) > 8 {
+		return tip[:8], nil
+	}
+	return tip, nil
+}
+
+// worktreePathFor returns the worktree path where `branch` is currently
+// checked out, or "" if the branch is not checked out anywhere. Parses
+// `git worktree list --porcelain` output. We need this because rebase
+// requires a checkout, and the slot's own worktree is the natural place
+// — never the operator's.
+func worktreePathFor(branch string) (string, error) {
+	out, err := exec.Command("git", "worktree", "list", "--porcelain").Output()
+	if err != nil {
+		return "", err
+	}
+	target := "branch refs/heads/" + branch
+	var lastPath string
+	for _, line := range strings.Split(string(out), "\n") {
+		switch {
+		case strings.HasPrefix(line, "worktree "):
+			lastPath = strings.TrimPrefix(line, "worktree ")
+		case line == target:
+			return lastPath, nil
+		}
+	}
+	return "", nil
 }
