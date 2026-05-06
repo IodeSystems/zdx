@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/agentdaemon"
@@ -208,6 +209,9 @@ open so the UI can pause/resume/drain or eventually push work.`,
 func runIdleDaemon(ctx context.Context, providerName string, opts ProviderOpts) error {
 	if opts.RC.url == "" || opts.RC.key == "" {
 		return fmt.Errorf("--idle requires a configured remote (RC.url + RC.key); set up ~/.zdx/config.yaml or run inside a project")
+	}
+	if opts.Alias == "" {
+		opts.Alias = providerName + "-" + uuid.New().String()[:8]
 	}
 	holder := agentdaemon.NewLoopTaskHolder()
 	startDaemon(ctx, providerName, opts, holder, nil)

@@ -14,7 +14,7 @@ broader product roadmap, orthogonal to GAPD.
 | Phase | State |
 |-------|-------|
 | 1 — schema + connect verb + list endpoint | ✅ shipped (`21bc378f`) |
-| 2 — UI panel + pin/unpin + flag fix | code complete; smoke test pending |
+| 2 — UI panel + pin/unpin + flag fix | API smoke ✅ 2026-05-06; UI render verification pending (vite is loopback-only) |
 | 3 — mark-priority + cross-project queue + admin auth | design only |
 
 ## Why stabilization mode
@@ -184,10 +184,26 @@ endpoints → UI.
   `useAllAgents`, `useAssignAgent`, `useUnassignAgent`, `useAgentCommand`.
 - [x] **UI nav placement.** Done. Entry placed beside `Activity` /
   `Admin` (top-level, not inside the per-project group).
-- [ ] **Smoke test the loop.** Connect a global agent against the dev
-  server, pin it to a project from UI, watch it claim a todo, unpin,
-  confirm it goes idle. Document the steps in this doc once verified so
-  pickup is trivial.
+- [x] **Smoke test (API path) — 2026-05-06.** Local dev DB on 7601 +
+  dx-server on 7600. Migration 149 applied cleanly (originally_global
+  column added, partial-index intact). Validated end-to-end via
+  `dx agent connect --idle` (project-scoped + `--global`):
+  - WS handshake persists rows on connect — closes the phase-1 gap.
+  - Project-scoped row: `project_id=1, originally_global=false`; global
+    row: `project_id=NULL, originally_global=true`.
+  - `POST /api/agents/{id}/assign` pins global → project; rejects
+    project-scoped with 400 "originally registered project-scoped".
+  - `DELETE /api/agents/{id}/assign` unpins global → NULL; rejects
+    project-scoped symmetrically.
+  - `POST /api/agents/{id}/command` flips status active↔paused.
+  - Disconnect on agent shutdown: connection_state goes to
+    "disconnected", status retained.
+
+  **UI render verification still pending.** The panel renders against
+  the same `/api/agents` shape the API smoke confirmed, but the dev
+  vite binds to `::1` only, so the UI route can't be exercised from a
+  remote browser without an SSH tunnel. Pickup checklist below covers
+  the remaining browser walkthrough.
 
 ## Phase 3 — mark-priority, cross-project queue, admin auth
 
@@ -229,6 +245,15 @@ separately to keep the stream coherent.
   the DB directly, unrelated to the removed REST surface.
 - **WS handshake didn't persist agent rows** — see phase 2
   `originally_global` task above (closed).
+- **`dx agent connect --idle` without `--alias` failed handshake.**
+  `runIdleDaemon` (agent.go) called `startDaemon` without defaulting
+  `opts.Alias`, so the WS payload sent `agent_id=""` and the server
+  closed with `StatusProtocolError "invalid handshake"`. Surfaced
+  during the 2026-05-06 smoke test. Defaulting was previously scoped
+  to `RunManagedLoop` (manager.go:166-168). Fix: mirror the same
+  default (`provider + "-" + uuid[:8]`) inside `runIdleDaemon` before
+  the `startDaemon` call. Re-tested: `dx agent connect --provider=claude
+  --idle` registers as `claude-<8hex>`.
 
 ## Deferred (kept in this doc — not filed as issues)
 
@@ -248,30 +273,39 @@ list directly when the time comes.
 
 ## Pickup checklist for the next session
 
-Phase 2 code is in dev; only the smoke test remains.
+Only the UI render walkthrough remains. API smoke validated end-to-end
+on 2026-05-06 (see phase 2 smoke entry); only the browser-side render
+of `/agents` is unverified, because dev vite binds loopback-only.
 
-1. Bring up dev env (Postgres on 7650, dx-server, UI). `./bin/dev` covers
-   it once the DB is reachable.
-2. Apply migration 149: `./bin/db migrate` — should report
-   `149_agent_originally_global` applied and backfill any existing
-   global-pool rows to `originally_global=true`.
-3. Open `/agents` in the UI; confirm the table renders existing agents
-   (the panel was empty before phase 2 because `dx agent connect` never
-   wrote rows).
-4. From a project directory: `./bin/dx agent connect --provider=claude
-   --idle`. Confirm the row appears with scope=project and an unpin
-   button is *not* shown (originally_global=false).
-5. From elsewhere with `~/.zdx/config.yaml`: `./bin/dx agent connect
-   --provider=claude --global --idle`. Confirm scope=global, pin button
-   shown.
-6. Pin the global agent to a project; confirm scope flips to that
-   project + a "pinned" chip is shown. Unpin; confirm it returns to
-   global.
-7. Send pause/resume/drain via the action buttons; confirm the agent
-   honors them.
-8. Record the verified flow at the bottom of this section ("Smoke test
-   results: <date>") so future-you sees it landed clean.
+### Local dev env recap (already standing on 2026-05-06)
 
-After the smoke test lands, exit stabilization mode for GAPD: file new
-work as tracker issues again, let the agent loop resume on this stream.
-Then schedule workspace relocation, then phase 3.
+- Postgres in `tmp-postgres` container, host port **7601** (not 7650 —
+  `dx daemon start` default; the earlier "7650" reference in this doc
+  is from the prod-DB convention).
+- dx-server on **7600**, vite on **7610** (loopback `::1`).
+- Local admin token bootstrapped via `POST /api/setup/bootstrap` and
+  promoted to `role='admin'` via SQL. User: `smoke@local`. Project
+  `smoke` (id=1) created via `POST /api/project`.
+
+### Remaining: UI walkthrough
+
+1. SSH-tunnel vite from your laptop:
+   `ssh -L 7610:localhost:7610 desktop` (or restart vite with
+   `--host 0.0.0.0` / set `server.host` in `ui/vite.config.ts`).
+2. Open `http://localhost:7610/agents` in your browser. First visit
+   needs the token in `localStorage`:
+   `localStorage.setItem('zdx_api_token', '<bootstrap-token>')`, then
+   reload.
+3. With both smoke agents running locally, confirm:
+   - Two rows: `smoke-proj` (Scope=`smoke project`, no pin button —
+     `scope-immutable` caption) and `smoke-glob` (Scope=`global`
+     chip, pin button visible).
+   - Pin `smoke-glob` from the UI: scope flips to `smoke project`,
+     `pinned` chip appears. Unpin: scope returns to `global`.
+   - Pause/resume/drain action buttons flip status as expected.
+
+### After UI confirms
+
+Exit stabilization mode for GAPD: file new work as tracker issues
+again, let the agent loop resume on this stream. Then schedule
+workspace relocation, then phase 3.
