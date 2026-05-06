@@ -205,9 +205,21 @@ export function DemosSection({
   }
   if (list.length === 0) {
     return (
-      <Typography variant="body2" color="text.secondary">
-        No demos recorded yet. Run <code>dx test --layer demo</code> to record one; uploaded demos appear here automatically.
-      </Typography>
+      <Box sx={{ color: 'text.secondary' }}>
+        <Typography variant="body2" sx={{ mb: 0.5 }}>
+          No demos recorded yet. Two paths to populate this view:
+        </Typography>
+        <Typography variant="body2" component="ul" sx={{ pl: 2.5, m: 0 }}>
+          <li>
+            Run <code>dx test --layer demo</code> — the harness records each test and auto-uploads
+            artifacts to <code>/api/dx/demos/upload</code>. No separate upload step.
+          </li>
+          <li>
+            On an existing demo's detail page, click <strong>Request re-record</strong> to file an
+            issue for refreshing it.
+          </li>
+        </Typography>
+      </Box>
     )
   }
   if ((isSearching || isFiltered) && filtered.length === 0) {
@@ -279,9 +291,20 @@ export function SpecDemos({ specId, slug }: { specId: number; slug?: string }) {
       {isLoading ? (
         <Typography variant="body2" color="text.secondary">Loading...</Typography>
       ) : list.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
-          No demo coverage for this spec. Run <code>dx test --layer demo</code> to record one, or link an existing recording to a covering test.
-        </Typography>
+        <Box sx={{ color: 'text.secondary' }}>
+          <Typography variant="body2" sx={{ mb: 0.5 }}>
+            No demo coverage for this spec. Two paths to add one:
+          </Typography>
+          <Typography variant="body2" component="ul" sx={{ pl: 2.5, m: 0 }}>
+            <li>
+              Run <code>dx test --layer demo</code> — the harness records and auto-uploads each
+              artifact (no separate upload step).
+            </li>
+            <li>
+              Link an existing recording to a test that already covers this spec.
+            </li>
+          </Typography>
+        </Box>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {list.map((d) => <SpecDemoItemRow key={d.id} demo={d} slug={slug} />)}
