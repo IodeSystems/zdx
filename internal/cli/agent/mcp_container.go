@@ -22,14 +22,34 @@ import (
 // spawn the MCP server inside. The slot is the long-lived sandbox, MCP
 // servers are per-session.
 //
+// The slot mounts:
+//   - the per-slot worktree at /workspace (isolation from the operator)
+//   - the host project root's .git/ at the same absolute host path inside
+//     the container (so the worktree's .git file, which contains an
+//     absolute host path to .git/worktrees/<name>, resolves)
+//
+// Mounting .git/ at the same path means the slot can both write commits
+// (they land in the parent repo's .git/ where the operator can fetch them)
+// and read history. It does open a concurrent-write surface on .git/
+// itself (multiple slots + operator can race on .git/index.lock), but git
+// handles this with its built-in locking and retry.
+//
 // Security profile: non-root, no privilege escalation, all capabilities
 // dropped, configurable memory/cpu limits.
-func buildMCPSlotArgs(name, imageTag, cwd string, agentCfg config.AgentConfig, keepOnExit bool, envPairs []string) []string {
+func buildMCPSlotArgs(name, imageTag, projectRoot, worktreePath string, agentCfg config.AgentConfig, keepOnExit bool, envPairs []string) []string {
 	args := []string{"run", "-d", "--name", name}
 	if !keepOnExit {
 		args = append(args, "--rm")
 	}
-	args = append(args, "-v", cwd+":/workspace", "-w", "/workspace")
+	args = append(args, "-v", worktreePath+":/workspace", "-w", "/workspace")
+	// Mount the parent repo's .git at the same absolute host path so
+	// `gitdir: <host>/.git/worktrees/<name>` references inside the
+	// worktree's .git file resolve. Without this, every git operation
+	// in the slot (commit, status, log, branch, fetch) fails.
+	if projectRoot != "" {
+		hostGit := filepath.Join(projectRoot, ".git")
+		args = append(args, "-v", hostGit+":"+hostGit)
+	}
 
 	// Same security profile as the claude-in-container path.
 	args = append(args, "--user", "agent")
@@ -96,9 +116,18 @@ func slotWorktree(cwd, alias string, slotIdx int) (path, branch string, err erro
 		return "", "", fmt.Errorf("git worktree add %s: %s", branch, strings.TrimSpace(string(out)))
 	}
 
-	if err := copyDxAgentBinary(cwd, path); err != nil {
-		// Roll back the worktree if we can't seed bin/dx-agent — without
-		// it the slot's MCP dispatch will fail and the slot is unusable.
+	if err := copyDxBinaries(cwd, path); err != nil {
+		// Roll back the worktree if we can't seed bin/{dx,dx-agent} —
+		// without dx-agent MCP dispatch fails and the slot is unusable;
+		// without dx the agent's tracker calls 401/exec-fail.
+		_ = exec.Command("git", "worktree", "remove", "--force", path).Run()
+		_ = exec.Command("git", "branch", "-D", branch).Run()
+		return "", "", err
+	}
+	if err := seedSlotZdxFiles(cwd, path); err != nil {
+		// Without credentials the in-slot dx CLI 401s on every tracker
+		// call. Roll back so a half-set-up slot doesn't end up running
+		// in an unrecoverable state.
 		_ = exec.Command("git", "worktree", "remove", "--force", path).Run()
 		_ = exec.Command("git", "branch", "-D", branch).Run()
 		return "", "", err
@@ -134,34 +163,76 @@ func cleanupSlotWorktree(cwd, path, branch string) {
 	}
 }
 
-// copyDxAgentBinary mirrors the operator's bin/dx-agent into the slot
-// worktree's bin/ so the slot's MCP dispatch can locate it under
-// /workspace/bin/dx-agent. bin/ is gitignored so a fresh worktree
-// otherwise has no bin/.
-func copyDxAgentBinary(srcRoot, dstRoot string) error {
-	srcPath := filepath.Join(srcRoot, "bin", "dx-agent")
+// copyDxBinaries mirrors the operator's bin/{dx,dx-agent} into the slot
+// worktree's bin/ so:
+//
+//	dx-agent → MCP dispatch via `docker exec /workspace/bin/dx-agent --mcp-stdio`
+//	dx       → tracker calls (issue show, comment add, todo dev done)
+//	          the agent runs via run_bash inside the slot
+//
+// bin/ is gitignored so a fresh worktree has none of these. dx-server / db
+// are operator-side tools and not seeded.
+func copyDxBinaries(srcRoot, dstRoot string) error {
+	for _, name := range []string{"dx", "dx-agent"} {
+		if err := copyFilePreservingMode(
+			filepath.Join(srcRoot, "bin", name),
+			filepath.Join(dstRoot, "bin", name),
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// seedSlotZdxFiles copies credentials + config.yaml + ingest-token from the
+// operator's .zdx/ into the slot's worktree. .zdx/ entries are gitignored so
+// a fresh worktree has none of them — and without credentials the in-slot
+// dx CLI returns 401 on every tracker call. We do not bind-mount the
+// operator's .zdx/ (it contains state we don't want shared) — only the
+// minimal auth+config the slot needs to run.
+func seedSlotZdxFiles(srcRoot, dstRoot string) error {
+	dstZdx := filepath.Join(dstRoot, ".zdx")
+	if err := os.MkdirAll(dstZdx, 0o755); err != nil {
+		return fmt.Errorf("mkdir slot .zdx/: %w", err)
+	}
+	for _, name := range []string{"credentials", "config.yaml", "ingest-token"} {
+		srcPath := filepath.Join(srcRoot, ".zdx", name)
+		// Optional files: ingest-token may be absent in srcless mode.
+		if _, err := os.Stat(srcPath); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return fmt.Errorf("stat .zdx/%s: %w", name, err)
+		}
+		if err := copyFilePreservingMode(srcPath, filepath.Join(dstZdx, name)); err != nil {
+			return fmt.Errorf("seed .zdx/%s: %w", name, err)
+		}
+	}
+	return nil
+}
+
+// copyFilePreservingMode copies src to dst, creating parent dirs as needed
+// and matching src's file mode (so binaries stay executable).
+func copyFilePreservingMode(srcPath, dstPath string) error {
 	src, err := os.Open(srcPath)
 	if err != nil {
-		return fmt.Errorf("open bin/dx-agent (run `make build` first): %w", err)
+		return fmt.Errorf("open %s: %w", srcPath, err)
 	}
 	defer src.Close()
 	srcInfo, err := src.Stat()
 	if err != nil {
-		return fmt.Errorf("stat bin/dx-agent: %w", err)
+		return fmt.Errorf("stat %s: %w", srcPath, err)
 	}
-
-	dstDir := filepath.Join(dstRoot, "bin")
-	if err := os.MkdirAll(dstDir, 0o755); err != nil {
-		return fmt.Errorf("mkdir slot bin/: %w", err)
+	if err := os.MkdirAll(filepath.Dir(dstPath), 0o755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dstPath), err)
 	}
-	dstPath := filepath.Join(dstDir, "dx-agent")
 	dst, err := os.OpenFile(dstPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode())
 	if err != nil {
-		return fmt.Errorf("create slot bin/dx-agent: %w", err)
+		return fmt.Errorf("create %s: %w", dstPath, err)
 	}
 	defer dst.Close()
 	if _, err := io.Copy(dst, src); err != nil {
-		return fmt.Errorf("copy bin/dx-agent: %w", err)
+		return fmt.Errorf("copy %s -> %s: %w", srcPath, dstPath, err)
 	}
 	return nil
 }
@@ -334,11 +405,12 @@ func runMCPContainerLoop(parentCtx context.Context, providerName string, opts Pr
 		slotName := fmt.Sprintf("zdx-agent-mcp-%s-%s-%d", providerName, opts.Alias, i)
 		emit("slot.starting", "slot_index", i, "name", slotName)
 
-		// Mount the slot's own worktree into the container, not the operator's
-		// shared cwd. Each slot now has an isolated working tree on its own
-		// branch — operator can edit/commit in cwd without racing slots.
+		// Mount the slot's own worktree into the container at /workspace
+		// (isolation from the operator's tree) and the project root's .git/
+		// at its host path (so the worktree's gitdir reference resolves
+		// inside the container; without that, every git op 404s).
 		slotMount := worktrees[i].path
-		runArgs := buildMCPSlotArgs(slotName, imageTag, slotMount, agentCfg, opts.KeepContainer, envPairs)
+		runArgs := buildMCPSlotArgs(slotName, imageTag, cwd, slotMount, agentCfg, opts.KeepContainer, envPairs)
 		startCmd := exec.CommandContext(ctx, "docker", runArgs...)
 		startCmd.Stdout = os.Stderr // docker run -d prints the container ID
 		startCmd.Stderr = os.Stderr

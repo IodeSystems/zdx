@@ -15,7 +15,7 @@ import (
 // sessions instead of the container exiting after the first.
 func TestBuildMCPSlotArgs_SecurityFlags(t *testing.T) {
 	args := buildMCPSlotArgs(
-		"slot-x", "img", "/work",
+		"slot-x", "img", "/proj", "/proj/.zdx/agent/slots/x",
 		config.AgentConfig{ContainerMemory: "4g", ContainerCPUs: "2"},
 		false, nil)
 
@@ -23,7 +23,9 @@ func TestBuildMCPSlotArgs_SecurityFlags(t *testing.T) {
 	for _, must := range []string{
 		"run -d", "--name slot-x",
 		"--rm",
-		"-v /work:/workspace", "-w /workspace",
+		"-v /proj/.zdx/agent/slots/x:/workspace", "-w /workspace",
+		// .git/ bind-mount lets the worktree's gitdir pointer (host abs path) resolve in-slot.
+		"-v /proj/.git:/proj/.git",
 		"--user agent",
 		"--cap-drop all",
 		"--security-opt no-new-privileges",
@@ -38,7 +40,7 @@ func TestBuildMCPSlotArgs_SecurityFlags(t *testing.T) {
 }
 
 func TestBuildMCPSlotArgs_KeepOnExitOmitsRm(t *testing.T) {
-	args := buildMCPSlotArgs("n", "img", "/c", config.AgentConfig{}, true, nil)
+	args := buildMCPSlotArgs("n", "img", "/c", "/c/wt", config.AgentConfig{}, true, nil)
 	for _, a := range args {
 		if a == "--rm" {
 			t.Errorf("--rm must be omitted when keepOnExit is true: %v", args)
@@ -47,7 +49,7 @@ func TestBuildMCPSlotArgs_KeepOnExitOmitsRm(t *testing.T) {
 }
 
 func TestBuildMCPSlotArgs_DetachedAndSleepEntrypoint(t *testing.T) {
-	args := buildMCPSlotArgs("n", "img", "/c", config.AgentConfig{}, false, nil)
+	args := buildMCPSlotArgs("n", "img", "/c", "/c/wt", config.AgentConfig{}, false, nil)
 	if len(args) < 2 || args[0] != "run" || args[1] != "-d" {
 		t.Errorf("argv must start with `run -d` (detached); got: %v", args)
 	}
@@ -69,7 +71,7 @@ func TestBuildMCPSlotArgs_DetachedAndSleepEntrypoint(t *testing.T) {
 }
 
 func TestBuildMCPSlotArgs_EnvPairsForwarded(t *testing.T) {
-	args := buildMCPSlotArgs("n", "img", "/c", config.AgentConfig{}, false, []string{"FOO=1", "BAR=baz"})
+	args := buildMCPSlotArgs("n", "img", "/c", "/c/wt", config.AgentConfig{}, false, []string{"FOO=1", "BAR=baz"})
 	pairs := []string{}
 	for i, a := range args {
 		if a == "-e" && i+1 < len(args) {
@@ -90,7 +92,7 @@ func TestBuildMCPSlotArgs_EnvPairsForwarded(t *testing.T) {
 }
 
 func TestBuildMCPSlotArgs_NoResourceLimitsWhenUnset(t *testing.T) {
-	args := buildMCPSlotArgs("n", "img", "/c", config.AgentConfig{}, false, nil)
+	args := buildMCPSlotArgs("n", "img", "/c", "/c/wt", config.AgentConfig{}, false, nil)
 	for _, banned := range []string{"--memory", "--cpus"} {
 		for _, a := range args {
 			if a == banned {
