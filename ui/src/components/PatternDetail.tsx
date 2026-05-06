@@ -14,7 +14,7 @@ import {
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
 import { useGetPattern, useDeletePattern, useUpdatePattern, useCreateIssue } from '../api'
 import { MarkdownContent } from './MarkdownContent'
-import { CommentsAndRevisions } from './CommentsAndRevisions'
+import { EventStream } from './EventStream'
 
 export function PatternDetail({ slug, patternId }: { slug: string; patternId: number }) {
   const router = useRouter()
@@ -163,7 +163,7 @@ export function PatternDetail({ slug, patternId }: { slug: string; patternId: nu
         Updated: {new Date(pattern.updated_at).toLocaleString()}
       </Typography>
 
-      <CommentsAndRevisions slug={slug} targetType="pattern" targetId={String(patternId)} />
+      <EventStream slug={slug} targetType="pattern" targetId={String(patternId)} />
 
       <Dialog open={issueOpen} onClose={() => setIssueOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>File issue against pattern</DialogTitle>
