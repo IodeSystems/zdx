@@ -1,11 +1,14 @@
 -- name: ListProjects :many
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description FROM zdx_projects ORDER BY name;
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects ORDER BY name;
 
 -- name: GetProjectBySlug :one
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description FROM zdx_projects WHERE slug = $1;
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects WHERE slug = $1;
 
 -- name: GetProjectByID :one
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description FROM zdx_projects WHERE id = $1;
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects WHERE id = $1;
+
+-- name: SetProjectPriority :exec
+UPDATE zdx_projects SET priority = @priority WHERE slug = @slug;
 
 -- name: CreateProject :one
 INSERT INTO zdx_projects (slug, name) VALUES ($1, $2)

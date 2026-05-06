@@ -314,6 +314,10 @@ func (h *Handler) registerAuthRoutes(api huma.API) {
 		Stage          string `json:"stage"`
 		Classification string `json:"classification,omitempty"`
 		GitEnabled     bool   `json:"git_enabled,omitempty"`
+		// Priority drives cross-project ordering for global-pool agents.
+		// 1=highest, 9=lowest by convention; default 5. See GAPD phase 3
+		// in docs/plan.md. Settable via POST /api/admin/projects/{slug}/priority.
+		Priority int32 `json:"priority"`
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "list-projects", Method: http.MethodGet, Path: "/api/projects"},
@@ -334,6 +338,7 @@ func (h *Handler) registerAuthRoutes(api huma.API) {
 				out[i] = ProjectItem{
 					ID: r.ID, Slug: r.Slug, Name: r.Name, Title: r.Title, Description: r.Description,
 					CreatedAt: fmtTS(r.CreatedAt), Stage: r.Stage, Classification: r.Classification, GitEnabled: r.GitEnabled,
+					Priority: r.Priority,
 				}
 			}
 			return &struct {
@@ -402,6 +407,7 @@ func (h *Handler) registerAuthRoutes(api huma.API) {
 			return &struct{ Body ProjectItem }{Body: ProjectItem{
 				ID: row.ID, Slug: row.Slug, Name: row.Name, CreatedAt: fmtTS(row.CreatedAt),
 				Classification: in.Body.Classification, GitEnabled: gitEnabled,
+				Priority: 5, // matches the column default; CreateProject doesn't return it.
 			}}, nil
 		})
 }

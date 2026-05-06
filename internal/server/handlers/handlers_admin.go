@@ -142,6 +142,39 @@ func (h *Handler) registerAdminRoutes(api huma.API) {
 			}{Stage: in.Body.Stage}}, nil
 		})
 
+	// ── Admin: project priority ─────────────────────────────────────────────
+	//
+	// GAPD phase 3 prep: priority is the cross-project ordering hint for the
+	// global agent pool's claim path (consumer is gated on the costing pass
+	// for the cross-project queue cache). Schema-level work only here —
+	// setting a value is supported, surfacing it on /api/projects is wired,
+	// but no claim path consumes it yet.
+	huma.Register(api, huma.Operation{OperationID: "set-project-priority", Method: http.MethodPut, Path: "/api/admin/project-priority"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug     string `json:"slug" required:"true"`
+				Priority int32  `json:"priority" required:"true"`
+			}
+		}) (*struct {
+			Body struct {
+				Priority int32 `json:"priority"`
+			}
+		}, error) {
+			if err := h.Q.SetProjectPriority(ctx, db.SetProjectPriorityParams{
+				Priority: in.Body.Priority,
+				Slug:     in.Body.Slug,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct {
+				Body struct {
+					Priority int32 `json:"priority"`
+				}
+			}{Body: struct {
+				Priority int32 `json:"priority"`
+			}{Priority: in.Body.Priority}}, nil
+		})
+
 	// ── Admin: dashboard stats ──────────────────────────────────────────────
 
 	huma.Register(api, huma.Operation{OperationID: "admin-stats", Method: http.MethodGet, Path: "/api/admin/stats"},
