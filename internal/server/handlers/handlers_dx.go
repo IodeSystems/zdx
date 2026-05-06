@@ -1036,7 +1036,6 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 		}) (*struct {
 			Body struct {
 				GoalCount        int64  `json:"goal_count"`
-				ConstraintCount  int64  `json:"constraint_count"`
 				OwnerJournalDate string `json:"owner_journal_date"`
 				TechJournalDate  string `json:"tech_journal_date"`
 				ClosedTaskCount  int64  `json:"closed_task_count"`
@@ -1047,7 +1046,6 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 				return nil, err
 			}
 			goalCount, _ := h.Q.CountProjectGoals(ctx, p.ID)
-			constraintCount, _ := h.Q.CountProjectConstraints(ctx, p.ID)
 			closedTaskCount, _ := h.Q.CountClosedTasks(ctx, p.ID)
 
 			var ownerDate, techDate string
@@ -1061,20 +1059,17 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 			return &struct {
 				Body struct {
 					GoalCount        int64  `json:"goal_count"`
-					ConstraintCount  int64  `json:"constraint_count"`
 					OwnerJournalDate string `json:"owner_journal_date"`
 					TechJournalDate  string `json:"tech_journal_date"`
 					ClosedTaskCount  int64  `json:"closed_task_count"`
 				}
 			}{Body: struct {
 				GoalCount        int64  `json:"goal_count"`
-				ConstraintCount  int64  `json:"constraint_count"`
 				OwnerJournalDate string `json:"owner_journal_date"`
 				TechJournalDate  string `json:"tech_journal_date"`
 				ClosedTaskCount  int64  `json:"closed_task_count"`
 			}{
 				GoalCount:        goalCount,
-				ConstraintCount:  constraintCount,
 				OwnerJournalDate: ownerDate,
 				TechJournalDate:  techDate,
 				ClosedTaskCount:  closedTaskCount,

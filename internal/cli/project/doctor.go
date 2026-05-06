@@ -361,11 +361,6 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 		}
 	}
 
-	// Constraints
-	if cResp, err := c.ListConstraintsWithResponse(ctx, &dxclient.ListConstraintsParams{Slug: slug}); err == nil && cResp.JSON200 != nil && cResp.JSON200.Constraints != nil {
-		state.ConstraintCount = len(*cResp.JSON200.Constraints)
-	}
-
 	// Features
 	if fResp, err := c.ListFeaturesWithResponse(ctx, &dxclient.ListFeaturesParams{Slug: slug}); err == nil && fResp.JSON200 != nil && fResp.JSON200.Features != nil {
 		feats := *fResp.JSON200.Features

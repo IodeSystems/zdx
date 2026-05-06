@@ -730,8 +730,6 @@ func suggestedActionForKind(kind, targetType, targetID string) string {
 		return "dx comment mark-read " + targetType + " " + targetID + " --role=llm"
 	case "owner:goals":
 		return "dx goal add <title>"
-	case "owner:constraints":
-		return "dx constraint add <title>"
 	case "owner:standup":
 		return "dx standup checkin --owner"
 	case "tech:standup":
