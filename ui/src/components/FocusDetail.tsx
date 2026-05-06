@@ -19,6 +19,7 @@ import {
   type FocusAttribution,
 } from '../api'
 import { MarkdownContent } from './MarkdownContent'
+import { EventStream } from './EventStream'
 
 const PRIORITY_LABELS: Record<number, string> = { 1: 'urgent', 2: 'high', 3: 'medium', 4: 'low' }
 const PRIORITY_COLORS: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
@@ -173,9 +174,11 @@ export function FocusDetail({ slug, name }: { slug: string; name: string }) {
         </Box>
       </Box>
 
-      <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 3 }}>
+      <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 3, mb: 3 }}>
         Created: {new Date(focus.created_at).toLocaleString()}
       </Typography>
+
+      <EventStream slug={slug} targetType="focus" targetId={focus.name} />
     </Box>
   )
 }
