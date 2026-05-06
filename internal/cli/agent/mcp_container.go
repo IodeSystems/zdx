@@ -3,9 +3,11 @@ package agent
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -47,6 +49,121 @@ func buildMCPSlotArgs(name, imageTag, cwd string, agentCfg config.AgentConfig, k
 
 	args = append(args, imageTag, "sleep", "infinity")
 	return args
+}
+
+// slotWorktree provisions a per-slot git worktree under
+// .zdx/agent/slots/<alias>-<i>/ on a fresh branch wip/<alias>-<i> rooted
+// at the operator's current HEAD. Each slot's container then bind-mounts
+// its OWN worktree (not the shared project root), so:
+//
+//   - operator can edit/commit in the host tree without racing the slots
+//   - slots can edit/commit in isolation; their work lands on their own
+//     branch
+//   - if two slots touch the same files, conflict resolution is just
+//     normal git merge between two branches, not last-writer-wins on
+//     a shared working tree
+//
+// Branches are intentionally namespaced under wip/* (not agent/*) — the
+// agent/* namespace is reserved for the planned per-issue lifecycle
+// (branch=agent/IS-N, persistent across babysit lifetimes, with a review-
+// as-agent verdict driving merge/comment/BQ outcomes). Using a separate
+// wip/* namespace today keeps that door open: when the per-issue model
+// lands it can claim agent/* without colliding with these transient slots.
+//
+// Returns the worktree path and the branch name. The caller is
+// responsible for cleanup via cleanupSlotWorktree on exit.
+//
+// bin/dx-agent (the in-slot MCP server) is gitignored, so a fresh
+// worktree won't have it. Copy it from the host's bin/ so docker exec
+// /workspace/bin/dx-agent --mcp-stdio resolves inside the slot.
+func slotWorktree(cwd, alias string, slotIdx int) (path, branch string, err error) {
+	branch = fmt.Sprintf("wip/%s-%d", alias, slotIdx)
+	path = filepath.Join(cwd, ".zdx", "agent", "slots", fmt.Sprintf("%s-%d", alias, slotIdx))
+
+	// Idempotent: if the worktree already exists from a prior crashed run,
+	// remove it before re-adding so `git worktree add -b` doesn't fail with
+	// "branch already checked out".
+	if _, statErr := os.Stat(path); statErr == nil {
+		_ = exec.Command("git", "worktree", "remove", "--force", path).Run()
+		_ = exec.Command("git", "branch", "-D", branch).Run()
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return "", "", fmt.Errorf("mkdir worktree parent: %w", err)
+	}
+	out, addErr := exec.Command("git", "worktree", "add", "-b", branch, path).CombinedOutput()
+	if addErr != nil {
+		return "", "", fmt.Errorf("git worktree add %s: %s", branch, strings.TrimSpace(string(out)))
+	}
+
+	if err := copyDxAgentBinary(cwd, path); err != nil {
+		// Roll back the worktree if we can't seed bin/dx-agent — without
+		// it the slot's MCP dispatch will fail and the slot is unusable.
+		_ = exec.Command("git", "worktree", "remove", "--force", path).Run()
+		_ = exec.Command("git", "branch", "-D", branch).Run()
+		return "", "", err
+	}
+	return path, branch, nil
+}
+
+// cleanupSlotWorktree removes a slot's worktree on shutdown. If the slot
+// made any commits beyond the starting HEAD, the branch is preserved so
+// the operator can `dx merge-train run` it. If no commits were made, the
+// branch is deleted too (no detritus from dry runs).
+func cleanupSlotWorktree(cwd, path, branch string) {
+	if path == "" {
+		return
+	}
+	// Check if branch advanced past its starting point. `git rev-list
+	// HEAD..branch --count` from the worktree's branch vs. the parent tree's
+	// dev tip. We compare against the cwd's current HEAD as the reference.
+	hasCommits := false
+	if out, err := exec.Command("git", "-C", cwd, "rev-list", "HEAD.."+branch, "--count").Output(); err == nil {
+		if strings.TrimSpace(string(out)) != "0" {
+			hasCommits = true
+		}
+	}
+	if out, err := exec.Command("git", "worktree", "remove", "--force", path).CombinedOutput(); err != nil {
+		fmt.Fprintf(os.Stderr, "cleanup: git worktree remove %s: %s\n", path, strings.TrimSpace(string(out)))
+	}
+	if !hasCommits {
+		// Empty branch — no value in keeping it.
+		_ = exec.Command("git", "-C", cwd, "branch", "-D", branch).Run()
+	} else {
+		fmt.Printf("[slot] preserved branch %s (has commits — inspect with `git log %s` and integrate as you see fit)\n", branch, branch)
+	}
+}
+
+// copyDxAgentBinary mirrors the operator's bin/dx-agent into the slot
+// worktree's bin/ so the slot's MCP dispatch can locate it under
+// /workspace/bin/dx-agent. bin/ is gitignored so a fresh worktree
+// otherwise has no bin/.
+func copyDxAgentBinary(srcRoot, dstRoot string) error {
+	srcPath := filepath.Join(srcRoot, "bin", "dx-agent")
+	src, err := os.Open(srcPath)
+	if err != nil {
+		return fmt.Errorf("open bin/dx-agent (run `make build` first): %w", err)
+	}
+	defer src.Close()
+	srcInfo, err := src.Stat()
+	if err != nil {
+		return fmt.Errorf("stat bin/dx-agent: %w", err)
+	}
+
+	dstDir := filepath.Join(dstRoot, "bin")
+	if err := os.MkdirAll(dstDir, 0o755); err != nil {
+		return fmt.Errorf("mkdir slot bin/: %w", err)
+	}
+	dstPath := filepath.Join(dstDir, "dx-agent")
+	dst, err := os.OpenFile(dstPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode())
+	if err != nil {
+		return fmt.Errorf("create slot bin/dx-agent: %w", err)
+	}
+	defer dst.Close()
+	if _, err := io.Copy(dst, src); err != nil {
+		return fmt.Errorf("copy bin/dx-agent: %w", err)
+	}
+	return nil
 }
 
 // runMCPContainerLoop is --container's universal implementation across
@@ -157,6 +274,13 @@ func runMCPContainerLoop(parentCtx context.Context, providerName string, opts Pr
 			stopSlot(i, n)
 		}
 	}
+	// Worktree cleanup hook installed by the slot-provisioning step below
+	// (worktrees don't exist yet at this point, so we route through a func
+	// pointer that's swapped in once they're created). os.Exit(130) bypasses
+	// deferred functions, so the signal handler must invoke cleanup itself
+	// before exiting — otherwise SIGTERM leaves orphan worktrees + branches
+	// in .zdx/agent/slots/ that the next run has to forcibly remove.
+	cleanupOnSignal := func() {}
 	sigCh := make(chan os.Signal, 2)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -169,17 +293,52 @@ func runMCPContainerLoop(parentCtx context.Context, providerName string, opts Pr
 		case <-time.After(10 * time.Second):
 		case <-sigCh:
 		}
+		cleanupOnSignal()
 		os.Exit(130)
 	}()
 
 	envPairs := collectContainerEnv([]string{"ANTHROPIC_API_KEY", "DATABASE_URL", "NO_COLOR"})
+
+	// Per-slot worktrees: each slot gets its own .zdx/agent/slots/<alias>-<i>/
+	// checkout on a fresh agent/<alias>-<i> branch. Without this, every slot
+	// (and the operator) shared the same working tree and stomped each
+	// other's edits silently.
+	type slotPaths struct {
+		path   string
+		branch string
+	}
+	worktrees := make([]slotPaths, maxSlots)
+	cleanupWorktrees := func() {
+		for _, w := range worktrees {
+			cleanupSlotWorktree(cwd, w.path, w.branch)
+		}
+	}
+	for i := 0; i < maxSlots; i++ {
+		path, branch, err := slotWorktree(cwd, opts.Alias, i)
+		if err != nil {
+			emit("slot.worktree_failed", "slot_index", i, "err", err.Error())
+			// Roll back any worktrees created so far before bailing.
+			for j := 0; j < i; j++ {
+				cleanupSlotWorktree(cwd, worktrees[j].path, worktrees[j].branch)
+			}
+			return fmt.Errorf("slot %d worktree: %w", i, err)
+		}
+		worktrees[i] = slotPaths{path: path, branch: branch}
+		emit("slot.worktree_created", "slot_index", i, "path", path, "branch", branch)
+	}
+	defer cleanupWorktrees()
+	cleanupOnSignal = cleanupWorktrees
 
 	var wg sync.WaitGroup
 	for i := 0; i < maxSlots; i++ {
 		slotName := fmt.Sprintf("zdx-agent-mcp-%s-%s-%d", providerName, opts.Alias, i)
 		emit("slot.starting", "slot_index", i, "name", slotName)
 
-		runArgs := buildMCPSlotArgs(slotName, imageTag, cwd, agentCfg, opts.KeepContainer, envPairs)
+		// Mount the slot's own worktree into the container, not the operator's
+		// shared cwd. Each slot now has an isolated working tree on its own
+		// branch — operator can edit/commit in cwd without racing slots.
+		slotMount := worktrees[i].path
+		runArgs := buildMCPSlotArgs(slotName, imageTag, slotMount, agentCfg, opts.KeepContainer, envPairs)
 		startCmd := exec.CommandContext(ctx, "docker", runArgs...)
 		startCmd.Stdout = os.Stderr // docker run -d prints the container ID
 		startCmd.Stderr = os.Stderr
