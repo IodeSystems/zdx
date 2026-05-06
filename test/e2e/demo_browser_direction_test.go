@@ -83,7 +83,7 @@ func TestDemoBrowser_ProjectDirectionTab(t *testing.T) {
 
 	// Wait for the Goals section heading to appear (React app loaded + data fetched).
 	timeout := float64(15000)
-	if err := page.GetByText("Goals", pw.PageGetByTextOptions{}).First().WaitFor(pw.LocatorWaitForOptions{
+	if err := page.GetByText("Goals").First().WaitFor(pw.LocatorWaitForOptions{
 		State:   pw.WaitForSelectorStateVisible,
 		Timeout: &timeout,
 	}); err != nil {
@@ -91,10 +91,10 @@ func TestDemoBrowser_ProjectDirectionTab(t *testing.T) {
 	}
 
 	// Assert both sections are visible.
-	if ok, _ := page.GetByText("Goals", pw.PageGetByTextOptions{}).First().IsVisible(); !ok {
+	if ok, _ := page.GetByText("Goals").First().IsVisible(); !ok {
 		t.Error("Goals section heading not visible")
 	}
-	if ok, _ := page.GetByText("Constraints", pw.PageGetByTextOptions{}).First().IsVisible(); !ok {
+	if ok, _ := page.GetByText("Constraints").First().IsVisible(); !ok {
 		t.Error("Constraints section heading not visible")
 	}
 
