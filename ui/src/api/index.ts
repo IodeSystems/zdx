@@ -3359,3 +3359,33 @@ export const useAtlasCoderefs = (slug: string) =>
     },
     enabled: !!slug,
   })
+
+// ── plans ────────────────────────────────────────────────────────────────────
+
+export type PlanItem = components['schemas']['PlanItem']
+
+export const useListPlans = (slug: string) =>
+  useQuery<PlanItem[]>({
+    queryKey: ['plans', slug],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/plans', {
+        params: { query: { slug } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return data?.plans ?? []
+    },
+    enabled: !!slug,
+  })
+
+export const useGetPlan = (slug: string, id: number) =>
+  useQuery<PlanItem>({
+    queryKey: ['plan', slug, id],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/plan', {
+        params: { query: { slug, id } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+    enabled: !!slug && id > 0,
+  })
