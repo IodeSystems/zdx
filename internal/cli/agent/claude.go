@@ -19,6 +19,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/iodesystems/zdx-go/internal/agentdaemon"
 	"github.com/iodesystems/zdx-go/internal/config"
 )
@@ -252,21 +254,44 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 		agentID = "agent-" + shortID()
 	}
 
+	// Loop-scope tracelog (IS-1033 quick wire-up): one logger for this
+	// runLoop run, alias-tagged so every event from this process is
+	// filterable as a chain via `dx log tail --tag alias=<X>`. claude's
+	// existing `log` closure stays for human-readable stderr; emit
+	// duplicates structured tags into tracelog.
+	loopLog, loopSink := setupLoopTracelog(rc, "claude", agentID)
+	if loopSink != nil {
+		defer func() {
+			closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = loopSink.Close(closeCtx)
+		}()
+	}
+	if loopLog != nil {
+		defer loopLog.Close()
+		if u := loopLog.FilteredURL(rc.url, rc.slug); u != "" {
+			fmt.Printf("View loop events: %s\n", u)
+		}
+		loopLog.Info("loop.started", "lease_minutes", agentCfg.LeaseMinutes, "srcless", srcless)
+		defer loopLog.Info("loop.exited")
+	}
+	emit := func(name string, kv ...any) {
+		if loopLog != nil {
+			loopLog.Info(name, kv...)
+		}
+	}
+
 	// Remote-control bridge (IS-1032): same wiring as RunManagedLoop. The
 	// daemon's ControlCh consumer toggles holder pause/drain state which
 	// the for-loop checks each iteration. Best-effort dial; failure falls
 	// back to file-only operation.
 	holder := agentdaemon.NewLoopTaskHolder()
-	// claude's runLoop has its own log fn; tracelog wiring for it is a
-	// follow-up. For now, daemon events still fire via log.Printf and the
-	// claude runLoop's own log file. Pass nil so startDaemon stays
-	// emit-aware without forcing a tracelog dependency on this path.
 	startDaemon(ctx, "claude", ProviderOpts{
 		RC:       rc,
 		AgentCfg: agentCfg,
 		Alias:    agentID,
 		WorkDir:  workDir,
-	}, holder, nil)
+	}, holder, loopLog)
 
 	selfPath, _ := os.Executable()
 	selfHash := fileHash(selfPath)
@@ -295,8 +320,10 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 		// Self-update detection.
 		if h := fileHash(selfPath); h != "" && selfHash != "" && h != selfHash {
 			log("self-update: %s → %s, re-execing", shortHash(selfHash), shortHash(h))
+			emit("self_update.detected", "old", shortHash(selfHash), "new", shortHash(h))
 			if err := selfReexec(selfPath, os.Args); err != nil {
 				log("re-exec failed: %v", err)
+				emit("self_update.reexec_failed", "err", err.Error())
 			}
 		}
 
@@ -306,6 +333,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 		}
 		if holder.DrainSignaled() {
 			log("drain signaled, exiting loop")
+			emit("drain.exited")
 			return nil
 		}
 
@@ -343,11 +371,19 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 			}
 		}
 
+		iterationID := uuid.New().String()
+		emit("take.started",
+			"iteration_id", iterationID,
+			"session_idx", sessionIdx,
+			"resume_issue_id", takeCfg.ResumeIssueID,
+			"resume_sid", takeCfg.ResumeSID)
+
 		result := Take(ctx, takeCfg)
 		sessionIdx++
 
 		// Handle idle (no work available).
 		if errors.Is(result.Err, ErrNoWork) {
+			emit("claim.idle", "iteration_id", iterationID)
 			log("idle (no claimable todos); sleeping 60s")
 			select {
 			case <-ctx.Done():
@@ -356,6 +392,14 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 			}
 			continue
 		}
+
+		emit("take.ended",
+			"iteration_id", iterationID,
+			"todo_key", result.TodoKey,
+			"success", result.Success,
+			"churn_downgraded", result.ChurnDowngraded,
+			"cycle_detected", result.CycleDetected,
+			"err", errString(result.Err))
 
 		// Track churn across iterations by todo key.
 		switch {
@@ -378,6 +422,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 		if consecutiveChurns >= 3 {
 			backoff := time.Duration(1<<min(consecutiveChurns-3, 6)) * time.Minute // 1m, 2m, 4m … 64m cap
 			log("churn backoff: key %s churned %d times; sleeping %s", lastChurnTodoKey, consecutiveChurns, backoff.Truncate(time.Second))
+			emit("churn.backoff", "key", lastChurnTodoKey, "count", consecutiveChurns, "backoff_seconds", int(backoff.Seconds()))
 			select {
 			case <-ctx.Done():
 				return nil
