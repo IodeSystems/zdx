@@ -3,11 +3,13 @@
 Single source of truth for the global-agent-pool stream. Captured 2026-05-06,
 updated as decisions firm up.
 
-**Stabilization mode** — phase 2 shipped, but this doc remains the
-single source of truth while phase 3 lands. Open items are direct-edit
-in the doc rather than tracker issues; once phase 3 ships clean we can
-exit stabilization for the agent stream and let `dx agent claude --loop`
-resume on remaining work.
+**Stabilization mode** — phase 3 effectively closed; only the
+admin-auth strict-reject flip remains, gated on prod telemetry. The
+agent stream can exit stabilization once that flip lands and the
+daemon-on-claim-any path has logged at least one cycle in prod
+without falling back. Until then, GAPD work continues direct
+(human → branch → PR → dev) so we don't fight the merge-train on
+the same stream we're stabilizing.
 
 ## Status
 
@@ -15,7 +17,7 @@ resume on remaining work.
 |-------|-------|
 | 1 — schema + connect verb + list endpoint | ✅ shipped (`21bc378f`) |
 | 2 — UI panel + pin/unpin + flag fix | ✅ shipped 2026-05-06 — API smoke + Playwright e2e (`TestDemoBrowser_AgentsPoolPanel`) cover the full pin/unpin loop |
-| 3 — priority bump + cross-project queue + admin auth | 🟡 in flight — project priority schema (`686633f9`), per-todo priority bump (`2625eb18`), bump-verb spread to QueueView + timeline, transitional admin-token auth, periodic in-server reaper, and cross-project /api/dx/solo/claim-any shipped; only the strict-reject flip on global auth still open before phase-3 close |
+| 3 — priority bump + cross-project queue + admin auth | 🟢 effectively closed — bump-spread, transitional admin auth, periodic reaper, /api/dx/solo/claim-any, and the daemon migration onto claim-any all shipped; the only remaining work is the strict-reject flip on global auth, which is gated on prod telemetry showing zero `agent connect: DEPRECATED:` log lines |
 
 ## Why stabilization mode
 
@@ -297,6 +299,20 @@ operator escalates urgent work via mark-as-priority; auth story is proper.
   projects with concurrent globals, revisit caching against
   measured numbers — the costing pass note above gives the
   thresholds to watch.
+- [x] **Daemon migration onto `/claim-any`.** Done.
+  `claimNextTodo` (`internal/cli/agent/claim.go`) now branches
+  on `rc.slug`: empty (global / srcless / `DX_GLOBAL=1`) goes
+  to `POST /api/dx/solo/claim-any` without a `slug` field;
+  non-empty stays on `POST /api/dx/solo/claim` exactly like
+  before. The wire response shape is identical so the
+  downstream lifecycle (`take.go`'s clone+init, lease renew,
+  release/resolve) keeps working unchanged — global daemons
+  just pick the composite-priority winner instead of the
+  first-project-with-anything-claimable. Smoke-tested
+  side-by-side against the local DB: both endpoints return
+  HTTP 200 with the right `project_slug`. Still raw `http`
+  rather than dxclient — switching to typed `SoloClaimAny`
+  is a separate raw-api-calls cleanup.
 - [x] **Admin token auth — transitional.** Done. WS handshake now
   authorizes the registration against the token's role +
   `project_scope` (already stamped on ctx by `apiKeyMiddleware`).
@@ -430,16 +446,7 @@ gated on the costing pass).
    plus a test flip. Don't do this until operators have migrated
    their `dx agent connect --global` workflows.
 
-2. **Migrate the daemon onto `/claim-any`.** Today's `dx agent connect`
-   path still calls `/api/dx/solo/claim` with `slug=""` for global
-   agents. The new endpoint exists but has no caller yet. Plumb the
-   dxclient `SoloClaimAny` method (regenerated when the OpenAPI spec
-   reaches the merge-train) through `agentdaemon` so global agents
-   pick up the composite-priority ordering. Existing `/claim` with
-   empty slug stays in place for back-compat until the migration
-   lands.
-
-3. **(maybe) Flat issue-page todo list.** Bump now lives on the
+2. **(maybe) Flat issue-page todo list.** Bump now lives on the
    timeline `created` event for each issue's todos. If operators
    want a flat actionable list (parallel to the existing "Tasks"
    section in `IssueDetail`), add a small "Open todos" section
@@ -496,3 +503,4 @@ generated file, unstages it, then commits the remainder.
 - (this commit) fix(devmode): write api.gen.ts to absolute path (avoid ui/ui ghost)
 - (this commit) feat(server): periodic in-server reaper, drop manual /api/agents/reap + CLI
 - (this commit) feat(server): /api/dx/solo/claim-any cross-project claim ordered by project_priority×todo_priority
+- (this commit) feat(agent): daemon claimNextTodo routes empty-slug to /claim-any

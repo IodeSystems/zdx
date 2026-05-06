@@ -11,10 +11,11 @@ import (
 	"github.com/iodesystems/zdx-go/internal/cli"
 )
 
-// claimedTodo is the wire shape returned by POST /api/dx/solo/claim and used
-// by every code path that walks the claim/renew/release lifecycle. Lives in
-// its own file rather than next to one provider so all providers can adopt
-// atomic claims without an import cycle through claude.go.
+// claimedTodo is the wire shape returned by POST /api/dx/solo/claim (or
+// /claim-any for global agents) and used by every code path that walks the
+// claim/renew/release lifecycle. Lives in its own file rather than next to
+// one provider so all providers can adopt atomic claims without an import
+// cycle through claude.go.
 type claimedTodo struct {
 	ID              int32  `json:"id"`
 	Text            string `json:"text"`
@@ -32,17 +33,38 @@ type claimedTodo struct {
 }
 
 // claimNextTodo atomically reserves the next available todo for agentID via
-// the server's solo/claim endpoint (FOR UPDATE SKIP LOCKED on the DB side).
+// the server's solo claim endpoint (FOR UPDATE SKIP LOCKED on the DB side).
 // Returns nil + nil error when no work is available so callers can sleep
 // and retry without distinguishing "transport error" from "idle".
+//
+// Routing: when rc.slug is empty (global agent: srcless or DX_GLOBAL=1) the
+// daemon hits /api/dx/solo/claim-any, which picks across every project
+// ordered by project.priority then todo.priority. When rc.slug is set the
+// daemon stays on the project-scoped /claim path. The wire response shape
+// is identical (claim-any populates project_slug; /claim leaves it blank).
 func claimNextTodo(rc remoteConfig, agentID string, leaseMinutes int32) (*claimedTodo, error) {
-	body, _ := json.Marshal(map[string]any{
-		"slug":          rc.slug,
-		"agent_id":      agentID,
-		"lease_minutes": leaseMinutes,
-		"mode":          "autonomous",
-	})
-	req, _ := http.NewRequest("POST", rc.url+"/api/dx/solo/claim", bytes.NewReader(body))
+	var (
+		path    string
+		payload map[string]any
+	)
+	if rc.slug == "" {
+		path = "/api/dx/solo/claim-any"
+		payload = map[string]any{
+			"agent_id":      agentID,
+			"lease_minutes": leaseMinutes,
+			"mode":          "autonomous",
+		}
+	} else {
+		path = "/api/dx/solo/claim"
+		payload = map[string]any{
+			"slug":          rc.slug,
+			"agent_id":      agentID,
+			"lease_minutes": leaseMinutes,
+			"mode":          "autonomous",
+		}
+	}
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest("POST", rc.url+path, bytes.NewReader(body))
 	req.Header.Set("X-Api-Key", rc.key)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
