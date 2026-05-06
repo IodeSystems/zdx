@@ -225,7 +225,7 @@ func envDeployCmd() *cobra.Command {
 //     every recent ship).
 func envShipCmd() *cobra.Command {
 	var trunkOverride string
-	var skipLint, skipPush, dryRun bool
+	var skipLint, skipTests, skipPush, skipPromote, dryRun bool
 	cmd := &cobra.Command{
 		Use:   "ship <name>",
 		Short: "Promote trunk → release branch, deploy to environment, record the deploy",
@@ -235,12 +235,20 @@ func envShipCmd() *cobra.Command {
      to 'dev' when unset (override with --trunk).
   2. Refuse if the working tree is dirty.
   3. ` + "`git fetch origin`" + ` so trunk/release tracking is current.
-  4. Lint the trunk branch (skip with --skip-lint) so we don't promote churn.
-  5. Switch to release_branch, ` + "`git merge --ff-only trunk_branch`" + `. Refuse on
+  4. Lint the trunk branch (skip with --skip-lint, or auto-skip if ./bin/lint
+     doesn't exist) so we don't promote churn.
+  5. Test the trunk branch (skip with --skip-tests, or auto-skip if ./bin/test
+     doesn't exist).
+  6. Switch to release_branch, ` + "`git merge --ff-only trunk_branch`" + `. Refuse on
      non-fast-forward (operator must rebase trunk onto release first).
-  6. ` + "`git push origin release_branch`" + ` (skip with --skip-push).
-  7. Run ./bin/ship to build + roll out.
-  8. POST a deploy record so the env shows updated SHA/branch.
+  7. ` + "`git push origin release_branch`" + ` (skip with --skip-push).
+  8. Run ./bin/ship to build + roll out.
+  9. POST a deploy record so the env shows updated SHA/branch.
+
+Promotion-only mode: if trunk_branch == release_branch (or --skip-promote is set),
+steps 4–7 are skipped. Use this for envs that deploy a single branch as-is
+(e.g. trunk=main, release=main). To "sync" such an env from another branch,
+pass --trunk <other> on the command line.
 
 Restores the original branch on exit, even on failure.`,
 		Args: cobra.ExactArgs(1),
@@ -272,11 +280,18 @@ Restores the original branch on exit, even on failure.`,
 			if trunk == "" {
 				trunk = "dev" // sensible default for the dev→main flow
 			}
+			// trunk == release_branch means promotion is a no-op — deploy whatever
+			// is on the branch as-is. Auto-imply --skip-promote so callers don't
+			// have to pass the flag for the natural single-branch case.
 			if trunk == env.ReleaseBranch {
-				return fmt.Errorf("trunk branch (%s) and release branch (%s) must differ", trunk, env.ReleaseBranch)
+				skipPromote = true
 			}
 
-			fmt.Printf("[ship] env=%s  trunk=%s → release=%s\n", envName, trunk, env.ReleaseBranch)
+			if skipPromote {
+				fmt.Printf("[ship] env=%s  release=%s (promotion skipped)\n", envName, env.ReleaseBranch)
+			} else {
+				fmt.Printf("[ship] env=%s  trunk=%s → release=%s\n", envName, trunk, env.ReleaseBranch)
+			}
 
 			// 2. Refuse on dirty tree. The pipeline does branch switches + merge
 			// commits, both of which interact badly with uncommitted edits.
@@ -299,7 +314,11 @@ Restores the original branch on exit, even on failure.`,
 			}()
 
 			if dryRun {
-				fmt.Println("[ship] --dry-run: would fetch, lint, ff-merge, push, ship, record")
+				if skipPromote {
+					fmt.Println("[ship] --dry-run: would fetch, ship (current branch), record")
+				} else {
+					fmt.Println("[ship] --dry-run: would fetch, lint, test, ff-merge, push, ship, record")
+				}
 				return nil
 			}
 
@@ -310,42 +329,74 @@ Restores the original branch on exit, even on failure.`,
 				fmt.Fprintf(os.Stderr, "[ship] warn: git fetch origin: %s\n", strings.TrimSpace(string(out)))
 			}
 
-			// 4. Lint trunk. Worker-style (--intent) is too lax for a release
-			// gate, so run the full lint. Skip via --skip-lint when the
-			// operator has already linted in this session and wants to avoid
-			// the extra ~30s.
-			if !skipLint {
-				if out, gerr := exec.Command("git", "switch", trunk).CombinedOutput(); gerr != nil {
-					return fmt.Errorf("git switch %s: %s", trunk, strings.TrimSpace(string(out)))
+			if !skipPromote {
+				// 4. Lint trunk. Best-effort: skip if ./bin/lint isn't present
+				// (some projects don't have one), or if the operator has
+				// already linted in this session and passed --skip-lint.
+				if !skipLint {
+					if _, statErr := os.Stat("./bin/lint"); statErr != nil {
+						fmt.Println("[ship] no ./bin/lint — skipping lint")
+					} else {
+						if out, gerr := exec.Command("git", "switch", trunk).CombinedOutput(); gerr != nil {
+							return fmt.Errorf("git switch %s: %s", trunk, strings.TrimSpace(string(out)))
+						}
+						fmt.Printf("[ship] linting %s...\n", trunk)
+						lint := exec.Command("./bin/lint")
+						lint.Stdout = os.Stdout
+						lint.Stderr = os.Stderr
+						if lerr := lint.Run(); lerr != nil {
+							return fmt.Errorf("lint failed on %s: %w", trunk, lerr)
+						}
+					}
 				}
-				fmt.Printf("[ship] linting %s...\n", trunk)
-				lint := exec.Command("./bin/lint")
-				lint.Stdout = os.Stdout
-				lint.Stderr = os.Stderr
-				if lerr := lint.Run(); lerr != nil {
-					return fmt.Errorf("lint failed on %s: %w", trunk, lerr)
+
+				// 5. Test trunk. Best-effort: skip if ./bin/test isn't present.
+				// The release gate should run the project's own test suite; if
+				// the project doesn't ship one, that's a doctor concern, not a
+				// ship concern.
+				if !skipTests {
+					if _, statErr := os.Stat("./bin/test"); statErr != nil {
+						fmt.Println("[ship] no ./bin/test — skipping tests")
+					} else {
+						if out, gerr := exec.Command("git", "switch", trunk).CombinedOutput(); gerr != nil {
+							return fmt.Errorf("git switch %s: %s", trunk, strings.TrimSpace(string(out)))
+						}
+						fmt.Printf("[ship] testing %s...\n", trunk)
+						test := exec.Command("./bin/test")
+						test.Stdout = os.Stdout
+						test.Stderr = os.Stderr
+						if terr := test.Run(); terr != nil {
+							return fmt.Errorf("tests failed on %s: %w", trunk, terr)
+						}
+					}
 				}
-			}
 
-			// 5. Fast-forward release_branch from trunk. --ff-only is the
-			// invariant: a merge commit on the release branch hides what the
-			// next ship will actually deploy. If trunk has diverged, the
-			// operator must rebase trunk onto release first.
-			if out, gerr := exec.Command("git", "switch", env.ReleaseBranch).CombinedOutput(); gerr != nil {
-				return fmt.Errorf("git switch %s: %s", env.ReleaseBranch, strings.TrimSpace(string(out)))
-			}
-			fmt.Printf("[ship] fast-forwarding %s ← %s...\n", env.ReleaseBranch, trunk)
-			if out, gerr := exec.Command("git", "merge", "--ff-only", trunk).CombinedOutput(); gerr != nil {
-				return fmt.Errorf("ff-merge %s ← %s failed: %s\n(rebase %s onto %s and retry)",
-					env.ReleaseBranch, trunk, strings.TrimSpace(string(out)), trunk, env.ReleaseBranch)
-			}
+				// 6. Fast-forward release_branch from trunk. --ff-only is the
+				// invariant: a merge commit on the release branch hides what
+				// the next ship will actually deploy. If trunk has diverged,
+				// the operator must rebase trunk onto release first.
+				if out, gerr := exec.Command("git", "switch", env.ReleaseBranch).CombinedOutput(); gerr != nil {
+					return fmt.Errorf("git switch %s: %s", env.ReleaseBranch, strings.TrimSpace(string(out)))
+				}
+				fmt.Printf("[ship] fast-forwarding %s ← %s...\n", env.ReleaseBranch, trunk)
+				if out, gerr := exec.Command("git", "merge", "--ff-only", trunk).CombinedOutput(); gerr != nil {
+					return fmt.Errorf("ff-merge %s ← %s failed: %s\n(rebase %s onto %s and retry)",
+						env.ReleaseBranch, trunk, strings.TrimSpace(string(out)), trunk, env.ReleaseBranch)
+				}
 
-			// 6. Push release_branch so origin tracks the deployable SHA. Some
-			// flows ship from local without pushing first; --skip-push lets
-			// those pass through.
-			if !skipPush {
-				if out, gerr := exec.Command("git", "push", "origin", env.ReleaseBranch).CombinedOutput(); gerr != nil {
-					return fmt.Errorf("git push origin %s: %s", env.ReleaseBranch, strings.TrimSpace(string(out)))
+				// 7. Push release_branch so origin tracks the deployable SHA.
+				// Some flows ship from local without pushing first; --skip-push
+				// lets those pass through.
+				if !skipPush {
+					if out, gerr := exec.Command("git", "push", "origin", env.ReleaseBranch).CombinedOutput(); gerr != nil {
+						return fmt.Errorf("git push origin %s: %s", env.ReleaseBranch, strings.TrimSpace(string(out)))
+					}
+				}
+			} else {
+				// Promotion-only mode skipped: ensure we're on the release
+				// branch so bin/ship deploys the right thing.
+				if out, gerr := exec.Command("git", "switch", env.ReleaseBranch).CombinedOutput(); gerr != nil {
+					return fmt.Errorf("git switch %s: %s", env.ReleaseBranch, strings.TrimSpace(string(out)))
 				}
 			}
 
@@ -391,7 +442,9 @@ Restores the original branch on exit, even on failure.`,
 	}
 	cmd.Flags().StringVar(&trunkOverride, "trunk", "", "override trunk branch (default: env.trunk_branch or 'dev')")
 	cmd.Flags().BoolVar(&skipLint, "skip-lint", false, "skip the trunk lint step (use only when you've just linted)")
+	cmd.Flags().BoolVar(&skipTests, "skip-tests", false, "skip the trunk test step")
 	cmd.Flags().BoolVar(&skipPush, "skip-push", false, "skip pushing release_branch to origin")
+	cmd.Flags().BoolVar(&skipPromote, "skip-promote", false, "skip lint/test/ff-merge/push; just ship the current state of release_branch (auto-set when trunk == release_branch)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "validate args + restore branch, but don't run any git/ship steps")
 	return cmd
 }
