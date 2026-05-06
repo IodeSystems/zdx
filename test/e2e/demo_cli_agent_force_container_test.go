@@ -14,10 +14,18 @@ import (
 // host process.
 //
 // The enforcement mechanism is the DX_AGENT_FORCE_CONTAINER environment
-// variable.  When it is set, `dx agent claude` without --container exits
-// immediately with a non-zero status and an error message that cites spec-117
-// and instructs the user to pass --container.  When it is unset (the dev
-// default), the host path is allowed through the gate.
+// variable.  When it is set, `dx agent --provider=claude` without --container
+// exits immediately with a non-zero status and an error message that cites
+// spec-117 and instructs the user to pass --container.  When it is unset (the
+// dev default), the host path is allowed through the gate.
+//
+// e5ac0ad4 removed the legacy `dx agent claude` subcommand in favour of a
+// unified `dx agent --provider=claude` parent. This test was not updated at
+// the time, so it kept invoking the old shape and failed with a "--provider is
+// required" error (which masked a quieter regression: enforceContainerExecution
+// had been threaded through dx agent loop's RunE only, leaving single-session
+// `dx agent` ungated). Both are addressed: the gate is back on
+// runManagedFromFlags, and the invocation here is the new shape.
 //
 // The demo exercises both branches end-to-end through the compiled dx binary:
 //
@@ -53,7 +61,7 @@ func TestDemoCLI_AgentForceContainerBlocksHost(t *testing.T) {
 
 	run := func(extraEnv []string) (stderr string, exitCode int) {
 		t.Helper()
-		cmd := exec.Command(dxBin, "agent", "claude")
+		cmd := exec.Command(dxBin, "agent", "--provider=claude")
 		cmd.Dir = projectDir
 		env := os.Environ()
 		env = append(env, extraEnv...)

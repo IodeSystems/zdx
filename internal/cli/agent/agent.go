@@ -209,6 +209,13 @@ func loadAgentRuntime(cmd *cobra.Command) (agentRuntime, error) {
 
 // runManagedFromFlags loads project + global config, resolves the model via
 // the provider, and dispatches to RunManagedSession.
+//
+// The single-session path (dx agent --provider=…) was missed by e5ac0ad4 when
+// it consolidated the legacy subcommands; enforceContainerExecution had only
+// been threaded through dx agent loop's RunE, so DX_AGENT_FORCE_CONTAINER no
+// longer covered single sessions even though spec 117 (every agent session
+// runs in a container) applies to both. Apply the gate here too so the
+// invariant holds across both entry points.
 func runManagedFromFlags(ctx context.Context, cmd *cobra.Command, provider, alias, issue, model, complexity, mcpContainer string) error {
 	tier, err := NormalizeComplexity(complexity)
 	if err != nil {
@@ -216,6 +223,9 @@ func runManagedFromFlags(ctx context.Context, cmd *cobra.Command, provider, alia
 	}
 	opts, err := loadManagedOptsFromCmd(cmd, provider, alias, issue, model, tier, 0, mcpContainer)
 	if err != nil {
+		return err
+	}
+	if err := enforceContainerExecution(false); err != nil {
 		return err
 	}
 	return RunManagedSession(ctx, provider, opts)

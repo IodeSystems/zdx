@@ -18,6 +18,7 @@ type DemoRecorder struct {
 	t     *testing.T
 	name  string
 	dxBin string
+	cwd   string
 	env   []string
 	steps []demoStep
 	refs  []coderef
@@ -50,6 +51,16 @@ func newRecorder(t *testing.T, name, dxBin string) *DemoRecorder {
 	if _, err := os.Stat(abs); err != nil {
 		t.Fatalf("dx binary not found at %q — run: go build -o %s ./cmd/dx/", abs, dxBin)
 	}
+	// Run dx in a fresh per-test git repo. The default cwd would be the
+	// project root, which means GitTreeDirty (used by `dx todo dev done`)
+	// reflects whatever uncommitted work the developer happens to have —
+	// turning every demo CLI test into a tripwire for the dev's working tree.
+	// A clean tempdir gives the recorder hermetic git state regardless of
+	// where it runs.
+	cwd := t.TempDir()
+	if out, err := exec.Command("git", "-C", cwd, "init", "--quiet").CombinedOutput(); err != nil {
+		t.Fatalf("git init in recorder cwd: %v\n%s", err, out)
+	}
 	slug := "demo-" + name
 	apiDo(t, "POST", "/api/project",
 		map[string]string{"slug": slug, "name": "Demo " + name}, nil)
@@ -57,6 +68,7 @@ func newRecorder(t *testing.T, name, dxBin string) *DemoRecorder {
 		t:     t,
 		name:  name,
 		dxBin: abs,
+		cwd:   cwd,
 		env: append(os.Environ(),
 			"DX_REMOTE_URL="+srv.URL,
 			"DX_REMOTE_API_KEY="+srv.AdminToken,
@@ -70,6 +82,9 @@ func (r *DemoRecorder) Run(args ...string) {
 	r.t.Helper()
 	cmd := exec.Command(r.dxBin, args...)
 	cmd.Env = r.env
+	if r.cwd != "" {
+		cmd.Dir = r.cwd
+	}
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

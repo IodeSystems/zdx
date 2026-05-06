@@ -399,7 +399,11 @@ func TestSoloCycleDetectionAutoFilesIssue(t *testing.T) {
 		return TodoItem{}, false
 	}
 
-	// First cycle: resolve triage without setting priority → blocked, cycle_count=1
+	// First cycle: resolve triage without setting priority → blocked, cycle_count=1.
+	// IS-514 downgrades the resolve to a release because the issue still has
+	// no priority; release matches by claimant, so the agent_id passed must be
+	// the actual claimant returned from solo/claim — not a hardcoded prefix —
+	// or the lease leaks and the second cycle can't re-claim the triage.
 	claimed, ok := claimTriage("agent-a")
 	if !ok {
 		t.Fatal("no triage todo found for first attempt")
@@ -409,7 +413,7 @@ func TestSoloCycleDetectionAutoFilesIssue(t *testing.T) {
 		CycleDetected bool `json:"cycle_detected"`
 	}
 	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/release",
-		map[string]any{"id": claimed.ID, "agent_id": "agent-a-0", "resolve": true}, &rel))
+		map[string]any{"id": claimed.ID, "agent_id": claimed.ClaimedBy, "resolve": true}, &rel))
 	if !rel.CycleDetected {
 		t.Fatal("expected cycle_detected=true on first attempt")
 	}
@@ -424,7 +428,7 @@ func TestSoloCycleDetectionAutoFilesIssue(t *testing.T) {
 		t.Fatal("no triage todo found for second attempt")
 	}
 	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/release",
-		map[string]any{"id": claimed.ID, "agent_id": "agent-b-0", "resolve": true}, &rel))
+		map[string]any{"id": claimed.ID, "agent_id": claimed.ClaimedBy, "resolve": true}, &rel))
 	if !rel.CycleDetected {
 		t.Fatal("expected cycle_detected=true on second attempt")
 	}
