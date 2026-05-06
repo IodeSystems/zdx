@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -68,6 +69,23 @@ func (h *Handler) HandleAgentConnect(registry *agentconn.Registry) http.HandlerF
 		if err := json.Unmarshal(msg, &reg); err != nil || reg.AgentID == "" {
 			conn.Close(websocket.StatusProtocolError, "invalid handshake") //nolint:errcheck
 			return
+		}
+
+		// Authorize the registration against the token already validated by
+		// apiKeyMiddleware (role + project_scope are stamped on ctx). Global
+		// registrations want an admin-tier token (role=admin, unscoped).
+		// Project-scoped registrations must fall inside the token's scope.
+		// Transitional: globals authenticated by a project token are
+		// accepted but logged as deprecated so operators can migrate
+		// without surprise breakage.
+		role := UserRoleFromContext(ctx)
+		scope := ProjectScopeFromContext(ctx)
+		if reason, deprecation := authorizeAgentRegister(role, scope, reg.ProjectSlug, reg.AgentID); reason != "" {
+			log.Printf("agent connect: %s rejected: %s", reg.AgentID, reason)
+			conn.Close(websocket.StatusPolicyViolation, reason) //nolint:errcheck
+			return
+		} else if deprecation != "" {
+			log.Printf("agent connect: %s", deprecation)
 		}
 
 		c := &agentconn.Conn{
@@ -157,6 +175,37 @@ func (h *Handler) HandleAgentConnect(registry *agentconn.Registry) http.HandlerF
 			h.dispatchAgentMessage(ctx, reg.AgentID, data)
 		}
 	}
+}
+
+// authorizeAgentRegister gates the WS handshake against the token's role +
+// project_scope. Returns ("", "") when the registration is allowed without
+// remarks. Returns ("", deprecation) when the call should proceed but a
+// log line should fire (transitional path for globals authenticated with a
+// project-scoped or non-admin token). Returns (reason, "") when the WS
+// must be closed with a policy-violation — used today for project-scoped
+// tokens registering against a different project. The plan to flip the
+// global/non-admin path from deprecation-log to hard-reject lives in
+// docs/plan.md (phase 3).
+func authorizeAgentRegister(role string, scope []string, projectSlug, agentID string) (reason, deprecation string) {
+	if projectSlug == "" {
+		// Global registration. Admin-tier = role=admin AND unscoped (the
+		// same definition handlers_admin_tokens.go uses for /api/admin/).
+		if role != "admin" || len(scope) > 0 {
+			return "", fmt.Sprintf("DEPRECATED: agent %s registering global with non-admin token (role=%q, scoped=%t); a future release will require an admin-tier token", agentID, role, len(scope) > 0)
+		}
+		return "", ""
+	}
+	// Project-scoped registration. Empty scope = unrestricted (admin or a
+	// generic CLI key); non-empty scope must contain the registering slug.
+	if len(scope) == 0 {
+		return "", ""
+	}
+	for _, s := range scope {
+		if s == projectSlug {
+			return "", ""
+		}
+	}
+	return "token not in project scope", ""
 }
 
 // AgentAuditEventMsg is the daemon-sent payload for tool-call/file-edit/shell

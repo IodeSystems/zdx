@@ -15,7 +15,7 @@ resume on remaining work.
 |-------|-------|
 | 1 — schema + connect verb + list endpoint | ✅ shipped (`21bc378f`) |
 | 2 — UI panel + pin/unpin + flag fix | ✅ shipped 2026-05-06 — API smoke + Playwright e2e (`TestDemoBrowser_AgentsPoolPanel`) cover the full pin/unpin loop |
-| 3 — priority push + cross-project queue + admin auth | 🟡 in flight — project priority schema (`686633f9`) and per-todo priority push (`2625eb18`) shipped; cross-project claim path, admin-token auth, and dedicated reap still open |
+| 3 — priority bump + cross-project queue + admin auth | 🟡 in flight — project priority schema (`686633f9`), per-todo priority bump (`2625eb18`), bump-verb spread to QueueView + timeline, and transitional admin-token auth shipped; cross-project claim path, dedicated reap, and the strict-reject flip on global auth still open |
 
 ## Why stabilization mode
 
@@ -272,9 +272,28 @@ operator escalates urgent work via mark-as-priority; auth story is proper.
   - Composite ordering: project_priority × todo.priority. Lower-is-
     earlier on both axes; LEAST() on the upsert side (already in place
     for todos) keeps operator pushes durable.
-- [ ] **Admin token auth.** Server-admin token recognition for
-  `dx agent connect --global`; reject project tokens for global
-  registration (or accept both transitionally).
+- [x] **Admin token auth — transitional.** Done. WS handshake now
+  authorizes the registration against the token's role +
+  `project_scope` (already stamped on ctx by `apiKeyMiddleware`).
+  Logic lives in `authorizeAgentRegister`
+  (`internal/server/handlers/handlers_agent_conn.go`):
+  - **Global** (`project_slug==""`) with role=admin AND unscoped →
+    silent allow. Anything else → allow + DEPRECATED log line. The
+    log spells out role and whether the key is scoped, so operators
+    can find their `dx agent connect --global` callsites and migrate
+    them to admin tokens before the strict-reject flip.
+  - **Project-scoped** (`project_slug!=""`) when the token has
+    a non-empty `project_scope` that does NOT include the slug →
+    hard reject with `StatusPolicyViolation` + reason
+    `"token not in project scope"`. This was already a defense-in-
+    depth gap (any project token could register an agent under
+    any other project) and is closed here. Empty scope (admin or
+    generic CLI key) is unrestricted.
+  Tests: `TestAuthorizeAgentRegister` covers all 9 quadrants
+  (admin/non-admin × scoped/unscoped × global/in-scope/out-of-scope
+  registration). Strict-reject for the global path is the follow-up
+  — flip when telemetry shows no remaining deprecation log lines
+  in prod.
 - [ ] **Push-work commands: explicitly NOT BUILDING.** The priority-push
   mechanism replaces dispatch.
 - [ ] **Dedicated reap for globals.** Admin-triggered, separate from
@@ -361,16 +380,18 @@ under `dx test --layer demo`:
 ## Pickup — next session
 
 Phase 2 shipped; phase 3 is in flight. Bump-verb spread is done.
-Remaining items, ordered by setup-cost (smallest first) and dependency
-(cross-project claim is gated on the costing pass).
+Admin-token auth landed transitionally (deprecation logs on global
+registration with non-admin or scoped tokens; strict reject for the
+project-token-out-of-scope case). Remaining items, ordered by
+setup-cost (smallest first) and dependency (cross-project claim is
+gated on the costing pass).
 
-1. **Admin-token auth for `dx agent connect --global`.** Today's WS
-   handshake accepts any project token. Recognize server-admin tokens
-   (`zdx_api_keys` rows where the user is `role='admin'`) and reject
-   project tokens for `project_slug=""` registrations — or accept both
-   transitionally with a deprecation log line. Touches
-   `internal/server/handlers/handlers_agent_conn.go` and the project
-   `getProjectByToken` lookup chain.
+1. **Strict-reject the deprecated global-auth path.** When prod logs
+   are quiet of `agent connect: DEPRECATED: …` lines for a release
+   cycle, flip `authorizeAgentRegister`'s global branch to return
+   `"requires admin token"` instead of a deprecation. One-line change
+   plus a test flip. Don't do this until operators have migrated
+   their `dx agent connect --global` workflows.
 
 2. **Cross-project queue costing pass + claim path.** Deferred until
    queue size + access pattern data warrants the cache. Worth a brief
@@ -439,3 +460,4 @@ generated file, unstages it, then commits the remainder.
 - `686633f9` feat(projects): priority column for cross-project agent claim ordering
 - `2625eb18` feat(todos): operator priority-push as integer (LEAST-preserved)
 - (this commit) feat(ui): rename Push → Bump and spread to QueueView + issue timeline
+- (this commit) feat(server): admin-token auth for global agent connect (transitional)
