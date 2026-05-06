@@ -6,13 +6,22 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/iodesystems/zdx-go/internal/agentdaemon"
+	"github.com/iodesystems/zdx-go/internal/cli/agent/tracelog"
 	"github.com/iodesystems/zdx-go/internal/config"
 )
+
+func countLines(s string) int {
+	if s == "" {
+		return 0
+	}
+	return strings.Count(s, "\n") + 1
+}
 
 // ErrNoWork is returned by Take when no claimable todo is available.
 var ErrNoWork = errors.New("no claimable work")
@@ -47,6 +56,19 @@ type TakeConfig struct {
 	Holder *agentdaemon.LoopTaskHolder
 
 	LogFn func(string, ...any)
+
+	// LoopLog, when non-nil, receives structured events at Take's internal
+	// boundaries (srcless clone/worktree, stall recovery, model selection)
+	// so the loop's tracelog chain stays unbroken across a take. Nil-safe:
+	// callers without tracelog wiring (resume runner, unit tests) get the
+	// existing LogFn-only behavior.
+	LoopLog *tracelog.Logger
+
+	// IterationID correlates events emitted from within Take with the
+	// take.started/take.ended boundary events the loop supervisor already
+	// emits. Empty when LoopLog is nil; callers that wire LoopLog should
+	// also pass the iteration_id they used for take.started.
+	IterationID string
 }
 
 // TakeResult is what Take returns to the supervisor loop.
@@ -65,6 +87,15 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 	log := cfg.LogFn
 	if log == nil {
 		log = func(string, ...any) {}
+	}
+	emit := func(name string, kv ...any) {
+		if cfg.LoopLog == nil {
+			return
+		}
+		if cfg.IterationID != "" {
+			kv = append([]any{"iteration_id", cfg.IterationID}, kv...)
+		}
+		cfg.LoopLog.Info(name, kv...)
 	}
 
 	var issueID, sid string
@@ -117,13 +148,16 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 		pp, err := ensureProjectClone(cfg.WorkDir, activeTodo.ProjectSlug, cfg.RC.url)
 		if err != nil {
 			log("srcless: clone %s failed: %v", activeTodo.ProjectSlug, err)
+			emit("srcless.clone_failed", "project_slug", activeTodo.ProjectSlug, "err", err.Error())
 			releaseTodo(cfg.RC, activeTodo.ID, cfg.AgentID, sid, activeTodo.ClaimBaseSha, activeTodo.Kind, activeTodo.ClaimBaseBranch, false)
 			os.Remove(cfg.StateFile)
 			return TakeResult{Err: fmt.Errorf("srcless clone: %w", err)}
 		}
 		srclessProjectPath = pp
+		emit("srcless.cloned", "project_slug", activeTodo.ProjectSlug, "path", pp)
 		if ierr := ensureProjectInit(pp, activeTodo.ProjectSlug, cfg.RC.url, cfg.RC.key, cfg.SelfPath); ierr != nil {
 			log("srcless: init %s failed: %v", activeTodo.ProjectSlug, ierr)
+			emit("srcless.init_failed", "project_slug", activeTodo.ProjectSlug, "err", ierr.Error())
 			releaseTodo(cfg.RC, activeTodo.ID, cfg.AgentID, sid, activeTodo.ClaimBaseSha, activeTodo.Kind, activeTodo.ClaimBaseBranch, false)
 			os.Remove(cfg.StateFile)
 			return TakeResult{Err: fmt.Errorf("srcless init: %w", ierr)}
@@ -131,12 +165,14 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 		wt, br, err := createSessionWorktree(pp, cfg.WorkDir, activeTodo.ProjectSlug, sid, activeTodo.TargetBranch)
 		if err != nil {
 			log("srcless: worktree for %s failed: %v", activeTodo.ProjectSlug, err)
+			emit("srcless.worktree_failed", "project_slug", activeTodo.ProjectSlug, "err", err.Error())
 			releaseTodo(cfg.RC, activeTodo.ID, cfg.AgentID, sid, activeTodo.ClaimBaseSha, activeTodo.Kind, activeTodo.ClaimBaseBranch, false)
 			os.Remove(cfg.StateFile)
 			return TakeResult{Err: fmt.Errorf("srcless worktree: %w", err)}
 		}
 		srclessWorktreePath = wt
 		srclessBranch = br
+		emit("srcless.worktree_created", "path", wt, "branch", br)
 		if err := os.Chdir(wt); err != nil {
 			log("srcless: chdir %s failed: %v", wt, err)
 			_ = removeSessionWorktree(pp, wt, br)
@@ -152,6 +188,9 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 		if srclessWorktreePath != "" {
 			if rerr := removeSessionWorktree(srclessProjectPath, srclessWorktreePath, srclessBranch); rerr != nil {
 				log("srcless: worktree teardown: %v", rerr)
+				emit("srcless.worktree_remove_failed", "path", srclessWorktreePath, "branch", srclessBranch, "err", rerr.Error())
+			} else {
+				emit("srcless.worktree_removed", "path", srclessWorktreePath, "branch", srclessBranch)
 			}
 			if cfg.HomeCwd != "" {
 				_ = os.Chdir(cfg.HomeCwd)
@@ -224,6 +263,13 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 	if resolvedModel != "" {
 		log("model: %s", resolvedModel)
 	}
+	// Emit model.balanced only when the selector took the alternation
+	// path (no --model, no --complexity). Other paths are deterministic
+	// from CLI flags, so the resolved name is recoverable from the
+	// session.start tags already.
+	if resolvedModel != "" && cfg.ModelSel.modelFlag == "" && cfg.ModelSel.complexity == "" {
+		emit("model.balanced", "idx", cfg.SessionIdx, "picked", resolvedModel)
+	}
 	var todoID int32
 	if activeTodo != nil {
 		todoID = activeTodo.ID
@@ -234,6 +280,7 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 	if errors.Is(sessionErr, ErrSessionStalled) && ctx.Err() == nil {
 		stalledSID := sid
 		log("session stalled, attempting resume...")
+		emit("stall_recovery.attempted", "stalled_sid", stalledSID, "issue_id", issueID)
 
 		resumeSID := uuid.New().String()
 		os.WriteFile(cfg.StateFile, []byte(issueID+"\n"+resumeSID+"\n"), 0o644)
@@ -246,8 +293,9 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 			log("resume failed quickly (%v), starting fresh session with transcript summary", resumeErr)
 
 			projDir := claudeProjectDir()
+			transcriptPath := filepath.Join(projDir, stalledSID+".jsonl")
 			summary := SummarizeTranscript(
-				filepath.Join(projDir, stalledSID+".jsonl"),
+				transcriptPath,
 				filepath.Join(projDir, stalledSID, "subagents"),
 				30, 40,
 			)
@@ -255,6 +303,11 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 			freshSID := uuid.New().String()
 			os.WriteFile(cfg.StateFile, []byte(issueID+"\n"+freshSID+"\n"), 0o644)
 			log("fresh session with summary: %s (issue=%s)", freshSID, issueID)
+			emit("stall_recovery.summarized",
+				"stalled_sid", stalledSID,
+				"fresh_sid", freshSID,
+				"transcript_path", transcriptPath,
+				"summary_lines", countLines(summary))
 
 			sessionErr = runSessionWithSummary(ctx, cfg.RC, freshSID, issueID, cfg.Alias, cfg.Chrome, resolvedModel, todoID, summary, activeTodo, cfg.Srcless)
 			sid = freshSID

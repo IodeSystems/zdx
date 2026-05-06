@@ -41,6 +41,13 @@ type ProviderOpts struct {
 	// wherever the subprocess runs — host, container, or anywhere
 	// CommandTransport can reach over stdio.
 	MCPCommand []string
+
+	// ClusterID, when non-empty, is stamped as a tag on this loop's tracelog
+	// stream so orchestrator and per-slot loops share a correlation key. Set
+	// by runMCPContainerLoop to opts.Alias (the orchestrator alias) before
+	// launching slot loops; the slots have their own alias=<base>-<N> but
+	// the shared cluster_id makes the whole cluster filterable as one chain.
+	ClusterID string
 }
 
 // ProviderConstructor builds an AgentProvider ready to be passed to

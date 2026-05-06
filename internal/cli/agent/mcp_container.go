@@ -70,27 +70,68 @@ func runMCPContainerLoop(parentCtx context.Context, providerName string, opts Pr
 		agentCfg.ContainerCPUs = "2"
 	}
 
+	maxSlots := agentCfg.MaxWorktrees
+	if maxSlots <= 0 {
+		maxSlots = 1
+	}
+
+	// Orchestrator-scope tracelog: alias=<base>, scope=container-orchestrator,
+	// cluster_id=<base>. Per-slot loops will emit alias=<base>-<N> with the
+	// same cluster_id so the whole cluster is filterable as one chain in
+	// the UI. Best-effort — failure to set up the logger doesn't block the
+	// orchestrator (logf prints to stdout regardless).
+	clusterID := opts.Alias
+	loopLog, loopSink := setupLoopTracelog(opts.RC, providerName, opts.Alias)
+	if loopLog != nil {
+		loopLog = loopLog.With(map[string]string{
+			"scope":      "container-orchestrator",
+			"cluster_id": clusterID,
+		})
+		defer loopLog.Close()
+		if u := loopLog.FilteredURL(opts.RC.url, opts.RC.slug); u != "" {
+			fmt.Printf("View orchestrator events: %s\n", u)
+		}
+	}
+	if loopSink != nil {
+		defer func() {
+			closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = loopSink.Close(closeCtx)
+		}()
+	}
+	emit := func(name string, kv ...any) {
+		if loopLog != nil {
+			loopLog.Info(name, kv...)
+		}
+	}
+	logf := func(format string, args ...any) {
+		fmt.Printf("[%s] "+format+"\n",
+			append([]any{time.Now().Format(time.RFC3339)}, args...)...)
+	}
+
+	emit("image.building")
+	imageStart := time.Now()
 	imageTag, err := buildDevImage()
 	if err != nil {
+		emit("image.build_failed", "err", err.Error())
 		return err
 	}
+	emit("image.built", "tag", imageTag, "duration_ms", time.Since(imageStart).Milliseconds())
 
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("getwd: %w", err)
 	}
 
-	maxSlots := agentCfg.MaxWorktrees
-	if maxSlots <= 0 {
-		maxSlots = 1
-	}
-
-	logf := func(format string, args ...any) {
-		fmt.Printf("[%s] "+format+"\n",
-			append([]any{time.Now().Format(time.RFC3339)}, args...)...)
-	}
 	logf("mcp-container mode: provider=%s image=%s slots=%d memory=%s cpus=%s",
 		providerName, imageTag, maxSlots, agentCfg.ContainerMemory, agentCfg.ContainerCPUs)
+	emit("orchestrator.started",
+		"provider", providerName,
+		"image", imageTag,
+		"slots", maxSlots,
+		"memory", agentCfg.ContainerMemory,
+		"cpus", agentCfg.ContainerCPUs)
+	defer emit("orchestrator.exited")
 
 	ctx, cancel := context.WithCancel(parentCtx)
 	defer cancel()
@@ -98,15 +139,22 @@ func runMCPContainerLoop(parentCtx context.Context, providerName string, opts Pr
 	// Signal handling: stop slots then exit.
 	var slotMu sync.Mutex
 	var slotNames []string
+	stopSlot := func(idx int, name string) {
+		emit("slot.stopping", "slot_index", idx, "name", name)
+		out, err := exec.Command("docker", "stop", name).CombinedOutput()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "mcp-container: stop %s: %s\n", name, strings.TrimSpace(string(out)))
+			emit("slot.stop_failed", "slot_index", idx, "name", name, "err", err.Error())
+			return
+		}
+		emit("slot.stopped", "slot_index", idx, "name", name)
+	}
 	stopSlots := func() {
 		slotMu.Lock()
 		names := append([]string(nil), slotNames...)
 		slotMu.Unlock()
-		for _, n := range names {
-			out, err := exec.Command("docker", "stop", n).CombinedOutput()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "mcp-container: stop %s: %s\n", n, strings.TrimSpace(string(out)))
-			}
+		for i, n := range names {
+			stopSlot(i, n)
 		}
 	}
 	sigCh := make(chan os.Signal, 2)
@@ -114,6 +162,7 @@ func runMCPContainerLoop(parentCtx context.Context, providerName string, opts Pr
 	go func() {
 		sig := <-sigCh
 		logf("received signal %s: stopping slots and draining loops", sig)
+		emit("drain.received", "signal", sig.String())
 		cancel()
 		stopSlots()
 		select {
@@ -128,12 +177,14 @@ func runMCPContainerLoop(parentCtx context.Context, providerName string, opts Pr
 	var wg sync.WaitGroup
 	for i := 0; i < maxSlots; i++ {
 		slotName := fmt.Sprintf("zdx-agent-mcp-%s-%s-%d", providerName, opts.Alias, i)
+		emit("slot.starting", "slot_index", i, "name", slotName)
 
 		runArgs := buildMCPSlotArgs(slotName, imageTag, cwd, agentCfg, opts.KeepContainer, envPairs)
 		startCmd := exec.CommandContext(ctx, "docker", runArgs...)
 		startCmd.Stdout = os.Stderr // docker run -d prints the container ID
 		startCmd.Stderr = os.Stderr
 		if err := startCmd.Run(); err != nil {
+			emit("slot.start_failed", "slot_index", i, "name", slotName, "err", err.Error())
 			cancel()
 			stopSlots()
 			return fmt.Errorf("start slot %d: %w", i, err)
@@ -142,12 +193,14 @@ func runMCPContainerLoop(parentCtx context.Context, providerName string, opts Pr
 		slotNames = append(slotNames, slotName)
 		slotMu.Unlock()
 		logf("slot %d started: %s", i, slotName)
+		emit("slot.started", "slot_index", i, "name", slotName)
 
 		wg.Add(1)
 		go func(slot int, slotName string) {
 			defer wg.Done()
 			slotOpts := opts
 			slotOpts.Alias = fmt.Sprintf("%s-%d", opts.Alias, slot)
+			slotOpts.ClusterID = clusterID
 			slotOpts.MCPCommand = []string{"docker", "exec", "-i", slotName, "dx-agent", "--mcp-stdio"}
 			if err := RunManagedLoop(ctx, providerName, slotOpts); err != nil && ctx.Err() == nil {
 				fmt.Fprintf(os.Stderr, "slot %d (%s) loop error: %v\n", slot, slotName, err)

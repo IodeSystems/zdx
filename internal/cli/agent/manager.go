@@ -179,6 +179,11 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 	// filterable as a chain in the UI by alias=X. Per-iteration sub-tags
 	// (iteration_id, todo_id) are added per take via loopLog.With.
 	loopLog, loopSink := setupLoopTracelog(opts.RC, providerName, opts.Alias)
+	if loopLog != nil && opts.ClusterID != "" {
+		// Container-orchestrator path: stamp cluster_id so per-slot chains
+		// correlate with the orchestrator's chain in the UI.
+		loopLog = loopLog.With(map[string]string{"cluster_id": opts.ClusterID})
+	}
 	if loopSink != nil {
 		defer func() {
 			closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

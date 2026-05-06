@@ -337,22 +337,28 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 			return nil
 		}
 
-		// Build TakeConfig for this iteration.
+		// Build TakeConfig for this iteration. iterationID is minted below
+		// before take.started so both the boundary events and Take's
+		// internal events (srcless, stall recovery, model.balanced) share
+		// the same iteration_id tag.
+		iterationID := uuid.New().String()
 		takeCfg := TakeConfig{
-			RC:         rc,
-			AgentID:    agentID,
-			Alias:      alias,
-			Chrome:     chrome,
-			Srcless:    srcless,
-			WorkDir:    workDir,
-			HomeCwd:    homeCwd,
-			AgentCfg:   agentCfg,
-			ModelSel:   sel,
-			SessionIdx: sessionIdx,
-			SelfPath:   selfPath,
-			StateFile:  stateFile,
-			Holder:     holder,
-			LogFn:      log,
+			RC:          rc,
+			AgentID:     agentID,
+			Alias:       alias,
+			Chrome:      chrome,
+			Srcless:     srcless,
+			WorkDir:     workDir,
+			HomeCwd:     homeCwd,
+			AgentCfg:    agentCfg,
+			ModelSel:    sel,
+			SessionIdx:  sessionIdx,
+			SelfPath:    selfPath,
+			StateFile:   stateFile,
+			Holder:      holder,
+			LogFn:       log,
+			LoopLog:     loopLog,
+			IterationID: iterationID,
 		}
 
 		// Check for crash-recovery state from a previous interrupted session.
@@ -371,7 +377,6 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 			}
 		}
 
-		iterationID := uuid.New().String()
 		emit("take.started",
 			"iteration_id", iterationID,
 			"session_idx", sessionIdx,
