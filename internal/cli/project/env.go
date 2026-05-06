@@ -2,6 +2,7 @@ package project
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -26,6 +27,7 @@ func EnvCmd() *cobra.Command {
 		envAddCmd(),
 		envShowCmd(),
 		envDeployCmd(),
+		envShipCmd(),
 		envEditCmd(),
 		envRmCmd(),
 	)
@@ -203,6 +205,194 @@ func envDeployCmd() *cobra.Command {
 	cmd.Flags().StringVar(&sha, "sha", "", "build SHA (default: current HEAD)")
 	cmd.Flags().StringVar(&branch, "branch", "", "build branch (default: current branch)")
 	cmd.Flags().StringVar(&status, "status", "", "deploy status: success|failure (default: success)")
+	return cmd
+}
+
+// envShipCmd is the full deploy pipeline: lint trunk → fast-forward release
+// branch from trunk → run bin/ship → record the deploy in zdx. Replaces the
+// "switch to release branch, merge, ship, paste sha into dx env deploy" dance
+// the operator used to do by hand.
+//
+// Why this lives here instead of in bin/ship:
+//   - bin/ship is intentionally branch-agnostic — it takes whatever HEAD is
+//     and deploys it. It has no concept of "trunk integration".
+//   - The trunk → release fast-forward is a per-environment decision (each env
+//     has its own release_branch + trunk_branch), so the env model is the
+//     right place to anchor the policy.
+//   - Running it from `dx` means the deploy record is posted as part of the
+//     same flow rather than relying on bin/ship's deploy.api_url config that
+//     most setups omit (we hit "skipping deploy record POST" warnings on
+//     every recent ship).
+func envShipCmd() *cobra.Command {
+	var trunkOverride string
+	var skipLint, skipPush, dryRun bool
+	cmd := &cobra.Command{
+		Use:   "ship <name>",
+		Short: "Promote trunk → release branch, deploy to environment, record the deploy",
+		Long: `Run the full deploy pipeline for one environment:
+
+  1. Fetch the env config — release_branch must be set; trunk_branch defaults
+     to 'dev' when unset (override with --trunk).
+  2. Refuse if the working tree is dirty.
+  3. ` + "`git fetch origin`" + ` so trunk/release tracking is current.
+  4. Lint the trunk branch (skip with --skip-lint) so we don't promote churn.
+  5. Switch to release_branch, ` + "`git merge --ff-only trunk_branch`" + `. Refuse on
+     non-fast-forward (operator must rebase trunk onto release first).
+  6. ` + "`git push origin release_branch`" + ` (skip with --skip-push).
+  7. Run ./bin/ship to build + roll out.
+  8. POST a deploy record so the env shows updated SHA/branch.
+
+Restores the original branch on exit, even on failure.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			envName := args[0]
+			c := cli.MustClient()
+			slug := c.SlugOrDie()
+
+			// 1. Pull env config from server — single source of truth for
+			// release_branch + trunk_branch. Don't infer from local config.
+			envResp, err := c.GetEnvironmentWithResponse(cmd.Context(), slug, envName)
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(envResp.StatusCode(), envResp.Body); err != nil {
+				return err
+			}
+			if envResp.JSON200 == nil {
+				return fmt.Errorf("environment %q: empty response", envName)
+			}
+			env := envResp.JSON200
+			if env.ReleaseBranch == "" {
+				return fmt.Errorf("environment %q has no release_branch — set one with `dx env edit %s --release-branch=…`", envName, envName)
+			}
+			trunk := trunkOverride
+			if trunk == "" {
+				trunk = env.TrunkBranch
+			}
+			if trunk == "" {
+				trunk = "dev" // sensible default for the dev→main flow
+			}
+			if trunk == env.ReleaseBranch {
+				return fmt.Errorf("trunk branch (%s) and release branch (%s) must differ", trunk, env.ReleaseBranch)
+			}
+
+			fmt.Printf("[ship] env=%s  trunk=%s → release=%s\n", envName, trunk, env.ReleaseBranch)
+
+			// 2. Refuse on dirty tree. The pipeline does branch switches + merge
+			// commits, both of which interact badly with uncommitted edits.
+			if cli.GitTreeDirty() {
+				return fmt.Errorf("working tree dirty — commit or stash before shipping")
+			}
+
+			startBranch := gitOutput("rev-parse", "--abbrev-ref", "HEAD")
+			if startBranch == "" {
+				return fmt.Errorf("could not resolve current branch — detached HEAD?")
+			}
+			// Restore the operator's branch on exit so a successful (or failed)
+			// ship doesn't leave them sitting on release_branch by accident.
+			defer func() {
+				if cur := gitOutput("rev-parse", "--abbrev-ref", "HEAD"); cur != startBranch {
+					if out, gerr := exec.Command("git", "switch", startBranch).CombinedOutput(); gerr != nil {
+						fmt.Fprintf(os.Stderr, "[ship] warn: failed to restore %q: %s\n", startBranch, strings.TrimSpace(string(out)))
+					}
+				}
+			}()
+
+			if dryRun {
+				fmt.Println("[ship] --dry-run: would fetch, lint, ff-merge, push, ship, record")
+				return nil
+			}
+
+			// 3. Fetch so trunk/release reflect what's on origin. Best-effort —
+			// a missing remote is OK if the operator is shipping a local-only
+			// branch (rare, but bin/ship handles it).
+			if out, gerr := exec.Command("git", "fetch", "origin").CombinedOutput(); gerr != nil {
+				fmt.Fprintf(os.Stderr, "[ship] warn: git fetch origin: %s\n", strings.TrimSpace(string(out)))
+			}
+
+			// 4. Lint trunk. Worker-style (--intent) is too lax for a release
+			// gate, so run the full lint. Skip via --skip-lint when the
+			// operator has already linted in this session and wants to avoid
+			// the extra ~30s.
+			if !skipLint {
+				if out, gerr := exec.Command("git", "switch", trunk).CombinedOutput(); gerr != nil {
+					return fmt.Errorf("git switch %s: %s", trunk, strings.TrimSpace(string(out)))
+				}
+				fmt.Printf("[ship] linting %s...\n", trunk)
+				lint := exec.Command("./bin/lint")
+				lint.Stdout = os.Stdout
+				lint.Stderr = os.Stderr
+				if lerr := lint.Run(); lerr != nil {
+					return fmt.Errorf("lint failed on %s: %w", trunk, lerr)
+				}
+			}
+
+			// 5. Fast-forward release_branch from trunk. --ff-only is the
+			// invariant: a merge commit on the release branch hides what the
+			// next ship will actually deploy. If trunk has diverged, the
+			// operator must rebase trunk onto release first.
+			if out, gerr := exec.Command("git", "switch", env.ReleaseBranch).CombinedOutput(); gerr != nil {
+				return fmt.Errorf("git switch %s: %s", env.ReleaseBranch, strings.TrimSpace(string(out)))
+			}
+			fmt.Printf("[ship] fast-forwarding %s ← %s...\n", env.ReleaseBranch, trunk)
+			if out, gerr := exec.Command("git", "merge", "--ff-only", trunk).CombinedOutput(); gerr != nil {
+				return fmt.Errorf("ff-merge %s ← %s failed: %s\n(rebase %s onto %s and retry)",
+					env.ReleaseBranch, trunk, strings.TrimSpace(string(out)), trunk, env.ReleaseBranch)
+			}
+
+			// 6. Push release_branch so origin tracks the deployable SHA. Some
+			// flows ship from local without pushing first; --skip-push lets
+			// those pass through.
+			if !skipPush {
+				if out, gerr := exec.Command("git", "push", "origin", env.ReleaseBranch).CombinedOutput(); gerr != nil {
+					return fmt.Errorf("git push origin %s: %s", env.ReleaseBranch, strings.TrimSpace(string(out)))
+				}
+			}
+
+			// 7. Run bin/ship. It enforces deploy.release_branch matching the
+			// current branch (which is now release_branch after the switch
+			// above), runs its own compat-check, and rolls out.
+			fmt.Println("[ship] running bin/ship...")
+			ship := exec.Command("./bin/ship")
+			ship.Stdout = os.Stdout
+			ship.Stderr = os.Stderr
+			if serr := ship.Run(); serr != nil {
+				return fmt.Errorf("bin/ship failed: %w", serr)
+			}
+
+			// 8. Record the deploy so dx env show / Atlas / dashboards reflect
+			// the new SHA. The bin/ship finalize step already does this when
+			// deploy.api_url is configured; calling here is the canonical path
+			// that doesn't depend on that config.
+			deployedSHA := gitOutput("rev-parse", "HEAD")
+			deployedBranch := env.ReleaseBranch
+			status := "success"
+			req := dxclient.CreateEnvironmentDeployRequest{
+				BuildSha:    deployedSHA,
+				BuildBranch: &deployedBranch,
+				Status:      &status,
+			}
+			recResp, rerr := c.CreateEnvironmentDeployWithResponse(cmd.Context(), slug, envName, req)
+			if rerr != nil {
+				fmt.Fprintf(os.Stderr, "[ship] warn: failed to record deploy: %v (deploy itself succeeded)\n", rerr)
+				return nil
+			}
+			if rerr := c.CheckStatus(recResp.StatusCode(), recResp.Body); rerr != nil {
+				fmt.Fprintf(os.Stderr, "[ship] warn: deploy record API rejected: %v (deploy itself succeeded)\n", rerr)
+				return nil
+			}
+			short := deployedSHA
+			if len(short) > 8 {
+				short = short[:8]
+			}
+			fmt.Printf("[ship] recorded deploy: env=%s branch=%s sha=%s\n", envName, deployedBranch, short)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&trunkOverride, "trunk", "", "override trunk branch (default: env.trunk_branch or 'dev')")
+	cmd.Flags().BoolVar(&skipLint, "skip-lint", false, "skip the trunk lint step (use only when you've just linted)")
+	cmd.Flags().BoolVar(&skipPush, "skip-push", false, "skip pushing release_branch to origin")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "validate args + restore branch, but don't run any git/ship steps")
 	return cmd
 }
 
