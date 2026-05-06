@@ -32,7 +32,11 @@ func TestMain(m *testing.M) {
 		if isRemoteURL(apiURL) && os.Getenv("DX_TEST_ALLOW_REMOTE") == "" {
 			log.Fatalf("DX_API_URL=%s points to a non-localhost server; set DX_TEST_ALLOW_REMOTE=true to allow", apiURL)
 		}
-		srv = &testserver.Handle{URL: apiURL, AdminToken: os.Getenv("DX_API_KEY")}
+		srv = &testserver.Handle{
+			URL:        apiURL,
+			AdminToken: os.Getenv("DX_API_KEY"),
+			DSN:        os.Getenv("TEST_DATABASE_URL"),
+		}
 		code := m.Run()
 		runExternalAdapters()
 		os.Exit(code)

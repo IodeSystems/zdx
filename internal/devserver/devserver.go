@@ -159,7 +159,12 @@ func Start(opts Options) (*Handle, func(), error) {
 	if opts.ValkeyAddr != "" {
 		restoreValkey = setEnv("ZDX_VALKEY_ADDR", opts.ValkeyAddr)
 	}
-	srv := server.New(pool, server.NewTimingSink(), "", "devserver")
+	// STATIC_DIR mirrors the prod cmd/dx-server entrypoint: when set, the
+	// server serves the SPA bundle from that directory, falling back to
+	// index.html for unknown paths. Browser-driven demo tests need this so
+	// /agents, /project/{slug}/releases, etc. render real UI rather than a
+	// 404. When unset, behavior is unchanged (API-only ephemeral server).
+	srv := server.New(pool, server.NewTimingSink(), os.Getenv("STATIC_DIR"), "devserver")
 	restoreUploads()
 	restoreDemos()
 	restoreVec()

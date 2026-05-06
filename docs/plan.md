@@ -14,7 +14,7 @@ broader product roadmap, orthogonal to GAPD.
 | Phase | State |
 |-------|-------|
 | 1 — schema + connect verb + list endpoint | ✅ shipped (`21bc378f`) |
-| 2 — UI panel + pin/unpin + flag fix | API smoke ✅ 2026-05-06; UI render verification pending (vite is loopback-only) |
+| 2 — UI panel + pin/unpin + flag fix | ✅ shipped 2026-05-06 — API smoke + Playwright e2e (`TestDemoBrowser_AgentsPoolPanel`) cover the full pin/unpin loop |
 | 3 — mark-priority + cross-project queue + admin auth | design only |
 
 ## Why stabilization mode
@@ -199,11 +199,35 @@ endpoints → UI.
   - Disconnect on agent shutdown: connection_state goes to
     "disconnected", status retained.
 
-  **UI render verification still pending.** The panel renders against
-  the same `/api/agents` shape the API smoke confirmed, but the dev
-  vite binds to `::1` only, so the UI route can't be exercised from a
-  remote browser without an SSH tunnel. Pickup checklist below covers
-  the remaining browser walkthrough.
+  **UI walkthrough automated — 2026-05-06.** Replaced the manual
+  Chrome-driven walkthrough with `TestDemoBrowser_AgentsPoolPanel`
+  (`test/e2e/demo_browser_agents_pool_test.go`). Seeds a project-scoped
+  agent via `/api/agents/register` and a global-pool agent by direct
+  SQL insert (only WS handshake produces globals; the demo
+  short-circuits with a row that has `originally_global=true,
+  project_id=NULL`), then drives Playwright through pin → select
+  project → confirm → unpin and asserts the scope chip /
+  scope-immutable caption flip. Recorded as a `.webm` under
+  `.zdx/demo/video/` like every other browser demo.
+
+  Two harness gaps surfaced and were fixed inline so this demo (and
+  every existing `requiresUI(t)` demo) can actually run:
+  - `internal/devserver/devserver.go` now reads `STATIC_DIR` instead of
+    hardcoding `""`. Without it, the ephemeral devserver returned
+    `404 page not found` on every UI route — so the existing
+    `TestDemoBrowser_ReleaseIndexGroupsByVersion` and
+    `TestDemoBrowser_ProjectDirectionTab` were silently broken too.
+    Run with `STATIC_DIR="$PWD/ui/dist"` after `pnpm build`.
+  - `test/e2e/main_test.go` propagates `TEST_DATABASE_URL` into
+    `srv.DSN` when running under `dx test`'s ephemeral mode, so DSN-
+    requiring demos no longer skip when invoked through the harness.
+
+  Selectors note (for future browser demos): MUI's Tooltip wraps each
+  `<IconButton>` in a `<span>` with `aria-label="<title>"` — the button
+  itself has no accessible name, and the prod build strips
+  `data-testid` on Material icons. Locate by
+  `span[aria-label="…"] button`, not by `GetByRole("button", {Name: …})`
+  or `svg[data-testid="…Icon"]`.
 
 ## Phase 3 — mark-priority, cross-project queue, admin auth
 
@@ -287,25 +311,26 @@ of `/agents` is unverified, because dev vite binds loopback-only.
   promoted to `role='admin'` via SQL. User: `smoke@local`. Project
   `smoke` (id=1) created via `POST /api/project`.
 
-### Remaining: UI walkthrough
+### How to run the regression
 
-1. SSH-tunnel vite from your laptop:
-   `ssh -L 7610:localhost:7610 desktop` (or restart vite with
-   `--host 0.0.0.0` / set `server.host` in `ui/vite.config.ts`).
-2. Open `http://localhost:7610/agents` in your browser. First visit
-   needs the token in `localStorage`:
-   `localStorage.setItem('zdx_api_token', '<bootstrap-token>')`, then
-   reload.
-3. With both smoke agents running locally, confirm:
-   - Two rows: `smoke-proj` (Scope=`smoke project`, no pin button —
-     `scope-immutable` caption) and `smoke-glob` (Scope=`global`
-     chip, pin button visible).
-   - Pin `smoke-glob` from the UI: scope flips to `smoke project`,
-     `pinned` chip appears. Unpin: scope returns to `global`.
-   - Pause/resume/drain action buttons flip status as expected.
+The pin/unpin walkthrough now lives in
+`TestDemoBrowser_AgentsPoolPanel`. Reproduction:
+
+```bash
+make build                   # picks up devserver STATIC_DIR change
+cd ui && pnpm build          # produces ui/dist for the SPA fallback
+cd ..
+./bin/dx test e2e build      # rebuilds bin/zdx-test
+STATIC_DIR="$PWD/ui/dist" TEST_DRIVER=ui \
+    ./bin/dx test --layer demo --filter AgentsPool
+```
+
+Expected: `1 passed 0 failed 0 skipped` for the e2e adapter; vitest
+adapter still fails 6 preexisting environment-card tests
+(`useNavigate is not a function` — pre-existing, unrelated).
 
 ### After UI confirms
 
-Exit stabilization mode for GAPD: file new work as tracker issues
-again, let the agent loop resume on this stream. Then schedule
-workspace relocation, then phase 3.
+Phase 2 ships clean. Exit stabilization mode for GAPD: file new work
+as tracker issues again, let the agent loop resume on this stream.
+Then schedule workspace relocation, then phase 3.
