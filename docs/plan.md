@@ -15,7 +15,7 @@ resume on remaining work.
 |-------|-------|
 | 1 — schema + connect verb + list endpoint | ✅ shipped (`21bc378f`) |
 | 2 — UI panel + pin/unpin + flag fix | ✅ shipped 2026-05-06 — API smoke + Playwright e2e (`TestDemoBrowser_AgentsPoolPanel`) cover the full pin/unpin loop |
-| 3 — priority bump + cross-project queue + admin auth | 🟡 in flight — project priority schema (`686633f9`), per-todo priority bump (`2625eb18`), bump-verb spread to QueueView + timeline, and transitional admin-token auth shipped; cross-project claim path, dedicated reap, and the strict-reject flip on global auth still open |
+| 3 — priority bump + cross-project queue + admin auth | 🟡 in flight — project priority schema (`686633f9`), per-todo priority bump (`2625eb18`), bump-verb spread to QueueView + timeline, transitional admin-token auth, and periodic in-server reaper shipped; cross-project claim path and the strict-reject flip on global auth still open |
 
 ## Why stabilization mode
 
@@ -294,10 +294,22 @@ operator escalates urgent work via mark-as-priority; auth story is proper.
   registration). Strict-reject for the global path is the follow-up
   — flip when telemetry shows no remaining deprecation log lines
   in prod.
-- [ ] **Push-work commands: explicitly NOT BUILDING.** The priority-push
+- [ ] **Push-work commands: explicitly NOT BUILDING.** The priority-bump
   mechanism replaces dispatch.
-- [ ] **Dedicated reap for globals.** Admin-triggered, separate from
-  per-project sweeps.
+- [x] **Periodic in-server reaper** (replaces dedicated reap idea).
+  Done. The original GAPD concern was "a slow heartbeat doesn't get
+  an agent reaped by an unrelated project sweep" — but reading the
+  code revealed `ReapStaleAgents` was already a single global DELETE
+  with no project filter, AND `/api/agents/reap` wasn't admin-gated
+  AND nothing called it on a timer. Operators were running
+  `dx agent reap` by hand (when they remembered to). Replaced the
+  whole surface with a server-driven goroutine in `StartReaper`
+  (`internal/server/server.go`): wakes every 1m, deletes rows with
+  `last_heartbeat < NOW() - 5m`. Wired from `cmd/dx-server/main.go`
+  alongside `StartBudgetWatcher` / `StartTaskRecovery`. Removed
+  `POST /api/agents/reap` (handlers_agents.go) and `dx agent reap`
+  CLI (cli/agent/agent.go); regenerated openapi.json. The
+  global-vs-project split became moot once cleanup is server-driven.
 
 ## Stabilization findings (resolved inline)
 
@@ -401,13 +413,7 @@ gated on the costing pass).
    composite scan). Once the path is chosen, schema is small but the
    invalidation contract isn't.
 
-3. **Dedicated reap for globals.** Admin-triggered, separate from
-   per-project sweeps. Today's reap (`dx agent reap`) operates per
-   project; a global agent that misses a heartbeat for an unrelated
-   reason shouldn't be torn down. Add `POST /api/admin/agents/reap`
-   that targets `project_id IS NULL` rows.
-
-4. **(maybe) Flat issue-page todo list.** Bump now lives on the
+3. **(maybe) Flat issue-page todo list.** Bump now lives on the
    timeline `created` event for each issue's todos. If operators
    want a flat actionable list (parallel to the existing "Tasks"
    section in `IssueDetail`), add a small "Open todos" section
@@ -461,3 +467,5 @@ generated file, unstages it, then commits the remainder.
 - `2625eb18` feat(todos): operator priority-push as integer (LEAST-preserved)
 - (this commit) feat(ui): rename Push → Bump and spread to QueueView + issue timeline
 - (this commit) feat(server): admin-token auth for global agent connect (transitional)
+- (this commit) fix(devmode): write api.gen.ts to absolute path (avoid ui/ui ghost)
+- (this commit) feat(server): periodic in-server reaper, drop manual /api/agents/reap + CLI

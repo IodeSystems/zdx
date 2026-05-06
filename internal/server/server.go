@@ -17,6 +17,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/iodesystems/zdx-go/internal/db"
@@ -545,6 +546,61 @@ func (s *Server) StartBudgetWatcher(ctx context.Context) {
 		Commander: s.agentRegistry,
 	}
 	w.Start(ctx)
+}
+
+// reapInterval is how often the reaper goroutine wakes up; reapStaleThreshold
+// is the heartbeat-age cutoff at which an agent row is deleted. Heartbeats
+// are pushed by the WS connection and on each agent action, so a 5-minute
+// silence is a reliable "definitely gone" signal. Single threshold for both
+// project-scoped and global rows — the original GAPD concern (a project
+// sweep tearing down a global) goes away once the reaper is server-driven
+// and runs unconditionally.
+const (
+	reapInterval       = 1 * time.Minute
+	reapStaleThreshold = 5 * time.Minute
+)
+
+// StartReaper runs a background goroutine that deletes stale agent rows
+// (project-scoped + global) on a ticker. Replaces the operator-triggered
+// /api/agents/reap + dx agent reap surfaces, which were never wired into
+// any periodic invoker and therefore left rows lying around indefinitely
+// in practice. Returns immediately.
+func (s *Server) StartReaper(ctx context.Context) {
+	go func() {
+		// First sweep fires immediately so a fresh server start cleans up
+		// any rows left over from a prior crash.
+		s.reapOnce(ctx)
+		t := time.NewTicker(reapInterval)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				s.reapOnce(ctx)
+			}
+		}
+	}()
+}
+
+func (s *Server) reapOnce(ctx context.Context) {
+	threshold := pgtype.Interval{
+		Microseconds: reapStaleThreshold.Microseconds(),
+		Valid:        true,
+	}
+	rows, err := s.q.ReapStaleAgents(ctx, threshold)
+	if err != nil {
+		log.Printf("reaper: %v", err)
+		return
+	}
+	if len(rows) == 0 {
+		return
+	}
+	ids := make([]string, len(rows))
+	for i, r := range rows {
+		ids[i] = r.ID
+	}
+	log.Printf("reaper: deleted %d stale agent row(s) (threshold=%s): %v", len(rows), reapStaleThreshold, ids)
 }
 
 // statusCapture wraps http.ResponseWriter to capture the status code.

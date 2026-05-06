@@ -94,7 +94,7 @@ For the long-running work loop, use ` + "`dx agent loop --provider=X`" + `.`,
 	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
 	cmd.Flags().StringVar(&mcpContainer, "mcp-container", "", "dispatch tool calls through dx-agent --mcp-stdio running inside this container (opencode/local only)")
 
-	cmd.AddCommand(agentLoopCmd(), agentConnectCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd(), agentDrainCmd(), agentBudgetCmd())
+	cmd.AddCommand(agentLoopCmd(), agentConnectCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd(), agentDrainCmd(), agentBudgetCmd())
 	return cmd
 }
 
@@ -748,34 +748,6 @@ func agentStopCmd() *cobra.Command {
 			return nil
 		},
 	}
-}
-
-func agentReapCmd() *cobra.Command {
-	var thresholdMin int32
-	cmd := &cobra.Command{
-		Use:   "reap",
-		Short: "Reap stale agents (heartbeat expired)",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := cli.MustClient()
-			resp, err := c.ReapAgentsWithResponse(cmd.Context(), dxclient.ReapAgentsRequest{ThresholdMinutes: thresholdMin})
-			if err != nil {
-				return err
-			}
-			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
-				return err
-			}
-			if resp.JSON200 == nil || resp.JSON200.Reaped == nil || len(*resp.JSON200.Reaped) == 0 {
-				fmt.Println("no stale agents")
-				return nil
-			}
-			for _, a := range *resp.JSON200.Reaped {
-				fmt.Printf("reaped %s (pid=%d, last heartbeat %s)\n", a.Id, a.Pid, a.LastHeartbeat)
-			}
-			return nil
-		},
-	}
-	cmd.Flags().Int32Var(&thresholdMin, "threshold", 5, "stale threshold in minutes")
-	return cmd
 }
 
 func agentReconnectCmd() *cobra.Command {

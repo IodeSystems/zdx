@@ -327,39 +327,6 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 			return &struct{}{}, nil
 		})
 
-	// Reap stale agents
-	huma.Register(api, huma.Operation{OperationID: "reap-agents", Method: http.MethodPost, Path: "/api/agents/reap"},
-		func(ctx context.Context, in *struct {
-			Body struct {
-				ThresholdMinutes int32 `json:"threshold_minutes"`
-			}
-		}) (*struct {
-			Body struct {
-				Reaped []AgentItem `json:"reaped"`
-			}
-		}, error) {
-			mins := in.Body.ThresholdMinutes
-			if mins <= 0 {
-				mins = 5
-			}
-			interval := pgtype.Interval{Microseconds: int64(mins) * 60 * 1_000_000, Valid: true}
-			rows, err := h.Q.ReapStaleAgents(ctx, interval)
-			if err != nil {
-				return nil, apiErr(500, err.Error())
-			}
-			out := make([]AgentItem, len(rows))
-			for i, r := range rows {
-				out[i] = agentItemFrom(r, nil)
-			}
-			return &struct {
-				Body struct {
-					Reaped []AgentItem `json:"reaped"`
-				}
-			}{Body: struct {
-				Reaped []AgentItem `json:"reaped"`
-			}{Reaped: out}}, nil
-		})
-
 	// List tasks claimed by agent
 	huma.Register(api, huma.Operation{OperationID: "list-agent-tasks", Method: http.MethodGet, Path: "/api/agents/{id}/tasks"},
 		func(ctx context.Context, in *struct {
