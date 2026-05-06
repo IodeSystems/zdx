@@ -1832,42 +1832,6 @@ ALTER SEQUENCE public.zdx_plans_id_seq OWNED BY public.zdx_plans.id;
 
 
 --
--- Name: zdx_project_constraints; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.zdx_project_constraints (
-    id integer NOT NULL,
-    project_id integer NOT NULL,
-    title text NOT NULL,
-    description text DEFAULT ''::text NOT NULL,
-    priority integer DEFAULT 1 NOT NULL,
-    status text DEFAULT 'active'::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: zdx_project_constraints_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.zdx_project_constraints_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: zdx_project_constraints_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.zdx_project_constraints_id_seq OWNED BY public.zdx_project_constraints.id;
-
-
---
 -- Name: zdx_project_git_config; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3300,13 +3264,6 @@ ALTER TABLE ONLY public.zdx_plans ALTER COLUMN id SET DEFAULT nextval('public.zd
 
 
 --
--- Name: zdx_project_constraints id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.zdx_project_constraints ALTER COLUMN id SET DEFAULT nextval('public.zdx_project_constraints_id_seq'::regclass);
-
-
---
 -- Name: zdx_project_git_config id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -4088,22 +4045,6 @@ ALTER TABLE ONLY public.zdx_plans
 
 
 --
--- Name: zdx_project_constraints zdx_project_constraints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.zdx_project_constraints
-    ADD CONSTRAINT zdx_project_constraints_pkey PRIMARY KEY (id);
-
-
---
--- Name: zdx_project_constraints zdx_project_constraints_project_id_title_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.zdx_project_constraints
-    ADD CONSTRAINT zdx_project_constraints_project_id_title_key UNIQUE (project_id, title);
-
-
---
 -- Name: zdx_project_git_config zdx_project_git_config_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4679,13 +4620,6 @@ CREATE INDEX idx_patterns_name ON public.zdx_patterns USING btree (project_id, n
 --
 
 CREATE INDEX idx_patterns_project ON public.zdx_patterns USING btree (project_id);
-
-
---
--- Name: idx_project_constraints_project; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_project_constraints_project ON public.zdx_project_constraints USING btree (project_id);
 
 
 --
@@ -5832,14 +5766,6 @@ ALTER TABLE ONLY public.zdx_plans
 
 ALTER TABLE ONLY public.zdx_plans
     ADD CONSTRAINT zdx_plans_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id);
-
-
---
--- Name: zdx_project_constraints zdx_project_constraints_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.zdx_project_constraints
-    ADD CONSTRAINT zdx_project_constraints_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id);
 
 
 --

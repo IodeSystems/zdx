@@ -677,17 +677,6 @@ type ZdxProject struct {
 	Description         string             `db:"description" json:"description"`
 }
 
-type ZdxProjectConstraint struct {
-	ID          int32              `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Description string             `db:"description" json:"description"`
-	Priority    int32              `db:"priority" json:"priority"`
-	Status      string             `db:"status" json:"status"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-}
-
 type ZdxProjectGitConfig struct {
 	ID        int32  `db:"id" json:"id"`
 	ProjectID int32  `db:"project_id" json:"project_id"`
