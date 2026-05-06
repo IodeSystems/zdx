@@ -13,7 +13,7 @@ import {
   useChildQuestions,
   type QuestionItem,
 } from '../api'
-import { CommentsAndRevisions } from './CommentsAndRevisions'
+import { EventStream } from './EventStream'
 import { MarkdownContent } from './MarkdownContent'
 import { QuestionProposalsSection } from './QuestionProposalsSection'
 
@@ -159,7 +159,7 @@ export function QuestionDetail({ slug, questionId }: { slug: string; questionId:
 
       <QuestionProposalsSection slug={slug} questionId={id} questionType="qa" />
 
-      <CommentsAndRevisions slug={slug} targetType="question" targetId={questionId} />
+      <EventStream slug={slug} targetType="question" targetId={questionId} />
     </Box>
   )
 }
