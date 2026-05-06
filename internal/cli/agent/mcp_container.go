@@ -103,7 +103,24 @@ func slotWorktree(cwd, alias string, slotIdx int) (path, branch string, err erro
 	// Idempotent: if the worktree already exists from a prior crashed run,
 	// remove it before re-adding so `git worktree add -b` doesn't fail with
 	// "branch already checked out".
+	//
+	// Critical: do NOT blow away a branch that has commits past HEAD —
+	// that's real work from the prior run (a crashed babysit or a
+	// self-update re-exec mid-session). Lost commits showed up as
+	// dangling objects and operators had to fsck-and-recover them by
+	// hand. If commits are present, refuse to reuse the slot path; the
+	// caller's choice is to surface the surviving branch and let the
+	// operator integrate it before retrying.
 	if _, statErr := os.Stat(path); statErr == nil {
+		hasCommits := false
+		if out, lsErr := exec.Command("git", "-C", cwd, "rev-list", "HEAD.."+branch, "--count").Output(); lsErr == nil {
+			if strings.TrimSpace(string(out)) != "0" {
+				hasCommits = true
+			}
+		}
+		if hasCommits {
+			return "", "", fmt.Errorf("slot path %s has branch %s with commits ahead of HEAD — integrate or delete the branch (`git log %s` then `git branch -D %s`) before re-running this alias", path, branch, branch, branch)
+		}
 		_ = exec.Command("git", "worktree", "remove", "--force", path).Run()
 		_ = exec.Command("git", "branch", "-D", branch).Run()
 	}
@@ -237,6 +254,34 @@ func copyFilePreservingMode(srcPath, dstPath string) error {
 	return nil
 }
 
+// reapOrphanSlotContainers force-removes any existing slot containers whose
+// names match this orchestrator's alias prefix. Triggered at startup so a
+// re-execed babysit (self-update) can recover cleanly: the prior process
+// died without docker-stopping its --rm containers, so they linger. Without
+// this reap, the new process would hit "container name in use" on slot
+// creation and fail to start.
+//
+// Best-effort: docker errors are logged but don't block startup. If the
+// orphans persist, slot.start_failed will surface the conflict and the
+// operator can intervene.
+func reapOrphanSlotContainers(providerName, alias string) {
+	prefix := fmt.Sprintf("zdx-agent-mcp-%s-%s-", providerName, alias)
+	out, err := exec.Command("docker", "ps", "-a", "--format", "{{.Names}}", "--filter", "name="+prefix).Output()
+	if err != nil {
+		return
+	}
+	for _, name := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if name == "" || !strings.HasPrefix(name, prefix) {
+			continue
+		}
+		if rmOut, rmErr := exec.Command("docker", "rm", "-f", name).CombinedOutput(); rmErr != nil {
+			fmt.Fprintf(os.Stderr, "reap-orphan-slot: docker rm %s: %s\n", name, strings.TrimSpace(string(rmOut)))
+			continue
+		}
+		fmt.Fprintf(os.Stderr, "reap-orphan-slot: removed %s (likely from a self-update re-exec)\n", name)
+	}
+}
+
 // runMCPContainerLoop is --container's universal implementation across
 // every provider that supports MCP-based tool dispatch (today: claude via
 // --mcp-config, opencode, local). Slot containers stay idle as sandboxes;
@@ -367,6 +412,13 @@ func runMCPContainerLoop(parentCtx context.Context, providerName string, opts Pr
 		cleanupOnSignal()
 		os.Exit(130)
 	}()
+
+	// Reap any orphan slot containers whose names match our alias prefix.
+	// A self-update re-exec (manager.go:255) replaces the host-side loop
+	// without docker-stopping the slot containers; they linger as orphans
+	// and the new process trips on "container name in use" when it tries
+	// to recreate them. Reaping at startup recovers the cluster.
+	reapOrphanSlotContainers(providerName, opts.Alias)
 
 	envPairs := collectContainerEnv([]string{"ANTHROPIC_API_KEY", "DATABASE_URL", "NO_COLOR"})
 
