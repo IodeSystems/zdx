@@ -55,6 +55,7 @@ func main() {
 		servercmd.ServeCmd(),
 		servercmd.MigrateCmd(),
 		devtools.ErrorsCmd(),
+		devtools.LogCmd(),
 		project.CommentCmd(),
 		project.RevisionCmd(),
 		project.RefCmd(),

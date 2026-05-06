@@ -185,6 +185,17 @@ func resolveRemoteAPIKey() (token, source string) {
 
 func (c *Client) Slug() string { return c.slug }
 
+// Base returns the resolved server base URL ("https://zdx.example.com").
+// Exposed so callers building bespoke requests (streaming endpoints,
+// custom verbs) can reach the server without reimplementing config
+// resolution. Pair with Token() and X-Api-Key.
+func (c *Client) Base() string { return c.base }
+
+// Token returns the resolved bearer/api-key for authenticating against
+// the server. Exposed for callers that build raw http requests (SSE
+// streams, etc.). Use with `req.Header.Set("X-Api-Key", c.Token())`.
+func (c *Client) Token() string { return c.token }
+
 func (c *Client) Get(path string, params url.Values, out any) error {
 	u := c.base + path
 	if len(params) > 0 {

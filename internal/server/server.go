@@ -153,6 +153,7 @@ func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Serve
 	s.registerPromIngestRoutes(s.api)
 	s.registerWSRoutes(s.api)
 	s.mux.Get("/api/agents/connect", h.HandleAgentConnect(s.agentRegistry))
+	s.mux.Get("/api/dx/log-events/stream", h.HandleLogStream())
 
 	s.mux.NotFound(notFoundHandler(staticDir))
 
@@ -567,6 +568,17 @@ func (w *statusCapture) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 		return h.Hijack()
 	}
 	return nil, nil, errors.New("inner ResponseWriter does not implement http.Hijacker")
+}
+
+// Flush delegates to the underlying writer when it supports http.Flusher.
+// SSE / chunked streaming endpoints (/api/dx/log-events/stream) need the
+// flusher to push bytes out as they're written rather than buffering until
+// the response closes; without it, every event would be invisible to the
+// client until disconnect.
+func (w *statusCapture) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
 }
 
 // errorMiddleware catches panics and 5xx responses, reporting them through
