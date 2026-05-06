@@ -63,7 +63,12 @@ func (s *Server) devCheckUIClient(projectRoot string, specBytes []byte, sum stri
 	tmp.Close()
 
 	start := time.Now()
-	cmd := exec.Command("pnpm", "exec", "openapi-typescript", tmp.Name(), "-o", outFile)
+	// outFile is project-root-relative ("ui/src/api.gen.ts"); cmd.Dir is the
+	// ui/ subdirectory so pnpm picks the workspace's openapi-typescript. Pass
+	// outFile as an absolute path to avoid `ui/ui/src/api.gen.ts` ghost writes
+	// that happen when openapi-typescript resolves the -o arg against cmd.Dir.
+	absOut, _ := filepath.Abs(outFile)
+	cmd := exec.Command("pnpm", "exec", "openapi-typescript", tmp.Name(), "-o", absOut)
 	cmd.Dir = filepath.Join(projectRoot, "ui")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
