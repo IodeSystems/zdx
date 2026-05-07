@@ -69,17 +69,21 @@ func TestDemoAPI_SoloEvaluateDiff(t *testing.T) {
 		proposed = append(proposed, c.After)
 	}
 
-	// Build the apply payload: X exact, Y with priority 99, Z omitted, plus a
-	// fabricated key the generator will never produce.
+	// Build the apply payload: X exact, Y bumped to priority 5, Z omitted, plus
+	// a fabricated key the generator will never produce. Y's bump must be
+	// LOWER (more urgent) than the natural triage priority of 20: UpsertTodo
+	// uses LEAST(existing, EXCLUDED) so an operator-style bump survives
+	// re-evaluate (commit 2625eb18); a higher number is silently dropped and
+	// the diff has nothing to detect.
 	var applyItems []SoloQueueItem
 	for _, it := range proposed {
 		switch it.Key {
 		case keyX:
 			applyItems = append(applyItems, it)
 		case keyY:
-			stale := it
-			stale.Priority = 99
-			applyItems = append(applyItems, stale)
+			bumped := it
+			bumped.Priority = 5
+			applyItems = append(applyItems, bumped)
 		case keyZ:
 			// omit → Added
 		default:

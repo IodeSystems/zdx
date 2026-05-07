@@ -824,7 +824,11 @@ func TestSoloEvaluateDiff(t *testing.T) {
 
 	// Build the apply payload with one deliberate divergence per bucket:
 	//   X: exact copy → Unchanged
-	//   Y: priority changed to 99 → Changed (proposed will have priority 20)
+	//   Y: priority bumped to 5 → Changed (proposed will have priority 20)
+	//      Must be LOWER (more urgent) than the natural triage priority of 20:
+	//      UpsertTodo uses LEAST(existing, EXCLUDED) so an operator-style bump
+	//      survives re-evaluate (commit 2625eb18). A higher number would be
+	//      silently dropped — and the diff would have nothing to detect.
 	//   Z: omitted → Added (evaluate proposes it but it's not persisted)
 	//   fake: novel key → Removed (in persisted, not in proposed)
 	//   all others (globals): exact copy → Unchanged
@@ -834,9 +838,9 @@ func TestSoloEvaluateDiff(t *testing.T) {
 		case keyX:
 			applyItems = append(applyItems, it) // exact → Unchanged
 		case keyY:
-			stale := it
-			stale.Priority = 99 // deliberately wrong
-			applyItems = append(applyItems, stale)
+			bumped := it
+			bumped.Priority = 5 // operator-style bump (lower = more urgent)
+			applyItems = append(applyItems, bumped)
 		case keyZ:
 			// omit → Added
 		default:
