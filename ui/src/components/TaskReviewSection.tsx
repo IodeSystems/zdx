@@ -1,6 +1,6 @@
 import { Box, Chip, Typography } from '@mui/material'
 import { useTaskReviews } from '../api'
-import { CommentsAndRevisions } from './CommentsAndRevisions'
+import { EventStream } from './EventStream'
 import { MarkdownContent } from './MarkdownContent'
 
 const VERDICT_COLOR: Record<string, 'success' | 'error' | 'warning' | 'default'> = {
@@ -57,7 +57,7 @@ export function TaskReviewSection({
             </Box>
           )}
           <Box sx={{ mt: 1, pl: 1, borderLeft: 2, borderColor: 'divider' }}>
-            <CommentsAndRevisions slug={slug} targetType="review" targetId={String(r.id)} />
+            <EventStream slug={slug} targetType="review" targetId={String(r.id)} />
           </Box>
         </Box>
       ))}
