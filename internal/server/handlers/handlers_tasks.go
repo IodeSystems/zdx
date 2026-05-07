@@ -1068,13 +1068,12 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 			if in.Body.Verdict == "approve" {
 			}
 			h.Broker.PublishTask(p.Slug, id, "task.reviewed", map[string]any{"id": id, "verdict": in.Body.Verdict, "review_id": rev.ID})
-			// Audit-tag-permeation phase 2a: record the review in
-			// zdx_log_events with attribution from ctx so
-			// `dx log tail --tag alias=<agent_id>` surfaces it as part of
-			// the agent's flow. Phase 2b adds direct-lookup columns on
-			// zdx_task_reviews; this gives the trace-level visibility the
-			// review cycle needs without the wider read-side surgery.
-			auditNote(ctx, h.Q, p.ID, "task.reviewed",
+			// Trace-tag-permeation phase 2a: emit a structured event in
+			// zdx_log_events with the trace correlation tags from ctx so
+			// `dx log tail --tag trace_id=<X>` (and `--tag alias=<agent_id>`)
+			// surfaces it as part of the agent's flow. Phase 2b adds
+			// direct-lookup columns on zdx_task_reviews.
+			traceEvent(ctx, h.Q, p.ID, "task.reviewed",
 				"task_id", id,
 				"verdict", in.Body.Verdict,
 				"review_id", rev.ID,

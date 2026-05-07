@@ -166,7 +166,7 @@ func TestColorize(t *testing.T) {
 func TestBuildClaudeEnv(t *testing.T) {
 	base := []string{"PATH=/usr/bin", "HOME=/h"}
 
-	got := buildClaudeEnv(base, "sid-1", "agent-A", false, "")
+	got := buildClaudeEnv(base, "sid-1", "agent-A", "", false, "")
 	wantContains := []string{"PATH=/usr/bin", "HOME=/h", "ZDX_SESSION_ID=sid-1", "ZDX_AGENT_ID=agent-A", "DX_AUTHOR_ALIAS=agent-A"}
 	for _, kv := range wantContains {
 		if !contains(got, kv) {
@@ -176,10 +176,18 @@ func TestBuildClaudeEnv(t *testing.T) {
 	if contains(got, "DX_GLOBAL=1") {
 		t.Errorf("non-srcless env should not contain DX_GLOBAL=1: %v", got)
 	}
+	for _, kv := range got {
+		if strings.HasPrefix(kv, "ZDX_TRACE_ID=") {
+			t.Errorf("empty traceID should not produce ZDX_TRACE_ID env: %q", kv)
+		}
+	}
 
-	got = buildClaudeEnv(base, "sid-2", "agent-B", true, "")
+	got = buildClaudeEnv(base, "sid-2", "agent-B", "trace-xyz", true, "")
 	if !contains(got, "DX_GLOBAL=1") {
 		t.Errorf("srcless env missing DX_GLOBAL=1: %v", got)
+	}
+	if !contains(got, "ZDX_TRACE_ID=trace-xyz") {
+		t.Errorf("ZDX_TRACE_ID not exported when traceID set: %v", got)
 	}
 	for _, kv := range []string{"ZDX_SESSION_ID=sid-2", "ZDX_AGENT_ID=agent-B", "DX_AUTHOR_ALIAS=agent-B"} {
 		if !contains(got, kv) {
@@ -189,7 +197,7 @@ func TestBuildClaudeEnv(t *testing.T) {
 
 	// Admin token in base must be replaced by the scoped token (never two DX_REMOTE_API_KEY entries).
 	baseWithAdmin := []string{"DX_REMOTE_API_KEY=admin-token-xxx", "PATH=/usr/bin"}
-	got = buildClaudeEnv(baseWithAdmin, "sid-3", "agent-C", false, "scoped-token-yyy")
+	got = buildClaudeEnv(baseWithAdmin, "sid-3", "agent-C", "", false, "scoped-token-yyy")
 	if !contains(got, "DX_REMOTE_API_KEY=scoped-token-yyy") {
 		t.Errorf("scoped token not injected: %v", got)
 	}
@@ -390,5 +398,77 @@ func TestBuildSessionPrompt(t *testing.T) {
 			got := buildSessionPrompt(tc.vision, tc.issueID, tc.todo)
 			tc.check(t, got)
 		})
+	}
+}
+
+func TestInjectMCPDockerExecEnv(t *testing.T) {
+	tests := []struct {
+		name string
+		argv []string
+		kv   map[string]string
+		want []string // exact expected output
+	}{
+		{
+			name: "non-docker passthrough",
+			argv: []string{"/usr/local/bin/dx-agent", "--mcp-stdio"},
+			kv:   map[string]string{"FOO": "bar"},
+			want: []string{"/usr/local/bin/dx-agent", "--mcp-stdio"},
+		},
+		{
+			name: "empty kv passthrough",
+			argv: []string{"docker", "exec", "-i", "slot", "/workspace/bin/dx-agent", "--mcp-stdio"},
+			kv:   nil,
+			want: []string{"docker", "exec", "-i", "slot", "/workspace/bin/dx-agent", "--mcp-stdio"},
+		},
+		{
+			name: "single var injected after -i, before container name",
+			argv: []string{"docker", "exec", "-i", "slot", "/workspace/bin/dx-agent", "--mcp-stdio"},
+			kv:   map[string]string{"ZDX_TRACE_ID": "trace-abc"},
+			want: []string{"docker", "exec", "-i", "-e", "ZDX_TRACE_ID=trace-abc", "slot", "/workspace/bin/dx-agent", "--mcp-stdio"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := injectMCPDockerExecEnv(tc.argv, tc.kv)
+			if len(got) != len(tc.want) {
+				t.Fatalf("len: want %d got %d\nwant=%v\ngot=%v", len(tc.want), len(got), tc.want, got)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Errorf("argv[%d]: want %q got %q", i, tc.want[i], got[i])
+				}
+			}
+		})
+	}
+}
+
+func TestInjectMCPDockerExecEnvMultipleVarsTokenCount(t *testing.T) {
+	// Map iteration order is unstable so we check the token count + presence
+	// rather than exact ordering.
+	argv := []string{"docker", "exec", "-i", "slot", "dx-agent", "--mcp-stdio"}
+	kv := map[string]string{"ZDX_TRACE_ID": "trace-abc", "ZDX_AGENT_ID": "smoke-0"}
+	got := injectMCPDockerExecEnv(argv, kv)
+	// Each kv adds 2 tokens (-e + KEY=VAL).
+	if len(got) != len(argv)+2*len(kv) {
+		t.Errorf("token count: want %d got %d (argv=%v)", len(argv)+2*len(kv), len(got), got)
+	}
+	joined := strings.Join(got, " ")
+	for k, v := range kv {
+		if !strings.Contains(joined, "-e "+k+"="+v) {
+			t.Errorf("missing -e %s=%s in %s", k, v, joined)
+		}
+	}
+}
+
+func TestMcpDockerExecEnv(t *testing.T) {
+	got := mcpDockerExecEnv("sid-1", "smoke-0", "trace-xyz", true)
+	for _, k := range []string{"ZDX_SESSION_ID", "ZDX_AGENT_ID", "DX_AUTHOR_ALIAS", "ZDX_TRACE_ID", "DX_GLOBAL"} {
+		if _, ok := got[k]; !ok {
+			t.Errorf("missing key %q: %v", k, got)
+		}
+	}
+	got = mcpDockerExecEnv("", "", "", false)
+	if len(got) != 0 {
+		t.Errorf("all-empty should produce no kv: %v", got)
 	}
 }

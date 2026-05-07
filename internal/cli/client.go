@@ -214,15 +214,25 @@ func (c *Client) Get(path string, params url.Values, out any) error {
 	return c.checkResp(resp, out)
 }
 
-// attachAttributionHeaders copies agent/session identifiers from the environment
-// onto outbound requests so server-side writes can attribute status changes to
-// the invoking agent session. Unset env vars produce no header.
+// attachAttributionHeaders copies agent/session/trace identifiers from
+// the environment onto outbound requests so server-side mutations record
+// who made them, which session, and what trace they belong to. Unset env
+// vars produce no header.
+//
+// X-ZDX-Trace-Id propagates the agent loop's trace_id (set by the loop
+// runtime via ZDX_TRACE_ID) into server handlers — together with the
+// server-side traceEvent helper, this is what makes `dx log tail --tag
+// trace_id=<X>` show the WHOLE flow: the agent's loop iterations AND
+// every server-side mutation it caused, as one chain.
 func attachAttributionHeaders(req *http.Request) {
 	if v := os.Getenv("ZDX_AGENT_ID"); v != "" {
 		req.Header.Set("X-ZDX-Agent-Id", v)
 	}
 	if v := os.Getenv("ZDX_SESSION_ID"); v != "" {
 		req.Header.Set("X-ZDX-Session-Id", v)
+	}
+	if v := os.Getenv("ZDX_TRACE_ID"); v != "" {
+		req.Header.Set("X-ZDX-Trace-Id", v)
 	}
 }
 

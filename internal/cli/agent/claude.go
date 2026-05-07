@@ -637,6 +637,7 @@ func init() {
 			prompt:     prompt,
 			srcless:    opts.Srcless,
 			mcpCommand: opts.MCPCommand,
+			traceID:    opts.TraceID,
 			exited:     make(chan struct{}),
 		}, nil
 	})
@@ -666,6 +667,7 @@ type claudeAdapter struct {
 	prompt     string   // custom prompt; empty = "/work"
 	srcless    bool     // when true, inject DX_GLOBAL=1 into the subprocess env
 	mcpCommand []string // when non-empty, claude is launched with --mcp-config dispatching tools through this argv (dev-container mode)
+	traceID    string   // session trace_id; exported as ZDX_TRACE_ID and injected into docker exec env so server-side mutations correlate
 
 	scopedTokenID int32
 
@@ -715,7 +717,9 @@ func buildClaudeMCPConfig(argv []string) (string, error) {
 // Extracted from Start() so the env wiring (including DX_GLOBAL in srcless
 // mode) is unit-testable without spawning a subprocess.
 // scopedToken replaces any DX_REMOTE_API_KEY in base; pass "" to skip injection.
-func buildClaudeEnv(base []string, sid, alias string, srcless bool, scopedToken string) []string {
+// traceID, when non-empty, is exported as ZDX_TRACE_ID so dx CLI calls
+// from claude (or its tools) stamp X-ZDX-Trace-Id on outbound requests.
+func buildClaudeEnv(base []string, sid, alias, traceID string, srcless bool, scopedToken string) []string {
 	filtered := make([]string, 0, len(base))
 	for _, kv := range base {
 		if strings.HasPrefix(kv, "DX_REMOTE_API_KEY=") {
@@ -731,10 +735,74 @@ func buildClaudeEnv(base []string, sid, alias string, srcless bool, scopedToken 
 		"ZDX_AGENT_ID="+alias,
 		"DX_AUTHOR_ALIAS="+alias,
 	)
+	if traceID != "" {
+		env = append(env, "ZDX_TRACE_ID="+traceID)
+	}
 	if srcless {
 		env = append(env, "DX_GLOBAL=1")
 	}
 	return env
+}
+
+// mcpDockerExecEnv returns the env-var map injected into the docker
+// exec argv so the in-slot MCP server (and any tool subprocesses it
+// spawns) inherit the agent's correlation IDs. Mirrors what
+// buildClaudeEnv exports for the host claude subprocess — same keys,
+// same values — so the host and slot share one correlation namespace.
+func mcpDockerExecEnv(sid, alias, traceID string, srcless bool) map[string]string {
+	kv := make(map[string]string, 4)
+	if sid != "" {
+		kv["ZDX_SESSION_ID"] = sid
+	}
+	if alias != "" {
+		kv["ZDX_AGENT_ID"] = alias
+		kv["DX_AUTHOR_ALIAS"] = alias
+	}
+	if traceID != "" {
+		kv["ZDX_TRACE_ID"] = traceID
+	}
+	if srcless {
+		kv["DX_GLOBAL"] = "1"
+	}
+	return kv
+}
+
+// injectMCPDockerExecEnv injects `-e KEY=VALUE` flags into a `docker exec
+// ...` argv so processes spawned inside the slot inherit the variable.
+// `docker exec` does NOT propagate host env into the container by default;
+// for in-slot dx CLI calls (Bash tool → `dx ...`) to stamp X-ZDX-Trace-Id
+// headers, ZDX_TRACE_ID must reach the slot via this per-exec env. Returns
+// argv unchanged when it doesn't look like `docker exec`.
+//
+// Insertion point: between `docker exec` and the first non-flag arg
+// (typically the container name). All `-e` flags must precede the
+// container name.
+func injectMCPDockerExecEnv(argv []string, kv map[string]string) []string {
+	if len(argv) < 2 || filepath.Base(argv[0]) != "docker" || argv[1] != "exec" {
+		return argv
+	}
+	if len(kv) == 0 {
+		return argv
+	}
+	// Find insertion index: right after `docker exec` and any existing
+	// flag tokens (e.g. `-i`, `-t`). The first non-flag arg is the
+	// container name.
+	insert := 2
+	for insert < len(argv) && strings.HasPrefix(argv[insert], "-") {
+		// `-e VAL` consumes two tokens; account for it.
+		if argv[insert] == "-e" {
+			insert += 2
+			continue
+		}
+		insert++
+	}
+	out := make([]string, 0, len(argv)+2*len(kv))
+	out = append(out, argv[:insert]...)
+	for k, v := range kv {
+		out = append(out, "-e", k+"="+v)
+	}
+	out = append(out, argv[insert:]...)
+	return out
 }
 
 func (a *claudeAdapter) Provider() string { return "claude" }
@@ -759,7 +827,12 @@ func (a *claudeAdapter) Start(ctx context.Context, sid, _, _ string) (string, er
 	// ensures global ~/.claude/.mcp.json or repo-level .mcp.json don't sneak
 	// in.
 	if len(a.mcpCommand) > 0 {
-		mcpJSON, err := buildClaudeMCPConfig(a.mcpCommand)
+		// Inject ZDX correlation env into the docker exec argv so in-slot
+		// dx CLI calls (Bash tool → `dx ...`) inherit them. Without this,
+		// the host's claude env stops at the slot boundary and server-side
+		// mutations triggered from the slot lose trace_id correlation.
+		mcpArgv := injectMCPDockerExecEnv(a.mcpCommand, mcpDockerExecEnv(sid, a.alias, a.traceID, a.srcless))
+		mcpJSON, err := buildClaudeMCPConfig(mcpArgv)
 		if err != nil {
 			return "", fmt.Errorf("build claude --mcp-config: %w", err)
 		}
@@ -790,7 +863,7 @@ func (a *claudeAdapter) Start(ctx context.Context, sid, _, _ string) (string, er
 	a.proc.Stdin = os.Stdin
 	a.proc.Stdout = os.Stdout
 	a.proc.Stderr = os.Stderr
-	a.proc.Env = buildClaudeEnv(os.Environ(), sid, a.alias, a.srcless, scopedToken)
+	a.proc.Env = buildClaudeEnv(os.Environ(), sid, a.alias, a.traceID, a.srcless, scopedToken)
 
 	if err := a.proc.Start(); err != nil {
 		return "", err

@@ -60,6 +60,24 @@ type ProviderOpts struct {
 	// count for the loop.
 	Concurrency int
 
+	// TraceID is the per-session trace correlation ID. Populated by
+	// RunManagedSession from the session tracelog's TraceID() right after
+	// tracelog setup, before provider construction. Propagates two ways:
+	//   1. ZDX_TRACE_ID env var on the spawned claude/opencode subprocess
+	//      (via buildClaudeEnv) → its outbound dx CLI calls stamp
+	//      X-ZDX-Trace-Id header → server's apiKeyMiddleware reads it →
+	//      ctxTraceIDVal serves it to traceEvent → mutations land in
+	//      zdx_log_events with trace_id matching the agent's session.
+	//   2. `docker exec -e ZDX_TRACE_ID=...` injected into the in-slot
+	//      MCP dispatch argv so in-slot dx CLI calls inherit the same
+	//      trace_id (Bash tool runs `dx ...` inside the slot; without
+	//      this, host-side trace_id stops at the slot boundary).
+	//
+	// Single `dx log tail --tag trace_id=<X>` filter then surfaces the
+	// agent's whole flow: loop scaffolding events + claude turns +
+	// server-side mutations the agent caused.
+	TraceID string
+
 	// Global=true registers the agent in the server-wide pool (no project
 	// binding) instead of under opts.RC.slug. Surfaced in /api/agents and
 	// the top-level /agents UI; assignment to a specific project happens

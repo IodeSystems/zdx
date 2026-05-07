@@ -14,6 +14,7 @@ const (
 	CtxAgentID      contextKey = 7
 	CtxSessionID    contextKey = 8
 	CtxProjectScope contextKey = 9
+	CtxTraceID      contextKey = 10
 )
 
 func ctxUserIDVal(ctx context.Context) int32 {
@@ -35,6 +36,16 @@ func ctxSessionIDVal(ctx context.Context) string {
 	v, _ := ctx.Value(CtxSessionID).(string)
 	return v
 }
+
+func ctxTraceIDVal(ctx context.Context) string {
+	v, _ := ctx.Value(CtxTraceID).(string)
+	return v
+}
+
+// TraceIDFromContext is the exported accessor for the trace_id stamped by
+// apiKeyMiddleware (from X-ZDX-Trace-Id header). Empty when the request
+// didn't carry the header (e.g., browser UI requests).
+func TraceIDFromContext(ctx context.Context) string { return ctxTraceIDVal(ctx) }
 
 // UserIDFromContext is an exported accessor for server-side middleware and other
 // packages that need to read the authenticated user ID from the request context.

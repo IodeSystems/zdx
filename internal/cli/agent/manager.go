@@ -87,6 +87,12 @@ func RunManagedSession(ctx context.Context, providerName string, opts ProviderOp
 			"issue_id", opts.IssueID,
 			"alias", opts.Alias,
 			"model", opts.Model)
+		// Populate opts.TraceID from the session tracelog so the spawned
+		// agent subprocess gets ZDX_TRACE_ID and outbound dx CLI calls
+		// stamp X-ZDX-Trace-Id headers — server-side mutations land in
+		// zdx_log_events with the same trace_id, making
+		// `dx log tail --tag trace_id=<X>` show the whole flow.
+		opts.TraceID = tlog.TraceID()
 	}
 
 	provider, err := ctor(opts)
