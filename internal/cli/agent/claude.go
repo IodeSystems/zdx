@@ -651,16 +651,6 @@ func (a *claudeAdapter) RunLoop(_ context.Context, opts ProviderOpts) error {
 	return runLoop(opts.RC, opts.Alias, opts.Chrome, sel, opts.Srcless, opts.WorkDir, opts.AgentCfg)
 }
 
-// RunContainerLoop implements ContainerProvider via the MCP-slot model:
-// each slot is a long-lived sandbox running `sleep infinity` with
-// /workspace bind-mounted; the host runs claude with --mcp-config pointing
-// at `docker exec -i <slot> dx-agent --mcp-stdio` and --tools "" so claude's
-// built-in tools are disabled and all file/shell operations dispatch into
-// the slot. Same orchestration as opencode/local.
-func (a *claudeAdapter) RunContainerLoop(ctx context.Context, opts ProviderOpts) error {
-	return runMCPContainerLoop(ctx, "claude", opts)
-}
-
 // claudeAdapter implements AgentAdapter against the real `claude` CLI. It
 // launches the process with ZDX-aware environment vars and returns the
 // transcript path that Claude writes its JSONL session to.

@@ -98,14 +98,6 @@ func init() {
 
 func (a *localAdapter) Provider() string { return "local" }
 
-// RunContainerLoop mirrors opencode's MCP-slot container mode. Each slot is
-// `sleep infinity` with /workspace bind-mounted; host runs N parallel
-// RunManagedLoop instances dispatching tools through `docker exec -i <slot>
-// dx-agent --mcp-stdio`.
-func (a *localAdapter) RunContainerLoop(ctx context.Context, opts ProviderOpts) error {
-	return runMCPContainerLoop(ctx, "local", opts)
-}
-
 // buildDispatcher mirrors opencode.buildDispatcher: in-process MCP server
 // rooted at the repo (default) or a remote subprocess when mcpCommand is
 // configured (dev-container mode).

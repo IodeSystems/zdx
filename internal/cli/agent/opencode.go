@@ -135,17 +135,6 @@ func (a *opencodeAdapter) Start(ctx context.Context, sid, issueID, alias string)
 	return sessLog.path, nil
 }
 
-// RunContainerLoop implements ContainerProvider — opencode's container
-// mode is the MCP-slot model: each slot is an idle container running
-// `sleep infinity` with /workspace bind-mounted, and N parallel host-side
-// loops dispatch tool calls into their respective slots via `docker exec
-// -i <slot> dx-agent --mcp-stdio`. Different from claude's container mode
-// (which ships the entire agent into the slot) because opencode dispatches
-// tools through MCP, so the LLM loop can stay on the host.
-func (a *opencodeAdapter) RunContainerLoop(ctx context.Context, opts ProviderOpts) error {
-	return runMCPContainerLoop(ctx, "opencode", opts)
-}
-
 // buildDispatcher returns the MCP dispatcher Start should use. Default is
 // the in-process server (root = the repo's GitRepoRoot). When mcpCommand
 // is set, dispatches through a remote MCP server spawned via that argv —

@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -104,12 +107,118 @@ func RunManagedSession(ctx context.Context, providerName string, opts ProviderOp
 	return runErr
 }
 
-// DispatchLoop is the entry point for any loop-mode dispatch. If the named
-// provider implements LoopProvider, its RunLoop owns the run (claude's
-// Take-based orchestration). Otherwise the universal RunManagedLoop runs.
-// dx agent loop and any future loop-driving code path through this function
-// rather than picking a runtime themselves.
-func DispatchLoop(ctx context.Context, providerName string, opts ProviderOpts) error {
+// DispatchSingle runs ONE managed session via the given executor. The
+// driver-vs-executor split: this function is the single-session driver,
+// agnostic to host vs container; the Executor decides how the workspace
+// is provisioned. Bare `dx agent` (with --container=docker or
+// --container=local) routes here.
+//
+// SIGINT/SIGTERM cancels the session ctx so RunManagedSession returns;
+// deferred ws.Cleanup() then tears the workspace down. No os.Exit
+// dance — single session is sequential.
+func DispatchSingle(parentCtx context.Context, providerName string, opts ProviderOpts, executor Executor) error {
+	if executor == nil {
+		executor = HostExecutor{}
+	}
+	if opts.Alias == "" {
+		opts.Alias = providerName + "-" + uuid.New().String()[:8]
+	}
+
+	ctx, cancel := context.WithCancel(parentCtx)
+	defer cancel()
+
+	ws, err := executor.Provision(ctx, opts, 0)
+	if err != nil {
+		return err
+	}
+	defer ws.Cleanup()
+
+	installSingleSessionSignalHandler(ctx, cancel)
+
+	if executor.Name() != "host" {
+		fmt.Printf("[%s] %s mode: workspace=%s\n",
+			time.Now().Format(time.RFC3339), executor.Name(), ws.Name)
+	}
+	return RunManagedSession(ctx, providerName, ws.Apply(opts))
+}
+
+// DispatchLoop runs N parallel claim/work loops via the given executor —
+// each loop in its own workspace. Concurrency=1 (default) is one loop in
+// one workspace; concurrency=N is the explicit fan-out opt-in for
+// `dx agent loop`. Each loop runs on its own goroutine, alias-tagged
+// `<base>-<i>` for trace correlation; cluster_id stamps the orchestrator
+// alias so the cluster is filterable as one chain in the UI.
+//
+// The driver picks LoopProvider.RunLoop (claude's bespoke loop body) when
+// the provider implements it; otherwise the universal RunManagedLoop. The
+// executor concern (host worktree vs slot container) is orthogonal.
+func DispatchLoop(parentCtx context.Context, providerName string, opts ProviderOpts, executor Executor) error {
+	if executor == nil {
+		executor = HostExecutor{}
+	}
+
+	concurrency := opts.Concurrency
+	if concurrency <= 0 {
+		concurrency = 1
+	}
+
+	if opts.Alias == "" {
+		opts.Alias = providerName + "-" + uuid.New().String()[:8]
+	}
+	clusterID := opts.Alias
+
+	ctx, cancel := context.WithCancel(parentCtx)
+	defer cancel()
+
+	// Provision N workspaces up front. Failure rolls back all created
+	// workspaces before bailing — callers see a clean state on error.
+	workspaces := make([]*Workspace, 0, concurrency)
+	cleanupAll := func() {
+		for _, w := range workspaces {
+			w.Cleanup()
+		}
+	}
+	for i := 0; i < concurrency; i++ {
+		ws, err := executor.Provision(ctx, opts, i)
+		if err != nil {
+			cleanupAll()
+			return fmt.Errorf("provision workspace %d: %w", i, err)
+		}
+		workspaces = append(workspaces, ws)
+	}
+	defer cleanupAll()
+
+	// Loop-mode signal handler: drain in-flight slots, fire workspace
+	// cleanups before os.Exit (defer skips os.Exit). os.Exit is what the
+	// pre-refactor runMCPContainerLoop used for parallel-goroutine drain;
+	// preserved here for the same reason.
+	installLoopSignalHandler(ctx, cancel, cleanupAll)
+
+	if concurrency == 1 {
+		return runOneLoop(ctx, providerName, workspaces[0].Apply(opts))
+	}
+
+	var wg sync.WaitGroup
+	for i, ws := range workspaces {
+		wg.Add(1)
+		go func(slot int, ws *Workspace) {
+			defer wg.Done()
+			slotOpts := ws.Apply(opts)
+			slotOpts.Alias = fmt.Sprintf("%s-%d", opts.Alias, slot)
+			slotOpts.ClusterID = clusterID
+			if err := runOneLoop(ctx, providerName, slotOpts); err != nil && ctx.Err() == nil {
+				fmt.Fprintf(os.Stderr, "slot %d (%s) loop error: %v\n", slot, ws.Name, err)
+			}
+		}(i, ws)
+	}
+	wg.Wait()
+	return nil
+}
+
+// runOneLoop is the per-workspace loop body. Dispatches to LoopProvider's
+// RunLoop when the provider has one (claude's Take-based orchestration);
+// falls back to the universal RunManagedLoop otherwise.
+func runOneLoop(ctx context.Context, providerName string, opts ProviderOpts) error {
 	ctor, err := LookupProvider(providerName)
 	if err != nil {
 		return err
@@ -124,24 +233,43 @@ func DispatchLoop(ctx context.Context, providerName string, opts ProviderOpts) e
 	return RunManagedLoop(ctx, providerName, opts)
 }
 
-// DispatchContainerLoop is the entry point for --container dispatch. Errors
-// when the named provider doesn't implement ContainerProvider (only claude
-// today). Bypasses the standard loop entirely — the per-slot containers
-// each run their own `dx agent loop --provider=...` internally.
-func DispatchContainerLoop(ctx context.Context, providerName string, opts ProviderOpts) error {
-	ctor, err := LookupProvider(providerName)
-	if err != nil {
-		return err
-	}
-	provider, err := ctor(opts)
-	if err != nil {
-		return fmt.Errorf("construct %s provider: %w", providerName, err)
-	}
-	cp, ok := provider.(ContainerProvider)
-	if !ok {
-		return fmt.Errorf("--provider=%s does not support --container (only claude today)", providerName)
-	}
-	return cp.RunContainerLoop(ctx, opts)
+func installSingleSessionSignalHandler(ctx context.Context, cancel context.CancelFunc) {
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		select {
+		case <-ctx.Done():
+			signal.Stop(sigCh)
+		case <-sigCh:
+			cancel()
+			signal.Stop(sigCh)
+		}
+	}()
+}
+
+func installLoopSignalHandler(ctx context.Context, cancel context.CancelFunc, cleanup func()) {
+	sigCh := make(chan os.Signal, 2)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		select {
+		case <-ctx.Done():
+			signal.Stop(sigCh)
+			return
+		case sig := <-sigCh:
+			fmt.Fprintf(os.Stderr, "[%s] received signal %s: cancelling loop and cleaning up\n",
+				time.Now().Format(time.RFC3339), sig)
+			cancel()
+			// Give in-flight goroutines a chance to drain via ctx
+			// cancellation; force cleanup + os.Exit if a second signal
+			// arrives or 10s elapses (defer doesn't run after os.Exit).
+			select {
+			case <-time.After(10 * time.Second):
+			case <-sigCh:
+			}
+			cleanup()
+			os.Exit(130)
+		}
+	}()
 }
 
 // RunManagedLoop atomically claims work via /api/dx/solo/claim, runs a

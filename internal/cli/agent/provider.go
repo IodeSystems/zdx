@@ -36,16 +36,12 @@ type LoopProvider interface {
 	RunLoop(ctx context.Context, opts ProviderOpts) error
 }
 
-// ContainerProvider is the optional interface for providers that support
-// docker-orchestrated parallel sessions (one container per slot, restart
-// on exit). Claude's --container mode is the only consumer today.
-//
-// dx agent loop --container --provider=X errors when X doesn't implement
-// ContainerProvider. KeepContainer in opts toggles --rm.
-type ContainerProvider interface {
-	AgentProvider
-	RunContainerLoop(ctx context.Context, opts ProviderOpts) error
-}
+// (ContainerProvider was an optional provider-side interface for
+// docker-orchestrated parallel sessions. It has been replaced by the
+// orthogonal Executor interface (executor.go) — providers no longer need
+// to know about containerization. The dispatch layer picks an Executor
+// based on --container and hands the resulting Workspace to whichever
+// driver runs the session/loop.)
 
 // Container modes exposed via --container. The flag is an *execution
 // environment*, not a yes/no — "docker" runs in MCP-slot containers

@@ -70,22 +70,19 @@ For the long-running work loop, use ` + "`dx agent loop --provider=X`" + `.`,
 			if err := rejectUnimplementedExplicit("branch", branch); err != nil {
 				return err
 			}
-			if mode == ContainerDocker {
-				// Single session in slot container: provision one slot via the
-				// same primitive runMCPContainerLoop uses, run one session
-				// inside it via RunManagedSession, tear the slot down. Closes
-				// the gap that previously errored ("not yet wired").
-				tier, terr := NormalizeComplexity(complexity)
-				if terr != nil {
-					return terr
-				}
-				opts, oerr := loadManagedOptsFromCmd(cmd, provider, alias, issue, model, tier, 0, mcpContainer)
-				if oerr != nil {
-					return oerr
-				}
-				return runMCPContainerSingle(cmd.Context(), provider, opts)
+			tier, terr := NormalizeComplexity(complexity)
+			if terr != nil {
+				return terr
 			}
-			return runManagedFromFlags(cmd.Context(), cmd, provider, alias, issue, model, complexity, mcpContainer)
+			opts, oerr := loadManagedOptsFromCmd(cmd, provider, alias, issue, model, tier, 0, mcpContainer)
+			if oerr != nil {
+				return oerr
+			}
+			executor, eerr := PickExecutor(mode, provider, opts)
+			if eerr != nil {
+				return eerr
+			}
+			return DispatchSingle(cmd.Context(), provider, opts, executor)
 		},
 	}
 	// Persistent identity/role flags — inherited by every subcommand so the
@@ -196,15 +193,18 @@ open so the UI can pause/resume/drain or eventually push work.`,
 				return runIdleDaemon(cmd.Context(), provider, opts)
 			}
 
-			// Working mode: behave like `dx agent loop`. Container vs local
-			// dispatch is decided by --container.
-			if mode == ContainerDocker {
-				return DispatchContainerLoop(cmd.Context(), provider, opts)
+			// Working mode: behave like `dx agent loop`. Executor is
+			// chosen from --container; concurrency is hard-pinned to 1.
+			if mode != ContainerDocker {
+				if err := enforceContainerExecution(false); err != nil {
+					return err
+				}
 			}
-			if err := enforceContainerExecution(false); err != nil {
-				return err
+			executor, eerr := PickExecutor(mode, provider, opts)
+			if eerr != nil {
+				return eerr
 			}
-			return DispatchLoop(cmd.Context(), provider, opts)
+			return DispatchLoop(cmd.Context(), provider, opts, executor)
 		},
 	}
 	cmd.Flags().Bool("global", false, "register into the server-wide global pool instead of this project's pool")
@@ -308,16 +308,19 @@ concurrent-agents ceiling read by ` + "`dx agent start`" + `.`,
 			}
 			opts.KeepContainer = keepContainer
 			opts.Concurrency = concurrency
-			if mode == ContainerDocker {
-				return DispatchContainerLoop(cmd.Context(), provider, opts)
+			if mode != ContainerDocker {
+				// Local execution. enforceContainerExecution still gates on
+				// DX_AGENT_FORCE_CONTAINER (spec 117) — operators can refuse
+				// host execution at the env level even when --container=local.
+				if err := enforceContainerExecution(false); err != nil {
+					return err
+				}
 			}
-			// Local execution. enforceContainerExecution still gates on
-			// DX_AGENT_FORCE_CONTAINER (spec 117) — operators can refuse
-			// host execution at the env level even when --container=local.
-			if err := enforceContainerExecution(false); err != nil {
-				return err
+			executor, eerr := PickExecutor(mode, provider, opts)
+			if eerr != nil {
+				return eerr
 			}
-			return DispatchLoop(cmd.Context(), provider, opts)
+			return DispatchLoop(cmd.Context(), provider, opts, executor)
 		},
 	}
 	cmd.Flags().IntVar(&maxTurns, "max-turns", 0, "cap on assistant turns per session (0 = unlimited; opencode/local only)")
