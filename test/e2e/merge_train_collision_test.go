@@ -18,7 +18,7 @@ import (
 // next free NNN, regenerates all artifacts (schema/shipped.sql, internal/db/,
 // api.gen.ts), and fast-forward merges B cleanly.
 //
-// The test runs in the actual project repo. It creates two solo/* branches,
+// The test runs in the actual project repo. It creates two agent/* branches,
 // runs merge-train twice, then resets dev to its pre-test tip in t.Cleanup.
 // Expected runtime: ~10–20 min (two full build+regen+lint cycles).
 func TestMergeTrain_CollidingMigrationsAutoRenumber(t *testing.T) {
@@ -60,8 +60,8 @@ func TestMergeTrain_CollidingMigrationsAutoRenumber(t *testing.T) {
 
 	// Unique suffix makes names collision-free across concurrent test runs.
 	suffix := fmt.Sprintf("%d", time.Now().UnixNano()%1000000)
-	branchA := "solo/coll-a-" + suffix
-	branchB := "solo/coll-b-" + suffix
+	branchA := "agent/coll-a-" + suffix
+	branchB := "agent/coll-b-" + suffix
 	// nameA < nameB alphabetically → A keeps testNNN, B gets renumbered to testNNN+1.
 	nameA := "colla" + suffix
 	nameB := "collb" + suffix

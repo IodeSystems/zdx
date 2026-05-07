@@ -75,9 +75,9 @@ func TodoCmd() *cobra.Command {
 		Use:   "todo",
 		Short: "Workflow queue",
 		Args:  cobra.NoArgs,
-		RunE:  func(cmd *cobra.Command, args []string) error { return soloRun(cmd, args) },
+		RunE:  func(cmd *cobra.Command, args []string) error { return queueRun(cmd, args) },
 	}
-	cmd.AddCommand(todoTakeCmd(), todoSoloCmd(), todoListCmd(), todoShowCmd(), todoDevCmd(), todoOwnerCmd(), todoTechCmd(), todoReservationsCmd(), todoReleaseCmd(), todoUnblockAllCmd(), todoIncompleteCmd(), todoQueueHealthCmd())
+	cmd.AddCommand(todoTakeCmd(), todoQueueCmd(), todoListCmd(), todoShowCmd(), todoDevCmd(), todoOwnerCmd(), todoTechCmd(), todoReservationsCmd(), todoReleaseCmd(), todoUnblockAllCmd(), todoIncompleteCmd(), todoQueueHealthCmd())
 	return cmd
 }
 
@@ -208,7 +208,7 @@ func todoTakeRun(cmd *cobra.Command, agentID string, leaseMinutes int32) error {
 	if leaseMinutes <= 0 {
 		leaseMinutes = 30
 	}
-	resp, err := c.SoloClaimWithResponse(cmd.Context(), nil, dxclient.SoloClaimRequest{
+	resp, err := c.AgentClaimWithResponse(cmd.Context(), nil, dxclient.AgentClaimRequest{
 		Slug:         slug,
 		AgentId:      agentID,
 		LeaseMinutes: &leaseMinutes,
@@ -248,19 +248,19 @@ func todoTakeRun(cmd *cobra.Command, agentID string, leaseMinutes int32) error {
 	return nil
 }
 
-// ── solo ──────────────────────────────────────────────────────────────────────
+// ── queue ──────────────────────────────────────────────────────────────────────
 
-func todoSoloCmd() *cobra.Command {
+func todoQueueCmd() *cobra.Command {
 	var issueFlag, agentIDFlag string
 	var evaluateFlag, applyFlag bool
 	cmd := &cobra.Command{
-		Use:   "solo",
+		Use:   "queue",
 		Short: "Next actionable item",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if evaluateFlag || applyFlag {
-				return soloEvaluateRun(cmd, evaluateFlag, applyFlag)
+				return queueEvaluateRun(cmd, evaluateFlag, applyFlag)
 			}
-			return soloRun(cmd, args)
+			return queueRun(cmd, args)
 		},
 	}
 	cmd.Flags().StringVar(&issueFlag, "issue", "", "filter to specific issue (IS-N)")
@@ -270,7 +270,7 @@ func todoSoloCmd() *cobra.Command {
 	return cmd
 }
 
-func soloRun(cmd *cobra.Command, _ []string) error {
+func queueRun(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
 	issueFlag, _ := cmd.Flags().GetString("issue")
 	agentID, _ := cmd.Flags().GetString("agent-id")
@@ -465,7 +465,7 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 		if err := cli.BootstrapOnboardingIssue(c); err != nil {
 			fmt.Fprintf(os.Stderr, "bootstrap: %v\n", err)
 		} else {
-			fmt.Println("\nrun dx todo solo again to start the normal triage flow.")
+			fmt.Println("\nrun dx todo again to start the normal triage flow.")
 		}
 		return nil
 	}
@@ -473,7 +473,7 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 	// 0e. Check project health: goals, constraints, journal cadence.
 	// Only in global mode — these are cross-cutting owner/tech concerns.
 	if issueFlag == "" {
-		resp, err := c.SoloHealthWithResponse(ctx, &dxclient.SoloHealthParams{Slug: slug})
+		resp, err := c.AgentHealthWithResponse(ctx, &dxclient.AgentHealthParams{Slug: slug})
 		if err == nil && resp.JSON200 != nil {
 			health := resp.JSON200
 			if health.GoalCount == 0 {
@@ -770,19 +770,19 @@ func printStaleWarning(createdAt string, taskID string) {
 
 // ── evaluate ─────────────────────────────────────────────────────────────────
 
-// soloQueueItem is the wire shape of one queue item shared between evaluate
+// queueItem is the wire shape of one queue item shared between evaluate
 // and apply. Aliased to the generated dxclient type so the apply request can
-// embed a []soloQueueItem directly and any server-side schema change surfaces
+// embed a []queueItem directly and any server-side schema change surfaces
 // as a compile error here.
-type soloQueueItem = dxclient.SoloQueueItem
+type queueItem = dxclient.AgentQueueItem
 
-func soloEvaluateRun(cmd *cobra.Command, showDiff bool, apply bool) error {
+func queueEvaluateRun(cmd *cobra.Command, showDiff bool, apply bool) error {
 	ctx := cmd.Context()
 	issueFlag, _ := cmd.Flags().GetString("issue")
 	c := cli.MustClient()
 	slug := c.SlugOrDie()
 
-	resp, err := c.SoloEvaluateWithResponse(ctx, dxclient.SoloEvaluateRequest{
+	resp, err := c.AgentEvaluateWithResponse(ctx, dxclient.AgentEvaluateRequest{
 		Slug:  slug,
 		Issue: issueFlag,
 	})
@@ -812,7 +812,7 @@ func soloEvaluateRun(cmd *cobra.Command, showDiff bool, apply bool) error {
 	if len(added) > 0 {
 		fmt.Printf("+ %d new:\n", len(added))
 		for _, a := range added {
-			fmt.Printf("  + [%s] %s  %s\n", a.Kind, a.TargetId, soloItemTitle(a))
+			fmt.Printf("  + [%s] %s  %s\n", a.Kind, a.TargetId, queueItemTitle(a))
 		}
 	}
 	if len(removed) > 0 {
@@ -828,7 +828,7 @@ func soloEvaluateRun(cmd *cobra.Command, showDiff bool, apply bool) error {
 	if len(changed) > 0 {
 		fmt.Printf("~ %d changed:\n", len(changed))
 		for _, ch := range changed {
-			fmt.Printf("  ~ [%s] %s\n", ch.After.Kind, soloItemTitle(ch.After))
+			fmt.Printf("  ~ [%s] %s\n", ch.After.Kind, queueItemTitle(ch.After))
 		}
 	}
 
@@ -838,14 +838,14 @@ func soloEvaluateRun(cmd *cobra.Command, showDiff bool, apply bool) error {
 	}
 
 	// Collect all items (added + changed + unchanged) and apply
-	var items []soloQueueItem
+	var items []queueItem
 	items = append(items, added...)
 	for _, ch := range changed {
 		items = append(items, ch.After)
 	}
 	items = append(items, unchanged...)
 
-	applyResp, err := c.SoloApplyWithResponse(ctx, dxclient.SoloApplyRequest{
+	applyResp, err := c.AgentApplyWithResponse(ctx, dxclient.AgentApplyRequest{
 		Slug:  slug,
 		Items: &items,
 	})
@@ -953,7 +953,7 @@ func taskHeadline(title, text string) string {
 	return truncateLine(text, 80)
 }
 
-func soloItemTitle(item soloQueueItem) string {
+func queueItemTitle(item queueItem) string {
 	if item.Title != nil && *item.Title != "" {
 		return *item.Title
 	}
@@ -1058,7 +1058,7 @@ func todoShowCmd() *cobra.Command {
 				return fmt.Errorf("task %s not found", id)
 			default:
 				if _, err := strconv.Atoi(id); err == nil {
-					return fmt.Errorf("ambiguous numeric id %q: pass a prefixed id (IS-%s for issues, TK-%s for tasks). Solo todo numeric ids are not addressable via 'dx todo show'", id, id, id)
+					return fmt.Errorf("ambiguous numeric id %q: pass a prefixed id (IS-%s for issues, TK-%s for tasks). Queue todo numeric ids are not addressable via 'dx todo show'", id, id, id)
 				}
 				featResp, err := c.ListFeaturesWithResponse(ctx, &dxclient.ListFeaturesParams{Slug: slug})
 				if err != nil {
@@ -1518,7 +1518,7 @@ func todoOwnerTriageCmd() *cobra.Command {
 					}
 					_, _ = c.TriageIssueWithResponse(ctx, body)
 				}
-				fmt.Printf("%s needs clarification — solo will block until questions are answered\n", id)
+				fmt.Printf("%s needs clarification — the queue will block until questions are answered\n", id)
 				return nil
 			}
 
@@ -1932,7 +1932,7 @@ func todoReleaseRun(cmd *cobra.Command, arg string, force bool) error {
 	c := cli.MustClient()
 	slug := c.SlugOrDie()
 
-	claimsResp, err := c.SoloListClaimsWithResponse(cmd.Context(), &dxclient.SoloListClaimsParams{Slug: slug})
+	claimsResp, err := c.AgentListClaimsWithResponse(cmd.Context(), &dxclient.AgentListClaimsParams{Slug: slug})
 	if err != nil {
 		return err
 	}
@@ -1959,11 +1959,11 @@ func todoReleaseRun(cmd *cobra.Command, arg string, force bool) error {
 		}
 	}
 
-	releaseBody := dxclient.SoloReleaseRequest{Id: int32(id), AgentId: ""}
+	releaseBody := dxclient.AgentReleaseRequest{Id: int32(id), AgentId: ""}
 	if force {
 		releaseBody.Force = &force
 	}
-	releaseResp, err := c.SoloReleaseWithResponse(cmd.Context(), releaseBody)
+	releaseResp, err := c.AgentReleaseWithResponse(cmd.Context(), releaseBody)
 	if err != nil {
 		return err
 	}
@@ -1983,7 +1983,7 @@ func todoUnblockAllCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			slug := c.SlugOrDie()
-			resp, err := c.SoloUnblockAllWithResponse(cmd.Context(), dxclient.SoloUnblockAllRequest{
+			resp, err := c.AgentUnblockAllWithResponse(cmd.Context(), dxclient.AgentUnblockAllRequest{
 				Slug: slug,
 			})
 			if err != nil {
@@ -2015,7 +2015,7 @@ func todoReservationsRun(cmd *cobra.Command, limit int32) error {
 	c := cli.MustClient()
 	slug := c.SlugOrDie()
 
-	resp, err := c.SoloListReservationsWithResponse(cmd.Context(), &dxclient.SoloListReservationsParams{
+	resp, err := c.AgentListReservationsWithResponse(cmd.Context(), &dxclient.AgentListReservationsParams{
 		Slug:  slug,
 		Limit: &limit,
 	})

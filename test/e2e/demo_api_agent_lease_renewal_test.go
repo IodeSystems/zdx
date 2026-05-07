@@ -106,7 +106,7 @@ func getLeaseExpiresAt(t *testing.T, rec *ApiDemoRecorder, slug, taskID string) 
 		} `json:"tasks"`
 	}
 	mustOK(t, rec.Do(http.MethodGet,
-		fmt.Sprintf("/api/dx/solo/claims?slug=%s", slug), nil, &resp))
+		fmt.Sprintf("/api/dx/agent/claims?slug=%s", slug), nil, &resp))
 	for _, task := range resp.Tasks {
 		if task.ID == taskID {
 			ts, err := time.Parse(time.RFC3339Nano, task.LeaseExpiresAt)

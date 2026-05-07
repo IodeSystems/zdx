@@ -21,7 +21,7 @@ export type FocusAttribution = components['schemas']['FocusAttribution']
 export type AtlasEdgeFromItem = components['schemas']['AtlasEdgeFromItem']
 export type AtlasCoderefItem = components['schemas']['AtlasCoderefItem']
 
-export interface SoloItem {
+export interface AgentQueueItem {
   id: number
   text: string
   title?: string
@@ -46,10 +46,10 @@ export interface SoloItem {
 }
 
 export interface EvaluateDiff {
-  added: SoloItem[]
-  removed: SoloItem[]
-  changed: { before: SoloItem; after: SoloItem }[]
-  unchanged: SoloItem[]
+  added: AgentQueueItem[]
+  removed: AgentQueueItem[]
+  changed: { before: AgentQueueItem; after: AgentQueueItem }[]
+  unchanged: AgentQueueItem[]
 }
 
 // ── fetch utility (used for undocumented endpoints) ────────────────────────────
@@ -468,7 +468,7 @@ export const useFeature = (slug: string, name: string) =>
     enabled: !!slug && !!name,
   })
 
-// ── solo (undocumented endpoint) ──────────────────────────────────────────────
+// ── agent queue (undocumented endpoint) ──────────────────────────────────────────────
 
 // ── errors & slow queries ────────────────────────────────────────────────────
 
@@ -552,17 +552,17 @@ export const useWorklog = (slug: string, limit?: number, offset?: number) =>
     enabled: !!slug,
   })
 
-// ── solo queue ────────────────────────────────────────────────────────────────
+// ── agent queue ────────────────────────────────────────────────────────────────
 
-export const useSolo = (slug: string, issueFilter?: string) =>
-  useQuery<SoloItem[]>({
-    queryKey: ['solo', slug, issueFilter],
+export const useAgentQueue = (slug: string, issueFilter?: string) =>
+  useQuery<AgentQueueItem[]>({
+    queryKey: ['agent', slug, issueFilter],
     queryFn: async () => {
       const query: Record<string, string> = { slug }
       if (issueFilter) query.issue = issueFilter
-      const { data, error } = await client.GET('/api/dx/solo', { params: { query: query as any } })
+      const { data, error } = await client.GET('/api/dx/agent/queue', { params: { query: query as any } })
       if (error) throw new Error(JSON.stringify(error))
-      return (data as unknown) as SoloItem[]
+      return (data as unknown) as AgentQueueItem[]
     },
     enabled: !!slug,
   })
@@ -582,7 +582,7 @@ export interface TodoSessionItem {
 }
 
 export interface TodoDetailResponse {
-  todo: SoloItem
+  todo: AgentQueueItem
   reservations: ReservationItem[]
   sessions: TodoSessionItem[]
 }
@@ -613,15 +613,15 @@ export const useSetTodoPriority = () => {
     },
     onSuccess: (_, { slug, key }) => {
       qc.invalidateQueries({ queryKey: ['todo-detail', slug, key] })
-      qc.invalidateQueries({ queryKey: ['solo-todos'] })
+      qc.invalidateQueries({ queryKey: ['agent-todos'] })
     },
   })
 }
 
-export const useEvaluateSolo = () => {
+export const useAgentEvaluate = () => {
   return useMutation<EvaluateDiff, Error, { slug: string; issue?: string }>({
     mutationFn: async ({ slug, issue }) => {
-      const { data, error } = await client.POST('/api/dx/solo/evaluate', {
+      const { data, error } = await client.POST('/api/dx/agent/queue/evaluate', {
         body: { slug, issue: issue ?? '' },
       })
       if (error) throw new Error(JSON.stringify(error))
@@ -672,7 +672,7 @@ export const useActiveClaims = (slug: string) =>
   useQuery<ActiveClaimsResponse>({
     queryKey: ['active-claims', slug],
     queryFn: async () => {
-      const { data, error } = await client.GET('/api/dx/solo/claims' as any, {
+      const { data, error } = await client.GET('/api/dx/agent/claims' as any, {
         params: { query: { slug } as any },
       })
       if (error) throw new Error(JSON.stringify(error))
@@ -682,18 +682,18 @@ export const useActiveClaims = (slug: string) =>
     refetchInterval: 30_000,
   })
 
-export const useApplySolo = () => {
+export const useAgentApply = () => {
   const qc = useQueryClient()
-  return useMutation<{ ok: boolean }, Error, { slug: string; items: SoloItem[] }>({
+  return useMutation<{ ok: boolean }, Error, { slug: string; items: AgentQueueItem[] }>({
     mutationFn: async ({ slug, items }) => {
-      const { data, error } = await client.POST('/api/dx/solo/apply', {
+      const { data, error } = await client.POST('/api/dx/agent/queue/apply', {
         body: { slug, items } as any,
       })
       if (error) throw new Error(JSON.stringify(error))
       return (data as unknown) as { ok: boolean }
     },
     onSuccess: (_, { slug }) => {
-      qc.invalidateQueries({ queryKey: ['solo', slug] })
+      qc.invalidateQueries({ queryKey: ['agent', slug] })
     },
   })
 }
@@ -702,14 +702,14 @@ export const useUnblockAllTodos = () => {
   const qc = useQueryClient()
   return useMutation<{ ok: boolean }, Error, { slug: string }>({
     mutationFn: async ({ slug }) => {
-      const { data, error } = await client.POST('/api/dx/solo/unblock-all', {
+      const { data, error } = await client.POST('/api/dx/agent/queue/unblock-all', {
         body: { slug } as any,
       })
       if (error) throw new Error(JSON.stringify(error))
       return (data as unknown) as { ok: boolean }
     },
     onSuccess: (_, { slug }) => {
-      qc.invalidateQueries({ queryKey: ['solo', slug] })
+      qc.invalidateQueries({ queryKey: ['agent', slug] })
     },
   })
 }
@@ -2097,7 +2097,7 @@ export const useReservationsByIssue = (slug: string, issueId: string) =>
   useQuery<{ reservations: ReservationItem[] }>({
     queryKey: ['reservations-by-issue', slug, issueId],
     queryFn: async () => {
-      const { data, error } = await client.GET('/api/dx/solo/reservations', {
+      const { data, error } = await client.GET('/api/dx/agent/reservations', {
         params: { query: { slug, issue_id: issueId } as any },
       })
       if (error) throw new Error(JSON.stringify(error))
@@ -2133,14 +2133,14 @@ export const useReservationsByIssueID = (slug: string, issueId: string) =>
   })
 
 export const useTodosByIssue = (slug: string, issueId: string) =>
-  useQuery<{ todos: SoloItem[] }>({
+  useQuery<{ todos: AgentQueueItem[] }>({
     queryKey: ['todos-by-issue', slug, issueId],
     queryFn: async () => {
       const { data, error } = await client.GET('/api/dx/projects/{slug}/issues/{id}/todos' as any, {
         params: { path: { slug, id: issueId } } as any,
       })
       if (error) throw new Error(JSON.stringify(error))
-      return { todos: ((data as any)?.todos ?? []) as SoloItem[] }
+      return { todos: ((data as any)?.todos ?? []) as AgentQueueItem[] }
     },
     enabled: !!slug && !!issueId,
   })

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// TodoItem mirrors the server response shape for solo/claim and GET /api/dx/solo.
+// TodoItem mirrors the server response shape for agent/claim and GET /api/dx/agent/queue.
 type TodoItem struct {
 	ID              int32  `json:"id"`
 	Key             string `json:"key"`
@@ -24,21 +24,21 @@ type TodoItem struct {
 	ClaimedBy       string `json:"claimed_by"`
 }
 
-func soloClaimNext(t *testing.T, slug, agentID string) (TodoItem, int) {
+func agentClaimNext(t *testing.T, slug, agentID string) (TodoItem, int) {
 	t.Helper()
 	var item TodoItem
-	resp := apiDo(t, http.MethodPost, "/api/dx/solo/claim",
+	resp := apiDo(t, http.MethodPost, "/api/dx/agent/claim",
 		map[string]any{"slug": slug, "agent_id": agentID, "lease_minutes": 5}, &item)
 	return item, resp.StatusCode
 }
 
-func soloApply(t *testing.T, slug string, items []SoloQueueItem) {
+func agentApply(t *testing.T, slug string, items []AgentQueueItem) {
 	t.Helper()
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/apply",
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/apply",
 		map[string]any{"slug": slug, "items": items}, nil))
 }
 
-// TestTodoTakeDelegatesToServerQueue verifies that dx todo take (solo/claim)
+// TestTodoTakeDelegatesToServerQueue verifies that dx todo take (agent/claim)
 // generates and persists the queue server-side then atomically returns the next item.
 // The returned item must carry the requesting agent's ID, confirming server-side ownership.
 func TestTodoTakeDelegatesToServerQueue(t *testing.T) {
@@ -47,9 +47,9 @@ func TestTodoTakeDelegatesToServerQueue(t *testing.T) {
 		Issue("Take delegation test", "server generates queue on claim").
 		Build()
 
-	item, status := soloClaimNext(t, d.Slug, "test-agent")
+	item, status := agentClaimNext(t, d.Slug, "test-agent")
 	if status != http.StatusOK {
-		t.Fatalf("solo/claim: want 200, got %d", status)
+		t.Fatalf("agent/claim: want 200, got %d", status)
 	}
 	if item.Kind == "" {
 		t.Error("claimed todo has empty Kind — server did not evaluate queue")
@@ -62,7 +62,7 @@ func TestTodoTakeDelegatesToServerQueue(t *testing.T) {
 	}
 }
 
-// TestTodoTakeClaimedItemNotReclaimable verifies that solo/claim is atomic:
+// TestTodoTakeClaimedItemNotReclaimable verifies that agent/claim is atomic:
 // an item already claimed by one agent is not returned to another until the
 // lease expires or is released.
 func TestTodoTakeClaimedItemNotReclaimable(t *testing.T) {
@@ -74,7 +74,7 @@ func TestTodoTakeClaimedItemNotReclaimable(t *testing.T) {
 	// Claim everything in the queue until it's exhausted.
 	var lastStatus int
 	for i := 0; i < 10; i++ {
-		_, lastStatus = soloClaimNext(t, d.Slug, fmt.Sprintf("agent-%d", i))
+		_, lastStatus = agentClaimNext(t, d.Slug, fmt.Sprintf("agent-%d", i))
 		if lastStatus == http.StatusNotFound {
 			break
 		}
@@ -130,12 +130,12 @@ func TestTodoShowDelegatesToServer(t *testing.T) {
 	}
 }
 
-// TestTodoSoloEvaluateDelegatesToServer verifies that dx todo solo --evaluate calls the
+// TestTodoAgentEvaluateDelegatesToServer verifies that dx todo queue --evaluate calls the
 // server evaluate endpoint, which generates queue candidates server-side.
-func TestTodoSoloEvaluateDelegatesToServer(t *testing.T) {
-	d := NewApiDriver(t, "td-eval", "Todo Solo Evaluate")
+func TestTodoAgentEvaluateDelegatesToServer(t *testing.T) {
+	d := NewApiDriver(t, "td-eval", "Todo Agent Evaluate")
 	sc := Given(d).
-		Issue("Untriaged solo evaluate", "server should surface triage").
+		Issue("Untriaged agent evaluate", "server should surface triage").
 		Build()
 
 	items := d.EvaluateQueue("")
@@ -150,10 +150,10 @@ func TestTodoSoloEvaluateDelegatesToServer(t *testing.T) {
 	_ = sc
 }
 
-// TestTodoSoloApplyPersistsServerSide verifies that dx todo solo --apply (solo/apply) writes
+// TestTodoAgentApplyPersistsServerSide verifies that dx todo queue --apply (agent/apply) writes
 // queue state to the server so subsequent evaluations reflect the persisted queue.
-func TestTodoSoloApplyPersistsServerSide(t *testing.T) {
-	d := NewApiDriver(t, "td-apply", "Todo Solo Apply")
+func TestTodoAgentApplyPersistsServerSide(t *testing.T) {
+	d := NewApiDriver(t, "td-apply", "Todo Agent Apply")
 	sc := Given(d).
 		Issue("Apply persistence test", "queue apply must write server-side").
 		Build()
@@ -165,14 +165,14 @@ func TestTodoSoloApplyPersistsServerSide(t *testing.T) {
 	}
 
 	// Apply the queue.
-	soloApply(t, d.Slug, items)
+	agentApply(t, d.Slug, items)
 
 	// Re-evaluate: unchanged items should now appear in Unchanged (not Added).
 	var evalResp struct {
-		Added     []SoloQueueItem `json:"added"`
-		Unchanged []SoloQueueItem `json:"unchanged"`
+		Added     []AgentQueueItem `json:"added"`
+		Unchanged []AgentQueueItem `json:"unchanged"`
 	}
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/evaluate",
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/evaluate",
 		map[string]any{"slug": d.Slug, "issue": ""}, &evalResp))
 	if len(evalResp.Added) != 0 {
 		t.Errorf("after apply, expected 0 added items, got %d — server state not persisted", len(evalResp.Added))
@@ -185,7 +185,7 @@ func TestTodoSoloApplyPersistsServerSide(t *testing.T) {
 }
 
 // TestSharedTodoQueueSemantics is the demo for spec 101: given both humans
-// (dx todo solo) and agents (dx todo take) consuming the queue, both callers
+// (dx todo queue) and agents (dx todo take) consuming the queue, both callers
 // operate on the same persisted todo records with no separate agent-only queue.
 // The test verifies:
 //  1. Human evaluate+apply and agent claim both write/read the same zdx_todos rows.
@@ -207,10 +207,10 @@ func TestSharedTodoQueueSemantics(t *testing.T) {
 	}
 
 	// Step 2: Human applies — persists the queue server-side.
-	soloApply(t, d.Slug, humanItems)
+	agentApply(t, d.Slug, humanItems)
 
 	// Step 3: Agent claims the next item.
-	claimed, status := soloClaimNext(t, d.Slug, "agent-shared")
+	claimed, status := agentClaimNext(t, d.Slug, "agent-shared")
 	if status != http.StatusOK {
 		t.Fatalf("agent claim: want 200, got %d", status)
 	}
@@ -235,10 +235,10 @@ func TestSharedTodoQueueSemantics(t *testing.T) {
 	// Step 4: Human re-evaluates. The claimed item is still open in the DB
 	// (claim does not change status), so it must appear in Unchanged, not Added.
 	var reEvalResp struct {
-		Added     []SoloQueueItem `json:"added"`
-		Unchanged []SoloQueueItem `json:"unchanged"`
+		Added     []AgentQueueItem `json:"added"`
+		Unchanged []AgentQueueItem `json:"unchanged"`
 	}
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/evaluate",
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/evaluate",
 		map[string]any{"slug": d.Slug, "issue": ""}, &reEvalResp))
 
 	if len(reEvalResp.Added) != 0 {
@@ -248,7 +248,7 @@ func TestSharedTodoQueueSemantics(t *testing.T) {
 
 	// Step 5: Exhaust the queue; subsequent claims must return 404.
 	for i := 0; i < 20; i++ {
-		_, s := soloClaimNext(t, d.Slug, fmt.Sprintf("agent-exhaust-%d", i))
+		_, s := agentClaimNext(t, d.Slug, fmt.Sprintf("agent-exhaust-%d", i))
 		if s == http.StatusNotFound {
 			return
 		}
@@ -256,23 +256,23 @@ func TestSharedTodoQueueSemantics(t *testing.T) {
 	t.Error("expected queue exhaustion (404) after all items claimed, but never reached it")
 }
 
-// listSoloQueue returns persisted todo items from GET /api/dx/solo filtered by status.
+// listAgentQueue returns persisted todo items from GET /api/dx/agent/queue filtered by status.
 // Pass "open", "resolved", or "all".
-func listSoloQueue(t *testing.T, slug, status string) []TodoItem {
+func listAgentQueue(t *testing.T, slug, status string) []TodoItem {
 	t.Helper()
-	url := "/api/dx/solo?slug=" + slug + "&status=" + status
+	url := "/api/dx/agent/queue?slug=" + slug + "&status=" + status
 	var items []TodoItem
 	mustOK(t, apiDo(t, http.MethodGet, url, nil, &items))
 	return items
 }
 
-// TestSoloApplyUpsertsAndResolvesStale covers spec 67: solo --apply upserts by key and
+// TestAgentApplyUpsertsAndResolvesStale covers spec 67: agent --apply upserts by key and
 // resolves stale items atomically. Two untriaged issues produce items_A (both triage todos).
 // After applying items_A, issue 2 is closed so its items are excluded from items_B.
 // Applying items_B must leave items_B open and resolve items_A \ items_B — and a
 // re-evaluate must surface neither set of resolved keys in Added or Unchanged.
-func TestSoloApplyUpsertsAndResolvesStale(t *testing.T) {
-	d := NewApiDriver(t, "td-stale", "Solo Apply Stale Resolution")
+func TestAgentApplyUpsertsAndResolvesStale(t *testing.T) {
+	d := NewApiDriver(t, "td-stale", "Agent Apply Stale Resolution")
 	d.AddGoal("Test goal")
 	// AddConstraint dropped — /api/constraint was removed in IS-627.
 
@@ -287,10 +287,10 @@ func TestSoloApplyUpsertsAndResolvesStale(t *testing.T) {
 	}
 
 	// Step 2: Apply the full set — all items upserted as open.
-	soloApply(t, d.Slug, itemsA)
+	agentApply(t, d.Slug, itemsA)
 
 	// Step 3: Verify all items_A are open.
-	open := listSoloQueue(t, d.Slug, "open")
+	open := listAgentQueue(t, d.Slug, "open")
 	if len(open) < 2 {
 		t.Fatalf("after applying items_A, expected >=2 open todos, got %d", len(open))
 	}
@@ -299,7 +299,7 @@ func TestSoloApplyUpsertsAndResolvesStale(t *testing.T) {
 	d.CloseIssue(issueID2)
 
 	// Step 5: Build items_B = items_A minus any item whose TargetID is issue 2.
-	var itemsB []SoloQueueItem
+	var itemsB []AgentQueueItem
 	var droppedKeys []string
 	for _, item := range itemsA {
 		if item.TargetID == issue2Ref {
@@ -313,10 +313,10 @@ func TestSoloApplyUpsertsAndResolvesStale(t *testing.T) {
 	}
 
 	// Step 6: Apply items_B — issue 2's items must be resolved atomically.
-	soloApply(t, d.Slug, itemsB)
+	agentApply(t, d.Slug, itemsB)
 
 	// Step 7: Verify dropped items are resolved in the DB.
-	resolvedItems := listSoloQueue(t, d.Slug, "resolved")
+	resolvedItems := listAgentQueue(t, d.Slug, "resolved")
 	resolvedKeySet := map[string]bool{}
 	for _, item := range resolvedItems {
 		resolvedKeySet[item.Key] = true
@@ -328,7 +328,7 @@ func TestSoloApplyUpsertsAndResolvesStale(t *testing.T) {
 	}
 
 	// Step 8: Verify items_B are still open and dropped items are not.
-	openAfter := listSoloQueue(t, d.Slug, "open")
+	openAfter := listAgentQueue(t, d.Slug, "open")
 	openKeySet := map[string]bool{}
 	for _, item := range openAfter {
 		openKeySet[item.Key] = true
@@ -347,10 +347,10 @@ func TestSoloApplyUpsertsAndResolvesStale(t *testing.T) {
 	// Step 9: Re-evaluate — dropped keys must appear neither in Added nor Unchanged.
 	// Issue 2 is closed, so the evaluator won't re-generate its candidates.
 	var reEvalResp struct {
-		Added     []SoloQueueItem `json:"added"`
-		Unchanged []SoloQueueItem `json:"unchanged"`
+		Added     []AgentQueueItem `json:"added"`
+		Unchanged []AgentQueueItem `json:"unchanged"`
 	}
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/evaluate",
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/evaluate",
 		map[string]any{"slug": d.Slug, "issue": ""}, &reEvalResp))
 
 	reEvalKeySet := map[string]bool{}
@@ -381,9 +381,9 @@ func TestClaimedTodoItemCarriesRequiredFields(t *testing.T) {
 		Spec("td-fields-feat", "must", "fields test spec").
 		Build()
 
-	item, status := soloClaimNext(t, d.Slug, "test-agent")
+	item, status := agentClaimNext(t, d.Slug, "test-agent")
 	if status != http.StatusOK {
-		t.Fatalf("solo/claim: want 200, got %d", status)
+		t.Fatalf("agent/claim: want 200, got %d", status)
 	}
 
 	if item.Persona == "" {

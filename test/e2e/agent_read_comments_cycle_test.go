@@ -26,9 +26,9 @@ func TestReadCommentsResolveAdvancesSeenMark(t *testing.T) {
 	// queue might emit first (priority order varies with seed data).
 	var claimed TodoItem
 	for i := 0; i < 10; i++ {
-		c, status := soloClaimNext(t, d.Slug, fmt.Sprintf("rc-agent-%d", i))
+		c, status := agentClaimNext(t, d.Slug, fmt.Sprintf("rc-agent-%d", i))
 		if status != http.StatusOK {
-			t.Fatalf("solo/claim: status=%d on attempt %d", status, i)
+			t.Fatalf("agent/claim: status=%d on attempt %d", status, i)
 		}
 		if c.Kind == "read:comments" && c.TargetID == targetID {
 			claimed = c
@@ -48,7 +48,7 @@ func TestReadCommentsResolveAdvancesSeenMark(t *testing.T) {
 		OK            bool `json:"ok"`
 		CycleDetected bool `json:"cycle_detected"`
 	}
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/release",
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/release",
 		map[string]any{"id": claimed.ID, "agent_id": "rc-resolver", "resolve": true}, &rel))
 
 	if rel.CycleDetected {
@@ -97,9 +97,9 @@ func TestReadCommentsClearsAfterAgentReply(t *testing.T) {
 	// Claim and resolve the read:comments todo.
 	var claimed TodoItem
 	for i := 0; i < 10; i++ {
-		c, status := soloClaimNext(t, d.Slug, fmt.Sprintf("rc-agent-reply-%d", i))
+		c, status := agentClaimNext(t, d.Slug, fmt.Sprintf("rc-agent-reply-%d", i))
 		if status != http.StatusOK {
-			t.Fatalf("solo/claim: status=%d on attempt %d", status, i)
+			t.Fatalf("agent/claim: status=%d on attempt %d", status, i)
 		}
 		if c.Kind == "read:comments" && c.TargetID == targetID {
 			claimed = c
@@ -114,7 +114,7 @@ func TestReadCommentsClearsAfterAgentReply(t *testing.T) {
 		OK            bool `json:"ok"`
 		CycleDetected bool `json:"cycle_detected"`
 	}
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/release",
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/release",
 		map[string]any{"id": claimed.ID, "agent_id": "rc-agent-reply", "resolve": true}, &rel))
 
 	// Agent posts a reply (author_alias != '').

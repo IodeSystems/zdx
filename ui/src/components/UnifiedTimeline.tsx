@@ -30,7 +30,7 @@ import {
   type IssueWorkItem,
   type ReservationItem,
   type ResolutionItem,
-  type SoloItem,
+  type AgentQueueItem,
 } from '../api'
 import { MarkdownContent } from './MarkdownContent'
 
@@ -68,7 +68,7 @@ type HistoryGroup = {
 type TodoEventKind = 'created' | 'claimed' | 'released' | 'resolved'
 
 type TimelineEvent =
-  | { kind: 'todo'; subKind: TodoEventKind; ts: number; payload: SoloItem; releasedBy?: string }
+  | { kind: 'todo'; subKind: TodoEventKind; ts: number; payload: AgentQueueItem; releasedBy?: string }
   | { kind: 'reservation'; ts: number; payload: ReservationItem }
   | { kind: 'resolution'; ts: number; payload: ResolutionItem }
   | { kind: 'work'; ts: number; payload: IssueWorkItem; idx: number }
@@ -164,7 +164,7 @@ const TODO_EVENT_LABEL: Record<TodoEventKind, string> = {
   resolved: 'resolved',
 }
 
-function TodoRow({ t, subKind, releasedBy, slug }: { t: SoloItem; subKind: TodoEventKind; releasedBy?: string; slug: string }) {
+function TodoRow({ t, subKind, releasedBy, slug }: { t: AgentQueueItem; subKind: TodoEventKind; releasedBy?: string; slug: string }) {
   const eventColor = TODO_EVENT_COLOR[subKind]
   const setPriority = useSetTodoPriority()
   const [bumpOpen, setBumpOpen] = useState(false)
@@ -219,7 +219,7 @@ function TodoRow({ t, subKind, releasedBy, slug }: { t: SoloItem; subKind: TodoE
           <DialogTitle>Bump priority</DialogTitle>
           <DialogContent>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Lower number = earlier in the claim queue. The next solo
+              Lower number = earlier in the claim queue. The next agent
               re-evaluate keeps this value (LEAST clause), so the bump sticks.
               Current: <strong>{t.priority}</strong>.
             </Typography>

@@ -10,7 +10,7 @@ import (
 )
 
 // TestAgentHeartbeatLoopAdvancesLastHeartbeat covers spec 70 on feature
-// dx-todo-agent: an agent running solo with --agent-id periodically calls the
+// dx-todo-agent: an agent running the agent queue with --agent-id periodically calls the
 // heartbeat endpoint, keeping its last_heartbeat fresh for staleness detection.
 //
 // HeartbeatLoop (internal/cli/agent_shared.go) ticks at the supplied interval

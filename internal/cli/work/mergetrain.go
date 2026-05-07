@@ -45,7 +45,7 @@ is a no-op.`,
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print plan without executing")
-	cmd.Flags().StringVar(&workerPrefix, "worker-prefix", "solo/", "branch prefix for auto-selection")
+	cmd.Flags().StringVar(&workerPrefix, "worker-prefix", "agent/", "branch prefix for auto-selection")
 	return cmd
 }
 

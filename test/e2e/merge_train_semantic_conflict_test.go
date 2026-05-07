@@ -52,18 +52,18 @@ func TestMergeTrain_SemanticConflictHalts(t *testing.T) {
 	// exercises the regen pipeline, so a real merge-train run for A would just
 	// require the full zdx-go layout for no test gain. The conflict semantics
 	// are identical regardless of how A's commit reached dev.)
-	gitRun(t, repo, "git", "checkout", "-b", "solo/branch-a")
+	gitRun(t, repo, "git", "checkout", "-b", "agent/branch-a")
 	if err := os.WriteFile(filepath.Join(repo, "queries", "x.sql"),
 		[]byte("-- name: GetX :one\nSELECT id, name FROM x;\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	gitRun(t, repo, "git", "commit", "-am", "feat: A select id,name")
 	gitRun(t, repo, "git", "checkout", "dev")
-	gitRun(t, repo, "git", "merge", "--ff-only", "solo/branch-a")
+	gitRun(t, repo, "git", "merge", "--ff-only", "agent/branch-a")
 	devTipAfterA := gitOut(t, repo, "git", "rev-parse", "HEAD")
 
 	// Branch B: forks from the pre-A dev tip, edits the SAME line a different way.
-	gitRun(t, repo, "git", "checkout", "-b", "solo/branch-b", devBaseSHA)
+	gitRun(t, repo, "git", "checkout", "-b", "agent/branch-b", devBaseSHA)
 	if err := os.WriteFile(filepath.Join(repo, "queries", "x.sql"),
 		[]byte("-- name: GetX :one\nSELECT id, age FROM x;\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -74,7 +74,7 @@ func TestMergeTrain_SemanticConflictHalts(t *testing.T) {
 	// Run merge-train on B. Rebase must conflict on queries/x.sql, abort, and
 	// surface the conflict. Pass --dry-run=false explicitly so behavior is
 	// independent of any future flag-default change.
-	cmd := exec.Command(dxBin, "merge-train", "run", "solo/branch-b", "--dry-run=false")
+	cmd := exec.Command(dxBin, "merge-train", "run", "agent/branch-b", "--dry-run=false")
 	cmd.Dir = repo
 	var outBuf, errBuf bytes.Buffer
 	cmd.Stdout = &outBuf
@@ -93,8 +93,8 @@ func TestMergeTrain_SemanticConflictHalts(t *testing.T) {
 		t.Errorf("expected output to name conflicted file queries/x.sql\n--- stdout ---\n%s\n--- stderr ---\n%s", stdout, stderr)
 	}
 	// Branch must be named in the output.
-	if !strings.Contains(combined, "solo/branch-b") {
-		t.Errorf("expected output to name branch solo/branch-b\n--- stdout ---\n%s\n--- stderr ---\n%s", stdout, stderr)
+	if !strings.Contains(combined, "agent/branch-b") {
+		t.Errorf("expected output to name branch agent/branch-b\n--- stdout ---\n%s\n--- stderr ---\n%s", stdout, stderr)
 	}
 	// "forward-only" wording from the contract.
 	if !strings.Contains(combined, "forward-only") {
@@ -106,9 +106,9 @@ func TestMergeTrain_SemanticConflictHalts(t *testing.T) {
 		t.Errorf("dev tip changed: was %s, now %s", devTipAfterA, got)
 	}
 
-	// solo/branch-b tip preserved at its pre-rebase commit (rebase --abort).
-	if got := gitOut(t, repo, "git", "rev-parse", "solo/branch-b"); got != bTipBefore {
-		t.Errorf("solo/branch-b tip changed: was %s, now %s", bTipBefore, got)
+	// agent/branch-b tip preserved at its pre-rebase commit (rebase --abort).
+	if got := gitOut(t, repo, "git", "rev-parse", "agent/branch-b"); got != bTipBefore {
+		t.Errorf("agent/branch-b tip changed: was %s, now %s", bTipBefore, got)
 	}
 
 	// No half-applied rebase state in .git/.
@@ -120,13 +120,13 @@ func TestMergeTrain_SemanticConflictHalts(t *testing.T) {
 
 	// No regen commit landed on dev for branch-b.
 	devLog := gitOut(t, repo, "git", "log", "--format=%s", "dev")
-	if strings.Contains(devLog, "regen: solo/branch-b") {
-		t.Errorf("unexpected 'regen: solo/branch-b' commit on dev:\n%s", devLog)
+	if strings.Contains(devLog, "regen: agent/branch-b") {
+		t.Errorf("unexpected 'regen: agent/branch-b' commit on dev:\n%s", devLog)
 	}
 
-	// No orphan refs littering the repo (only dev + the two solo branches).
+	// No orphan refs littering the repo (only dev + the two agent branches).
 	branchesOut := gitOut(t, repo, "git", "for-each-ref", "--format=%(refname:short)", "refs/heads/")
-	wantBranches := map[string]bool{"dev": false, "solo/branch-a": false, "solo/branch-b": false}
+	wantBranches := map[string]bool{"dev": false, "agent/branch-a": false, "agent/branch-b": false}
 	for _, b := range strings.Split(branchesOut, "\n") {
 		b = strings.TrimSpace(b)
 		if b == "" {

@@ -25,13 +25,13 @@ import {
   ArrowUpward as BumpIcon,
 } from '@mui/icons-material'
 import {
-  useSolo,
+  useAgentQueue,
   useBlockerQuestions,
-  useEvaluateSolo,
-  useApplySolo,
+  useAgentEvaluate,
+  useAgentApply,
   useUnblockAllTodos,
   useSetTodoPriority,
-  type SoloItem,
+  type AgentQueueItem,
   type EvaluateDiff,
 } from '../api'
 import { MarkdownContent } from './MarkdownContent'
@@ -54,7 +54,7 @@ function targetLink(slug: string, targetType: string, targetId: string): { to: s
   return null
 }
 
-export function TodoRow({ slug, item }: { slug: string; item: SoloItem }) {
+export function TodoRow({ slug, item }: { slug: string; item: AgentQueueItem }) {
   const link = targetLink(slug, item.target_type, item.target_id)
   const todoHref = `/project/${slug}/todos/${encodeURIComponent(item.key)}`
   const hasFooter = (item.issue_ref && item.issue_ref !== item.target_id) || item.blocked || item.persona
@@ -157,7 +157,7 @@ export function TodoRow({ slug, item }: { slug: string; item: SoloItem }) {
         <DialogTitle>Bump priority</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Lower number = earlier in the claim queue. The next solo
+            Lower number = earlier in the claim queue. The next agent
             re-evaluate keeps this value (LEAST clause), so the bump sticks.
             Current: <strong>{item.priority}</strong>.
           </Typography>
@@ -273,10 +273,10 @@ function EvaluateDialog({ open, diff, onClose, onApply, applying }: {
 }
 
 export function QueueView({ slug }: { slug: string }) {
-  const { data, isLoading } = useSolo(slug)
+  const { data, isLoading } = useAgentQueue(slug)
   const { data: bqData } = useBlockerQuestions(slug, 'pending')
-  const evaluate = useEvaluateSolo()
-  const apply = useApplySolo()
+  const evaluate = useAgentEvaluate()
+  const apply = useAgentApply()
   const unblockAll = useUnblockAllTodos()
   const [showBlocked, setShowBlocked] = useState(false)
   const [diffOpen, setDiffOpen] = useState(false)
@@ -303,7 +303,7 @@ export function QueueView({ slug }: { slug: string }) {
   if (isLoading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
 
   const pendingQuestions = bqData?.questions ?? []
-  const allItems: SoloItem[] = data ?? []
+  const allItems: AgentQueueItem[] = data ?? []
   const visibleItems = showBlocked ? allItems : allItems.filter(i => !i.blocked)
   const blockedCount = allItems.filter(i => i.blocked).length
   const [pick, ...rest] = visibleItems

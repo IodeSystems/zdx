@@ -10,7 +10,7 @@ import (
 // IS-487: dx todo tech add must refuse to attach a new task to a closed
 // issue, an unknown issue, or an unknown feature, instead of silently
 // accepting the link and letting the cascade-close machinery delete the
-// task on the next solo cycle.
+// task on the next agent queue cycle.
 
 func TestTechAddRejectsClosedIssue(t *testing.T) {
 	slug := "e2e-tech-add-closed-issue"

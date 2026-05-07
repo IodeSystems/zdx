@@ -32,7 +32,7 @@ func Register(api huma.API, deps *Deps) *Handler {
 	h.registerAgentBudgetRoutes(api)
 	h.registerPatternRoutes(api)
 	h.registerConcernRoutes(api)
-	h.registerSoloRoutes(api)
+	h.registerAgentQueueRoutes(api)
 	h.registerTodoRoutes(api)
 	h.registerHistoryRoutes(api)
 	h.registerPlanRoutes(api)

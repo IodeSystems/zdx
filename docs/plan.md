@@ -57,7 +57,7 @@ it — the daemon will recreate slots under
   /api/dx/projects/{slug}/todos/{key}/priority`,
   `LEAST(zdx_todos.priority, EXCLUDED.priority)` in `UpsertTodo`),
   Bump UX spread to QueueView + UnifiedTimeline + IssueDetail,
-  `zdx_projects.priority` schema, `/api/dx/solo/claim-any`
+  `zdx_projects.priority` schema, `/api/dx/agent/claim-any`
   cross-project claim with composite priority order, daemon
   migrated onto claim-any for global mode, periodic in-server
   reaper (`StartReaper` in `cmd/dx-server`), strict-reject for
@@ -107,7 +107,7 @@ Phase-2:
 Phase-3:
 - `2625eb18` feat(todos): operator priority-push as integer (LEAST-preserved)
 - `4dc6ded0` feat(agent): route empty-slug daemon claims to /claim-any
-- `c3313b43` feat(server): /api/dx/solo/claim-any cross-project todo claim
+- `c3313b43` feat(server): /api/dx/agent/claim-any cross-project todo claim
 - `123a71f2` feat(server): periodic reaper, drop manual /api/agents/reap + CLI
 - `ae5d2045` fix(devmode): write api.gen.ts to absolute path
 - `cbe187e7` feat(server): admin-token auth for global agent connect (transitional)

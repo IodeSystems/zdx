@@ -1028,9 +1028,9 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
-	// ── Solo Health ──────────────────────────────────────────────────────────
+	// ── Agent Health ──────────────────────────────────────────────────────────
 
-	huma.Register(api, huma.Operation{OperationID: "solo-health", Method: http.MethodGet, Path: "/api/dx/solo/health"},
+	huma.Register(api, huma.Operation{OperationID: "agent-health", Method: http.MethodGet, Path: "/api/dx/agent/health"},
 		func(ctx context.Context, in *struct {
 			Slug string `query:"slug" required:"true"`
 		}) (*struct {

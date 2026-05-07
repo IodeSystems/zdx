@@ -258,7 +258,7 @@ func (d *ApiDriver) GetHealth() (goalCount, constraintCount, closedTaskCount int
 		ClosedTaskCount  int64  `json:"closed_task_count"`
 	}
 	mustOK(d.t, apiDo(d.t, http.MethodGet,
-		fmt.Sprintf("/api/dx/solo/health?slug=%s", d.Slug), nil, &resp))
+		fmt.Sprintf("/api/dx/agent/health?slug=%s", d.Slug), nil, &resp))
 	return resp.GoalCount, resp.ConstraintCount, resp.ClosedTaskCount, resp.OwnerJournalDate, resp.TechJournalDate
 }
 
@@ -371,7 +371,7 @@ func (d *ApiDriver) SweepStaleTasks(staleDays int32) int {
 	return resp.Flagged
 }
 
-type SoloQueueItem struct {
+type AgentQueueItem struct {
 	Key          string `json:"key"`
 	Text         string `json:"text"`
 	Kind         string `json:"kind"`
@@ -385,7 +385,7 @@ type SoloQueueItem struct {
 	Status       string `json:"status"`
 }
 
-func (d *ApiDriver) EvaluateQueue(issue string) []SoloQueueItem {
+func (d *ApiDriver) EvaluateQueue(issue string) []AgentQueueItem {
 	d.t.Helper()
 	body := map[string]any{"slug": d.Slug, "issue": issue}
 	// Include Changed entries too: any state mutation between handler-side
@@ -393,13 +393,13 @@ func (d *ApiDriver) EvaluateQueue(issue string) []SoloQueueItem {
 	// candidate's priority) lands proposed items in Changed instead of
 	// Unchanged, and dropping that bucket made queue assertions order-flaky.
 	var resp struct {
-		Added     []SoloQueueItem  `json:"added"`
+		Added     []AgentQueueItem `json:"added"`
 		Removed   []any            `json:"removed"`
 		Changed   []EvaluateChange `json:"changed"`
-		Unchanged []SoloQueueItem  `json:"unchanged"`
+		Unchanged []AgentQueueItem `json:"unchanged"`
 	}
-	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/solo/evaluate", body, &resp))
-	var all []SoloQueueItem
+	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/agent/evaluate", body, &resp))
+	var all []AgentQueueItem
 	all = append(all, resp.Added...)
 	all = append(all, resp.Unchanged...)
 	for _, c := range resp.Changed {
@@ -409,26 +409,26 @@ func (d *ApiDriver) EvaluateQueue(issue string) []SoloQueueItem {
 }
 
 type EvaluateChange struct {
-	Before TodoItem      `json:"before"`
-	After  SoloQueueItem `json:"after"`
+	Before TodoItem       `json:"before"`
+	After  AgentQueueItem `json:"after"`
 }
 
 type EvaluateDiffResult struct {
-	Added     []SoloQueueItem  `json:"added"`
+	Added     []AgentQueueItem `json:"added"`
 	Removed   []TodoItem       `json:"removed"`
 	Changed   []EvaluateChange `json:"changed"`
-	Unchanged []SoloQueueItem  `json:"unchanged"`
+	Unchanged []AgentQueueItem `json:"unchanged"`
 }
 
 func (d *ApiDriver) EvaluateDiff(issue string) EvaluateDiffResult {
 	d.t.Helper()
 	body := map[string]any{"slug": d.Slug, "issue": issue}
 	var resp EvaluateDiffResult
-	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/solo/evaluate", body, &resp))
+	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/agent/evaluate", body, &resp))
 	return resp
 }
 
-func findKind(items []SoloQueueItem, kind string) *SoloQueueItem {
+func findKind(items []AgentQueueItem, kind string) *AgentQueueItem {
 	for i := range items {
 		if items[i].Kind == kind {
 			return &items[i]
@@ -437,7 +437,7 @@ func findKind(items []SoloQueueItem, kind string) *SoloQueueItem {
 	return nil
 }
 
-func requireKind(t *testing.T, items []SoloQueueItem, kind string) SoloQueueItem {
+func requireKind(t *testing.T, items []AgentQueueItem, kind string) AgentQueueItem {
 	t.Helper()
 	item := findKind(items, kind)
 	if item == nil {
@@ -450,7 +450,7 @@ func requireKind(t *testing.T, items []SoloQueueItem, kind string) SoloQueueItem
 	return *item
 }
 
-func requireNoKind(t *testing.T, items []SoloQueueItem, kind string) {
+func requireNoKind(t *testing.T, items []AgentQueueItem, kind string) {
 	t.Helper()
 	if findKind(items, kind) != nil {
 		t.Fatalf("expected Kind %q to NOT be in queue, but it was", kind)

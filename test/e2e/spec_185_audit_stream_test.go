@@ -51,9 +51,9 @@ func TestSpec185_AuditEventStream(t *testing.T) {
 
 	// Claim a todo from the queue to obtain a valid zdx_todos.id.
 	// zdx_claude_sessions.todo_id FKs to zdx_todos, not zdx_tasks.
-	claimedTodo, claimStatus := soloClaimNext(t, d.Slug, agentID)
+	claimedTodo, claimStatus := agentClaimNext(t, d.Slug, agentID)
 	if claimStatus != http.StatusOK {
-		t.Fatalf("soloClaimNext: want 200, got %d", claimStatus)
+		t.Fatalf("agentClaimNext: want 200, got %d", claimStatus)
 	}
 	todoID := claimedTodo.ID
 

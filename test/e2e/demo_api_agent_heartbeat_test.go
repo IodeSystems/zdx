@@ -8,7 +8,7 @@ import (
 )
 
 // TestDemoAPI_AgentHeartbeatLoopRefreshesTimestamp is the demo for spec 70 on
-// feature dx-todo-agent: an agent running solo with --agent-id ticks the
+// feature dx-todo-agent: an agent running the agent queue with --agent-id ticks the
 // heartbeat loop, and each tick refreshes last_heartbeat for staleness
 // detection.
 //

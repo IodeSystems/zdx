@@ -108,13 +108,13 @@ Project classifications: library, tool, service, saas, site. Each shapes the mat
 
 ```bash
 ./bin/dx todo take            # claim next todo item (atomic reservation)
-./bin/dx todo solo            # legacy: evaluate queue client-side
+./bin/dx todo queue            # legacy: evaluate queue client-side
 ./bin/dx focus list           # list active focuses (was: dx theme list)
 ./bin/dx plan list            # list living plans
 ./bin/dx plan show PL-N       # show plan with steps and discovery refs
 ```
 
-Todos are **reservable** — agents claim via `POST /api/dx/solo/claim` with `FOR UPDATE SKIP LOCKED`. Lease renewal prevents stale claims. The solo queue generates candidates (high→low priority), merges into persisted todos preserving claim state, and returns the next unclaimed item.
+Todos are **reservable** — agents claim via `POST /api/dx/agent/claim` with `FOR UPDATE SKIP LOCKED`. Lease renewal prevents stale claims. The agent queue generates candidates (high→low priority), merges into persisted todos preserving claim state, and returns the next unclaimed item.
 
 Agent config in `.zdx/config.yaml`:
 ```yaml

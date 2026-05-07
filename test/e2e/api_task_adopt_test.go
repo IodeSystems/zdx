@@ -33,11 +33,11 @@ func TestApi_TaskAdopt(t *testing.T) {
 		&task))
 	taskRef := fmt.Sprintf("TK-%d", task.ID)
 
-	// Confirm the task starts orphan: solo queue shows orphan-<id>.
+	// Confirm the task starts orphan: agent queue shows orphan-<id>.
 	queue := apiEvaluateQueue(t, slug)
 	orphanKey := fmt.Sprintf("orphan-%s", taskRef)
 	if !containsSoloKey(queue, orphanKey) {
-		t.Fatalf("expected %q in solo queue before adopt; got keys %v", orphanKey, soloKeys(queue))
+		t.Fatalf("expected %q in agent queue before adopt; got keys %v", orphanKey, queueKeys(queue))
 	}
 
 	// Adopt the orphan task into the open issue.
@@ -54,10 +54,10 @@ func TestApi_TaskAdopt(t *testing.T) {
 		t.Fatalf("after adopt: want issue_id=%d, got %+v", issue.ID, got.IssueID)
 	}
 
-	// Solo queue no longer surfaces the orphan nudge.
+	// Agent queue no longer surfaces the orphan nudge.
 	queue = apiEvaluateQueue(t, slug)
 	if containsSoloKey(queue, orphanKey) {
-		t.Fatalf("expected %q to be gone from solo queue after adopt; got keys %v", orphanKey, soloKeys(queue))
+		t.Fatalf("expected %q to be gone from agent queue after adopt; got keys %v", orphanKey, queueKeys(queue))
 	}
 
 	// Re-adopting the now-linked task is a 409.
@@ -68,18 +68,18 @@ func TestApi_TaskAdopt(t *testing.T) {
 	}
 }
 
-func apiEvaluateQueue(t *testing.T, slug string) []SoloQueueItem {
+func apiEvaluateQueue(t *testing.T, slug string) []AgentQueueItem {
 	t.Helper()
 	var resp struct {
-		Added     []SoloQueueItem `json:"added"`
-		Unchanged []SoloQueueItem `json:"unchanged"`
+		Added     []AgentQueueItem `json:"added"`
+		Unchanged []AgentQueueItem `json:"unchanged"`
 	}
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/evaluate",
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/evaluate",
 		map[string]any{"slug": slug, "issue": ""}, &resp))
-	return append(append([]SoloQueueItem{}, resp.Added...), resp.Unchanged...)
+	return append(append([]AgentQueueItem{}, resp.Added...), resp.Unchanged...)
 }
 
-func containsSoloKey(items []SoloQueueItem, key string) bool {
+func containsSoloKey(items []AgentQueueItem, key string) bool {
 	for _, it := range items {
 		if it.Key == key {
 			return true
@@ -88,7 +88,7 @@ func containsSoloKey(items []SoloQueueItem, key string) bool {
 	return false
 }
 
-func soloKeys(items []SoloQueueItem) []string {
+func queueKeys(items []AgentQueueItem) []string {
 	keys := make([]string, len(items))
 	for i, it := range items {
 		keys[i] = it.Key

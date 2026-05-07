@@ -51,7 +51,7 @@ func journalReviewCmd() *cobra.Command {
 	var role string
 	cmd := &cobra.Command{
 		Use:   "review",
-		Short: "Acknowledge the latest unreviewed standup entry (clears the solo queue item)",
+		Short: "Acknowledge the latest unreviewed standup entry (clears the agent queue item)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			resp, err := c.JournalReviewWithResponse(cmd.Context(), dxclient.JournalReviewRequest{

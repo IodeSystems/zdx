@@ -222,7 +222,7 @@ type AgentTaskItem struct {
 }
 
 // BlockerQuestionItem is the JSON shape of a blocker question.
-// Used by both project/ (question command) and work/ (todo solo surfaces them).
+// Used by both project/ (question command) and work/ (todo queue surfaces them).
 type BlockerQuestionItem struct {
 	ID         int32    `json:"id"`
 	TargetType string   `json:"target_type"`

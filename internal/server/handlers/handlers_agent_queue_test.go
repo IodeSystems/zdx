@@ -8,10 +8,10 @@ import (
 
 func TestEvaluateDiffEmptySlices(t *testing.T) {
 	diff := EvaluateDiff{
-		Added:     []SoloQueueItem{},
+		Added:     []AgentQueueItem{},
 		Removed:   []TodoItem{},
 		Changed:   []EvaluateChange{},
-		Unchanged: []SoloQueueItem{},
+		Unchanged: []AgentQueueItem{},
 	}
 	b, err := json.Marshal(diff)
 	if err != nil {

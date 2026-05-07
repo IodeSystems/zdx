@@ -9,20 +9,20 @@ import (
 )
 
 // TestDemoAPI_StandupCadenceScalesWithVelocity is the demo for spec 84 on
-// feature dx-todo-queue: given completed tasks in a project, when solo evaluates
+// feature dx-todo-queue: given completed tasks in a project, when queue evaluates
 // standup cadence, check-in frequency scales with velocity — min 7 days, max 30
 // days, inversely proportional to closed task count.
 //
 // Strategy: POST a journal checkin dated 28 days ago. With zero closed tasks the
 // cadence is 30 days and the entry is fresh (28 < 30). After closing 11 tasks the
 // cadence drops to ≈27.27 days (30 / max(1, 11/10) = 30/1.1) and the same entry
-// becomes overdue (28 > 27.27). GET /api/dx/solo/health is the data source the
+// becomes overdue (28 > 27.27). GET /api/dx/agent/health is the data source the
 // CLI uses to drive this decision.
 func TestDemoAPI_StandupCadenceScalesWithVelocity(t *testing.T) {
 	rec := newApiRecorder(t, "standup-cadence-velocity")
 	rec.AddCoderef(coderef{FilePath: "test/e2e/demo_api_standup_cadence_test.go", Note: "standup-cadence-velocity demo source"})
 	rec.AddCoderef(coderef{FilePath: "internal/cli/work/todo.go", Note: "journalOverdue: cadence = 30/max(1,closedTasks/10), floor 7 days"})
-	rec.AddCoderef(coderef{FilePath: "internal/server/handlers/handlers_dx.go", Note: "GET /api/dx/solo/health returns closed_task_count and journal dates"})
+	rec.AddCoderef(coderef{FilePath: "internal/server/handlers/handlers_dx.go", Note: "GET /api/dx/agent/health returns closed_task_count and journal dates"})
 	t.Cleanup(rec.Save)
 
 	const slug = "demo-cadence-velocity"
@@ -49,7 +49,7 @@ func TestDemoAPI_StandupCadenceScalesWithVelocity(t *testing.T) {
 		ClosedTaskCount  int64  `json:"closed_task_count"`
 		OwnerJournalDate string `json:"owner_journal_date"`
 	}
-	mustOK(t, rec.Do(http.MethodGet, "/api/dx/solo/health?slug="+slug, nil, &health1))
+	mustOK(t, rec.Do(http.MethodGet, "/api/dx/agent/health?slug="+slug, nil, &health1))
 	if health1.ClosedTaskCount != 0 {
 		t.Fatalf("phase 1: want closed_task_count=0, got %d", health1.ClosedTaskCount)
 	}
@@ -94,7 +94,7 @@ func TestDemoAPI_StandupCadenceScalesWithVelocity(t *testing.T) {
 		ClosedTaskCount  int64  `json:"closed_task_count"`
 		OwnerJournalDate string `json:"owner_journal_date"`
 	}
-	mustOK(t, rec.Do(http.MethodGet, "/api/dx/solo/health?slug="+slug, nil, &health2))
+	mustOK(t, rec.Do(http.MethodGet, "/api/dx/agent/health?slug="+slug, nil, &health2))
 	if health2.ClosedTaskCount != 11 {
 		t.Fatalf("phase 2: want closed_task_count=11, got %d", health2.ClosedTaskCount)
 	}

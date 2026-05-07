@@ -73,7 +73,7 @@ func SetupCmd() *cobra.Command {
 			fmt.Printf("project: %s (%s)\n", proj.Name, proj.Slug)
 
 			fmt.Printf("token:   saved to .zdx/credentials\n")
-			fmt.Printf("ready:   dx todo solo\n")
+			fmt.Printf("ready:   dx todo queue\n")
 			return nil
 		},
 	}

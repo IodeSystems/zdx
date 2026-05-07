@@ -262,7 +262,7 @@ func agentLoopCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "loop",
 		Short: "Loop: claim work, run a managed session per pick, repeat",
-		Long: `Long-running loop that claims work via /api/dx/solo/claim and runs an
+		Long: `Long-running loop that claims work via /api/dx/agent/claim and runs an
 agent session per pick. Atomic claim/lease/release, churn backoff,
 self-update re-exec, and crash-recovery release work for all providers.
 
@@ -479,7 +479,7 @@ request, allowing the server to record which agent session made each status
 change. Run this once at the start of an agent session:
 
   eval $(dx agent session begin --agent-id=abc123)
-  dx todo solo --issue=IS-42   # all writes now carry session attribution
+  dx agent claim --issue=IS-42   # all writes now carry session attribution
 
 If --agent-id is omitted a random 8-char id is generated.`,
 		RunE: func(cmd *cobra.Command, args []string) error {

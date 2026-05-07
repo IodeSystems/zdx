@@ -113,7 +113,7 @@ func TestQueueKindOwnerGoals(t *testing.T) {
 
 func TestQueueKindTriageExcludesTracker(t *testing.T) {
 	d := NewApiDriver(t, "q-tracker", "Queue Tracker")
-	// Tracker issues should be excluded from the solo queue entirely.
+	// Tracker issues should be excluded from the agent queue entirely.
 	var issue struct {
 		ID int32 `json:"id"`
 	}
@@ -125,7 +125,7 @@ func TestQueueKindTriageExcludesTracker(t *testing.T) {
 }
 
 // TestQueueTrackerExcludedFromAllRegularItems verifies spec 82: given a tracker-type issue,
-// when solo evaluates the queue, the tracker is excluded from all regular queue items
+// when queue evaluates the queue, the tracker is excluded from all regular queue items
 // (triage, add, dev, closable) because tracker issues are closed by their children, not worked directly.
 func TestQueueTrackerExcludedFromAllRegularItems(t *testing.T) {
 	d := NewApiDriver(t, "q-tracker-excl", "Queue Tracker Excluded")
@@ -447,7 +447,7 @@ func TestQueueEmpty(t *testing.T) {
 }
 
 // TestQueueBQBlockedGlobal verifies spec 64: given an issue blocked by a pending blocker question,
-// when solo is run in global mode, that issue's items are excluded from the queue.
+// when the queue is run in global mode, that issue's items are excluded from the queue.
 func TestQueueBQBlockedGlobal(t *testing.T) {
 	d := NewApiDriver(t, "q-bq-global", "Queue BQ Global")
 	sc := Given(d).TriagedIssue("BQ blocked", "test", 2).Build()
@@ -543,7 +543,7 @@ func TestQueueStrictPriorityOrder(t *testing.T) {
 	}
 }
 
-// TestQueueIssueScoped verifies spec 63: when solo is run with --issue=IS-N,
+// TestQueueIssueScoped verifies spec 63: when the queue is run with --issue=IS-N,
 // only items scoped to that issue are returned (triage, decomposition, tasks, closable).
 func TestQueueIssueScoped(t *testing.T) {
 	d := NewApiDriver(t, "q-issue-scoped", "Queue Issue Scoped")
@@ -594,7 +594,7 @@ func TestQueueIssueScoped(t *testing.T) {
 }
 
 // TestQueueUnifiedMixedSources is the demo for spec 99: given a project with all six
-// signal source types present simultaneously, dx todo solo returns a single unified queue
+// signal source types present simultaneously, dx todo queue returns a single unified queue
 // ordered by priority tier.
 // Note: issue.priority is folded into dev/closable/add base priorities (IS-426). Triaged
 // issues here use P4 (smallest fold) to preserve the base tier ordering this demo shows.
@@ -662,7 +662,7 @@ func TestQueueUnifiedMixedSources(t *testing.T) {
 }
 
 // TestQueueBackportTargetBranch covers spec 177: given backport tasks for supported
-// version branches, when the solo queue evaluates, then backport tasks surface with
+// version branches, when the agent queue evaluates, then backport tasks surface with
 // the target branch name and version context so agents know which branch to work on.
 func TestQueueBackportTargetBranch(t *testing.T) {
 	d := NewApiDriver(t, "q-backport-branch", "Queue Backport Target Branch")
@@ -688,9 +688,9 @@ func TestQueueBackportTargetBranch(t *testing.T) {
 	}
 
 	// Claim: the claimed TodoItem must also carry TargetBranch="v1.2".
-	claimed, status := soloClaimNext(t, d.Slug, "test-agent-backport")
+	claimed, status := agentClaimNext(t, d.Slug, "test-agent-backport")
 	if status != 200 {
-		t.Fatalf("solo/claim: want 200, got %d", status)
+		t.Fatalf("agent/claim: want 200, got %d", status)
 	}
 	if claimed.Kind != "dev" {
 		t.Fatalf("claimed kind: want %q got %q", "dev", claimed.Kind)
@@ -712,7 +712,7 @@ func TestQueueBackportTargetBranch(t *testing.T) {
 }
 
 // TestQueueGlobalGroupsByTargetBranch covers spec 178: given a project with
-// multiple version branches, when the solo queue evaluates in global mode, then
+// multiple version branches, when the agent queue evaluates in global mode, then
 // dev-targeted items precede version-branch backports and same-branch items are
 // contiguous (no interleaving).
 func TestQueueGlobalGroupsByTargetBranch(t *testing.T) {
@@ -784,7 +784,7 @@ func TestQueueGlobalGroupsByTargetBranch(t *testing.T) {
 	}
 }
 
-func kindsOf(items []SoloQueueItem) []string {
+func kindsOf(items []AgentQueueItem) []string {
 	kinds := make([]string, len(items))
 	for i, it := range items {
 		kinds[i] = it.Kind
@@ -792,14 +792,14 @@ func kindsOf(items []SoloQueueItem) []string {
 	return kinds
 }
 
-// TestSoloEvaluateDiff covers spec 66: the evaluate endpoint returns a full
+// TestAgentEvaluateDiff covers spec 66: the evaluate endpoint returns a full
 // diff (added/removed/changed/unchanged) against the persisted todo set.
 //
-// Strategy: soloApply with a manually crafted divergent state, then evaluate.
+// Strategy: agentApply with a manually crafted divergent state, then evaluate.
 // This avoids the refreshQueueAsync race (which re-syncs the DB after every
-// issue mutation) by placing soloApply as the last write before evaluate.
-func TestSoloEvaluateDiff(t *testing.T) {
-	d := NewApiDriver(t, "eval-diff", "Solo Evaluate Diff")
+// issue mutation) by placing agentApply as the last write before evaluate.
+func TestAgentEvaluateDiff(t *testing.T) {
+	d := NewApiDriver(t, "eval-diff", "Agent Evaluate Diff")
 
 	// Three untriaged issues → each generates a "triage-IS-N" candidate.
 	idX := d.AddIssue("Issue X unchanged", "will be applied with correct values")
@@ -812,7 +812,7 @@ func TestSoloEvaluateDiff(t *testing.T) {
 	keyFake := "eval-diff-stale-sentinel" // never generated → Removed
 
 	// Let background refreshQueueAsync goroutines from AddIssue settle before
-	// we overwrite the DB via soloApply.
+	// we overwrite the DB via agentApply.
 	time.Sleep(50 * time.Millisecond)
 
 	// Get the current proposed items (X, Y, Z will be here with correct values).
@@ -828,7 +828,7 @@ func TestSoloEvaluateDiff(t *testing.T) {
 	//   Z: omitted → Added (evaluate proposes it but it's not persisted)
 	//   fake: novel key → Removed (in persisted, not in proposed)
 	//   all others (globals): exact copy → Unchanged
-	var applyItems []SoloQueueItem
+	var applyItems []AgentQueueItem
 	for _, it := range initial {
 		switch it.Key {
 		case keyX:
@@ -843,20 +843,20 @@ func TestSoloEvaluateDiff(t *testing.T) {
 			applyItems = append(applyItems, it) // globals → Unchanged
 		}
 	}
-	applyItems = append(applyItems, SoloQueueItem{
+	applyItems = append(applyItems, AgentQueueItem{
 		Key: keyFake, Kind: "triage", Text: "sentinel",
 		TargetType: "project", TargetID: d.Slug,
 		Priority: 50, Persona: "owner", Status: "open",
 	})
 
-	// Persist our crafted state. soloApply does NOT trigger refreshQueueAsync,
+	// Persist our crafted state. agentApply does NOT trigger refreshQueueAsync,
 	// so the state is stable until evaluate runs.
-	soloApply(t, d.Slug, applyItems)
+	agentApply(t, d.Slug, applyItems)
 
-	// Evaluate immediately — no mutations between here and soloApply.
+	// Evaluate immediately — no mutations between here and agentApply.
 	diff := d.EvaluateDiff("")
 
-	diffKey := func(items []SoloQueueItem) []string {
+	diffKey := func(items []AgentQueueItem) []string {
 		keys := make([]string, len(items))
 		for i, it := range items {
 			keys[i] = it.Key

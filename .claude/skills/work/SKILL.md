@@ -8,14 +8,14 @@ argument-hint: "[IS-N]"
 Drive `./bin/dx todo` in remote mode. Issue: $ARGUMENTS (optional). **One vertical per invocation — stop after the first
 issue is closed and shipped.**
 
-The todo text returned by `dx todo take` / `dx todo solo` is the authoritative per-kind playbook. Read it and follow it
+The todo text returned by `dx todo take` / `dx todo queue` is the authoritative per-kind playbook. Read it and follow it
 verbatim. This skill covers only entry routing and cross-cutting rules.
 
 **Entry:**
 
 - **Claimed todo already provided in the prompt** (e.g. "Claimed todo N [kind] target=type:id"): use it directly — do
   NOT call `./bin/dx todo take` again. Follow the todo's text verbatim.
-- **Issue given as argument:** run `./bin/dx todo solo --issue=IS-N` and follow the picks until the issue closes.
+- **Issue given as argument:** run `./bin/dx todo queue --issue=IS-N` and follow the picks until the issue closes.
 - **Neither:** run `./bin/dx todo take` — atomically claim the next todo. If it returns "no work available", stop.
 
 For any claimed todo, route by target:
@@ -26,9 +26,9 @@ For any claimed todo, route by target:
 
 **Vertical loop** (impl/ops issues — NOT trackers; trackers auto-decompose via their todo text):
 
-1. `./bin/dx todo solo --issue=IS-N`
+1. `./bin/dx todo queue --issue=IS-N`
 2. Follow the returned todo's text (triage / add tasks / dev / closable) — the text tells you exactly what to do.
-3. Repeat until solo prints nothing to do.
+3. Repeat until the queue prints nothing to do.
 4. `./bin/dx issue close IS-N --reason=done` (if not already closed by the closable candidate).
 5. **Ship** if the vertical produced production code:
    - Commit: `dx commit --intent -m "..."` (or: `git add <intent-only files> && git commit`). Do NOT stage `internal/db/*.sql.go`, `internal/dxclient/models.gen.go`, `ui/src/api.gen.ts`, `schema/shipped.sql` — the merge-train regenerates them.
@@ -37,14 +37,14 @@ For any claimed todo, route by target:
    - Skip ship for docs/skill/planning-only changes — just commit.
 6. **Stop.** Report what was done. Do not pick up another vertical.
 
-**Stale / state-unknown tasks** (when solo emits `[review:stale] TK-N` or `[dev]` with a
+**Stale / state-unknown tasks** (when the queue emits `[review:stale] TK-N` or `[dev]` with a
 `⚠ state unknown` warning): The task was created a while ago but never worked — its
 prescription may be outdated. Before editing, read the referenced files and verify the
 work is still needed. If already implemented: `dx todo dev done TK-N`. If superseded or
 no longer relevant: `dx todo dev done TK-N`.
 
 **Blocked issues:** if IS-N is blocked, `dx todo show IS-N` lists blockers. Recurse to unblocked leaves, work each leaf
-vertical, then re-run solo on IS-N. Stop after closing the original.
+vertical, then re-run the queue on IS-N. Stop after closing the original.
 
 **Generated files:** Never stage or commit `*.sql.go`, `models.gen.go`, `api.gen.ts`, `shipped.sql`. Use `dx commit --intent` to enforce this automatically.
 

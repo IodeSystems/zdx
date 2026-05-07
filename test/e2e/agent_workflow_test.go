@@ -15,7 +15,7 @@ import (
 )
 
 func TestSoloBootstrap(t *testing.T) {
-	d := NewApiDriver(t, "solo-bootstrap", "Solo Bootstrap")
+	d := NewApiDriver(t, "agent-bootstrap", "Agent Bootstrap")
 
 	issues := d.ListIssues()
 	features := d.ListFeatures()
@@ -27,7 +27,7 @@ func TestSoloBootstrap(t *testing.T) {
 	}
 
 	d.AddFeature("test-feature", "A test feature for bootstrap")
-	issueID := d.AddIssue("Bootstrap setup", "Verify solo cycle")
+	issueID := d.AddIssue("Bootstrap setup", "Verify agent queue cycle")
 
 	issues = d.ListIssues()
 	if len(issues) == 0 {
@@ -42,7 +42,7 @@ func TestSoloBootstrap(t *testing.T) {
 }
 
 func TestSoloClarify(t *testing.T) {
-	d := NewApiDriver(t, "solo-clarify", "Solo Clarify")
+	d := NewApiDriver(t, "agent-clarify", "Agent Clarify")
 	sc := Given(d).TriagedIssue("Clarify test", "needs decision", 2).Build()
 	issueID := sc.Issues[0]
 	targetID := fmt.Sprintf("IS-%d", issueID)
@@ -73,7 +73,7 @@ func TestSoloClarify(t *testing.T) {
 }
 
 func TestSoloOwnerGoals(t *testing.T) {
-	d := NewApiDriver(t, "solo-goals", "Solo Goals")
+	d := NewApiDriver(t, "agent-goals", "Agent Goals")
 
 	goalCount, _, _, _, _ := d.GetHealth()
 	if goalCount != 0 {
@@ -91,7 +91,7 @@ func TestSoloOwnerGoals(t *testing.T) {
 // /api/constraint endpoint gone, GetHealth's constraint_count is always 0.
 
 func TestSoloJournal(t *testing.T) {
-	d := NewApiDriver(t, "solo-journal", "Solo Journal")
+	d := NewApiDriver(t, "agent-journal", "Agent Journal")
 	Given(d).Goal("Test goal").Constraint("Test constraint").Build()
 
 	_, _, _, ownerDate, techDate := d.GetHealth()
@@ -116,7 +116,7 @@ func TestSoloJournal(t *testing.T) {
 }
 
 func TestSoloTriage(t *testing.T) {
-	d := NewApiDriver(t, "solo-triage", "Solo Triage")
+	d := NewApiDriver(t, "agent-triage", "Agent Triage")
 	sc := Given(d).Issue("Untriaged issue", "needs triage").Build()
 	issueID := sc.Issues[0]
 
@@ -150,7 +150,7 @@ func TestSoloTriage(t *testing.T) {
 // Verifies the handler short-circuits at handlers_issues.go (val != nil &&
 // *val != "") and that re-sending an unchanged value records no revision.
 func TestSoloOwnerTriageRevisions(t *testing.T) {
-	d := NewApiDriver(t, "solo-triage-rev", "Solo Triage Revisions")
+	d := NewApiDriver(t, "agent-triage-rev", "Agent Triage Revisions")
 	sc := Given(d).Issue("Original title", "Original context").Build()
 	issueID := sc.Issues[0]
 	targetID := fmt.Sprintf("IS-%d", issueID)
@@ -295,7 +295,7 @@ func TestSoloOwnerTriageRevisions(t *testing.T) {
 // the todo to resolved without applying any triage level. The server now
 // downgrades that resolve to a release+block and returns cycle_detected.
 func TestSoloTriageResolveRefusedWhenUntriaged(t *testing.T) {
-	d := NewApiDriver(t, "solo-triage-guard", "Solo Triage Guard")
+	d := NewApiDriver(t, "agent-triage-guard", "Agent Triage Guard")
 	// Pre-load goals/constraints/journal so the only remaining queue item
 	// for the agent to pick is the untriaged-issue triage candidate.
 	Given(d).
@@ -305,9 +305,9 @@ func TestSoloTriageResolveRefusedWhenUntriaged(t *testing.T) {
 
 	var claimed TodoItem
 	for i := 0; i < 10; i++ {
-		c, status := soloClaimNext(t, d.Slug, fmt.Sprintf("test-agent-%d", i))
+		c, status := agentClaimNext(t, d.Slug, fmt.Sprintf("test-agent-%d", i))
 		if status != http.StatusOK {
-			t.Fatalf("solo/claim attempt %d: status=%d", i, status)
+			t.Fatalf("agent/claim attempt %d: status=%d", i, status)
 		}
 		if c.Kind == "triage" {
 			claimed = c
@@ -322,7 +322,7 @@ func TestSoloTriageResolveRefusedWhenUntriaged(t *testing.T) {
 		OK            bool `json:"ok"`
 		CycleDetected bool `json:"cycle_detected"`
 	}
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/release",
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/release",
 		map[string]any{"id": claimed.ID, "agent_id": "test-agent", "resolve": true}, &rel))
 
 	if !rel.CycleDetected {
@@ -366,7 +366,7 @@ func TestSoloTriageResolveRefusedWhenUntriaged(t *testing.T) {
 // on the same todo key, the system auto-files a system-gap issue and stores its ID on the todo.
 // Closing that issue must automatically unblock the todo so it re-enters the queue.
 func TestSoloCycleDetectionAutoFilesIssue(t *testing.T) {
-	d := NewApiDriver(t, "solo-cycle-autofile", "Solo Cycle Autofile")
+	d := NewApiDriver(t, "agent-cycle-autofile", "Agent Cycle Autofile")
 	t.Setenv("AUTO_FILE_AGENT_FAILURES", "true")
 	Given(d).
 		Issue("Cycle test issue", "auto-file system gap").
@@ -375,9 +375,9 @@ func TestSoloCycleDetectionAutoFilesIssue(t *testing.T) {
 
 	claimTriage := func(agentID string) (TodoItem, bool) {
 		for i := 0; i < 10; i++ {
-			c, status := soloClaimNext(t, d.Slug, fmt.Sprintf("%s-%d", agentID, i))
+			c, status := agentClaimNext(t, d.Slug, fmt.Sprintf("%s-%d", agentID, i))
 			if status != http.StatusOK {
-				t.Fatalf("solo/claim: status=%d", status)
+				t.Fatalf("agent/claim: status=%d", status)
 			}
 			if c.Kind == "triage" {
 				return c, true
@@ -389,7 +389,7 @@ func TestSoloCycleDetectionAutoFilesIssue(t *testing.T) {
 	// First cycle: resolve triage without setting priority → blocked, cycle_count=1.
 	// IS-514 downgrades the resolve to a release because the issue still has
 	// no priority; release matches by claimant, so the agent_id passed must be
-	// the actual claimant returned from solo/claim — not a hardcoded prefix —
+	// the actual claimant returned from agent/claim — not a hardcoded prefix —
 	// or the lease leaks and the second cycle can't re-claim the triage.
 	claimed, ok := claimTriage("agent-a")
 	if !ok {
@@ -399,14 +399,14 @@ func TestSoloCycleDetectionAutoFilesIssue(t *testing.T) {
 		OK            bool `json:"ok"`
 		CycleDetected bool `json:"cycle_detected"`
 	}
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/release",
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/release",
 		map[string]any{"id": claimed.ID, "agent_id": claimed.ClaimedBy, "resolve": true}, &rel))
 	if !rel.CycleDetected {
 		t.Fatal("expected cycle_detected=true on first attempt")
 	}
 
 	// Unblock so the todo re-enters the queue for a second attempt.
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/unblock-all",
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/unblock-all",
 		map[string]any{"slug": d.Slug}, nil))
 
 	// Second cycle: same todo, same failed resolve → blocked, cycle_count=2 → auto-files issue
@@ -414,7 +414,7 @@ func TestSoloCycleDetectionAutoFilesIssue(t *testing.T) {
 	if !ok {
 		t.Fatal("no triage todo found for second attempt")
 	}
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/release",
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/release",
 		map[string]any{"id": claimed.ID, "agent_id": claimed.ClaimedBy, "resolve": true}, &rel))
 	if !rel.CycleDetected {
 		t.Fatal("expected cycle_detected=true on second attempt")
@@ -428,7 +428,7 @@ func TestSoloCycleDetectionAutoFilesIssue(t *testing.T) {
 		ReferenceIssueID string `json:"reference_issue_id"`
 	}
 	mustOK(t, apiDo(t, http.MethodGet,
-		fmt.Sprintf("/api/dx/solo?slug=%s&blocked=true", d.Slug), nil, &blockedTodos))
+		fmt.Sprintf("/api/dx/agent/queue?slug=%s&blocked=true", d.Slug), nil, &blockedTodos))
 
 	var refIssueStr string
 	for _, td := range blockedTodos {
@@ -452,12 +452,12 @@ func TestSoloCycleDetectionAutoFilesIssue(t *testing.T) {
 	// system-gap issue on its own cycle. Force a queue regen via evaluate, then assert
 	// no triage candidate targets the auto-filed issue.
 	var evalResp struct {
-		Added     []SoloQueueItem `json:"added"`
-		Unchanged []SoloQueueItem `json:"unchanged"`
+		Added     []AgentQueueItem `json:"added"`
+		Unchanged []AgentQueueItem `json:"unchanged"`
 	}
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/evaluate",
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/evaluate",
 		map[string]any{"slug": d.Slug, "issue": ""}, &evalResp))
-	checkCascade := func(items []SoloQueueItem) {
+	checkCascade := func(items []AgentQueueItem) {
 		for _, it := range items {
 			if it.Kind == "triage" && it.TargetID == refIssueStr {
 				t.Errorf("auto-filed issue %s spawned its own triage candidate %q — system-gap issues must be created with a priority to break the cascade",
@@ -480,7 +480,7 @@ func TestSoloCycleDetectionAutoFilesIssue(t *testing.T) {
 
 	// After closing the reference issue, the todo must be unblocked.
 	mustOK(t, apiDo(t, http.MethodGet,
-		fmt.Sprintf("/api/dx/solo?slug=%s&blocked=true", d.Slug), nil, &blockedTodos))
+		fmt.Sprintf("/api/dx/agent/queue?slug=%s&blocked=true", d.Slug), nil, &blockedTodos))
 	for _, td := range blockedTodos {
 		if td.ID == claimed.ID {
 			t.Error("todo should be unblocked after reference issue was closed")
@@ -489,7 +489,7 @@ func TestSoloCycleDetectionAutoFilesIssue(t *testing.T) {
 }
 
 func TestSoloOwnerSpec(t *testing.T) {
-	d := NewApiDriver(t, "solo-spec", "Solo Spec")
+	d := NewApiDriver(t, "agent-spec", "Agent Spec")
 	Given(d).Feature("specless", "Feature without specs").Build()
 
 	feats := d.ListFeatures()
@@ -512,7 +512,7 @@ func TestSoloOwnerSpec(t *testing.T) {
 }
 
 func TestSoloOwnerReview(t *testing.T) {
-	d := NewApiDriver(t, "solo-review", "Solo Review")
+	d := NewApiDriver(t, "agent-review", "Agent Review")
 	Given(d).
 		Feature("stale-feat", "Feature that will get stale").
 		Spec("stale-feat", "unit_test", "Basic test").
@@ -540,7 +540,7 @@ func TestSoloOwnerReview(t *testing.T) {
 }
 
 func TestSoloTechTestRef(t *testing.T) {
-	d := NewApiDriver(t, "solo-testref", "Solo TestRef")
+	d := NewApiDriver(t, "agent-testref", "Agent TestRef")
 	Given(d).
 		Feature("testable", "Feature needing test refs").
 		Spec("testable", "unit_test", "Core validation").
@@ -569,7 +569,7 @@ func TestSoloTechTestRef(t *testing.T) {
 }
 
 func TestSoloAdd(t *testing.T) {
-	d := NewApiDriver(t, "solo-add", "Solo Add")
+	d := NewApiDriver(t, "agent-add", "Agent Add")
 	sc := Given(d).TriagedIssue("Issue needing tasks", "decompose", 2).Build()
 	issueID := sc.Issues[0]
 
@@ -595,7 +595,7 @@ func TestSoloAdd(t *testing.T) {
 }
 
 func TestSoloDev(t *testing.T) {
-	d := NewApiDriver(t, "solo-dev", "Solo Dev")
+	d := NewApiDriver(t, "agent-dev", "Agent Dev")
 	sc := Given(d).
 		TriagedIssue("Issue with ready task", "dev work", 2).
 		Task(0, "Write the code").
@@ -626,7 +626,7 @@ func TestSoloDev(t *testing.T) {
 }
 
 func TestSoloClosable(t *testing.T) {
-	d := NewApiDriver(t, "solo-closable", "Solo Closable")
+	d := NewApiDriver(t, "agent-closable", "Agent Closable")
 	sc := Given(d).
 		TriagedIssue("Issue ready to close", "all tasks done", 2).
 		Task(0, "Only task").
@@ -660,7 +660,7 @@ func TestSoloClosable(t *testing.T) {
 }
 
 func TestSoloFullLifecycle(t *testing.T) {
-	d := NewApiDriver(t, "solo-lifecycle", "Solo Lifecycle")
+	d := NewApiDriver(t, "agent-lifecycle", "Agent Lifecycle")
 
 	// 1. Bootstrap: empty project.
 	issues := d.ListIssues()
@@ -733,7 +733,7 @@ func TestSoloFullLifecycle(t *testing.T) {
 }
 
 func TestSoloUnansweredQuestions(t *testing.T) {
-	d := NewApiDriver(t, "solo-unans-qa", "Solo Unanswered QA")
+	d := NewApiDriver(t, "agent-unans-qa", "Agent Unanswered QA")
 
 	qs := d.ListUnansweredQuestions()
 	if len(qs) != 0 {
@@ -768,7 +768,7 @@ func TestSoloUnansweredQuestions(t *testing.T) {
 }
 
 func TestTaskCreatedAtField(t *testing.T) {
-	d := NewApiDriver(t, "solo-task-ts", "Task Timestamps")
+	d := NewApiDriver(t, "agent-task-ts", "Task Timestamps")
 	sc := Given(d).
 		TriagedIssue("Task timestamp test", "test context", 3).
 		Build()
@@ -796,7 +796,7 @@ func TestTaskCreatedAtField(t *testing.T) {
 }
 
 func TestSoloStaleTaskSweep(t *testing.T) {
-	d := NewApiDriver(t, "solo-stale-task", "Solo Stale Tasks")
+	d := NewApiDriver(t, "agent-stale-task", "Agent Stale Tasks")
 	sc := Given(d).
 		TriagedIssue("Stale task test", "test context", 3).
 		Build()
@@ -848,7 +848,7 @@ func TestSoloStaleTaskSweep(t *testing.T) {
 // TestSoloDevDone covers spec 76: POST /api/dx/todo/dev/done sets status=done,
 // populates completed_at, and publishes a task.done event on the WS channel.
 func TestSoloDevDone(t *testing.T) {
-	d := NewApiDriver(t, "solo-dev-done", "Solo Dev Done")
+	d := NewApiDriver(t, "agent-dev-done", "Agent Dev Done")
 	sc := Given(d).
 		TriagedIssue("Task done spec76", "verify all three assertions", 3).
 		Task(0, "Implement the thing").
@@ -1006,14 +1006,14 @@ func TestUnblockAllResetsReopenCount(t *testing.T) {
 		Build()
 
 	// Seed all todo rows via a claim call (generateSoloQueue + UpsertTodo for each candidate).
-	first, status := soloClaimNext(t, d.Slug, "agent-seed")
+	first, status := agentClaimNext(t, d.Slug, "agent-seed")
 	if status != http.StatusOK {
 		t.Fatalf("seed claim: want 200, got %d", status)
 	}
 
 	// Release so all todos are unclaimed and open.
 	var rel struct{ OK bool }
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/release",
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/release",
 		map[string]any{"id": first.ID, "agent_id": "agent-seed", "resolve": false}, &rel))
 
 	// Force reopen_count=3 and blocked=true on EVERY open todo for this project
@@ -1039,13 +1039,13 @@ func TestUnblockAllResetsReopenCount(t *testing.T) {
 	}
 
 	// Unblock all todos for this project.
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/unblock-all",
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/unblock-all",
 		map[string]any{"slug": d.Slug}, nil))
 
 	// Claim must succeed (200 with a todo body). On the buggy version,
 	// unblock-all left reopen_count=3, so the very next UpsertTodo inside
 	// claim re-blocked every row and ClaimNextTodo returned nothing (404).
-	_, claimStatus := soloClaimNext(t, d.Slug, "agent-post-unblock")
+	_, claimStatus := agentClaimNext(t, d.Slug, "agent-post-unblock")
 	if claimStatus != http.StatusOK {
 		t.Fatalf("post-unblock claim: want 200 (todo claimable), got %d — unblock-all did not reset reopen_count", claimStatus)
 	}

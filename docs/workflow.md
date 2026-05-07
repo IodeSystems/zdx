@@ -1,10 +1,10 @@
-# Solo Workflow State Machine
+# Agent Queue State Machine
 
-`dx todo solo` is a priority-ordered state machine that returns the single highest-priority actionable item for an agent. Each invocation returns at most one todo; the agent acts on it and re-runs solo to get the next.
+`dx todo queue` is a priority-ordered state machine that returns the single highest-priority actionable item for an agent. Each invocation returns at most one todo; the agent acts on it and re-runs the queue to get the next.
 
 ## Precedence Order
 
-Solo checks conditions in this exact order. First match wins.
+The queue checks conditions in this exact order. First match wins.
 
 | # | Type | Scope | Trigger |
 |---|------|-------|---------|
@@ -27,9 +27,9 @@ Solo checks conditions in this exact order. First match wins.
 
 ## Scoping Rules
 
-- **Global mode** (`dx todo solo`): Checks all open issues and all cross-cutting concerns (health, specs, reviews, test refs). Issues with pending blocker-questions are skipped silently.
-- **Issue mode** (`dx todo solo --issue=IS-N`): Restricts to the single issue. Skips cross-cutting checks (0d-0h, 1b, 1c, 2a). Blocker-questions surface as `[clarify]` instead of silently skipping.
-- **Agent mode** (`dx todo solo --agent-id=AGT`): Like global/issue mode but uses atomic task claiming via the ClaimTask API instead of iterating tasks.
+- **Global mode** (`dx todo queue`): Checks all open issues and all cross-cutting concerns (health, specs, reviews, test refs). Issues with pending blocker-questions are skipped silently.
+- **Issue mode** (`dx todo queue --issue=IS-N`): Restricts to the single issue. Skips cross-cutting checks (0d-0h, 1b, 1c, 2a). Blocker-questions surface as `[clarify]` instead of silently skipping.
+- **Agent mode** (`dx todo queue --agent-id=AGT`): Like global/issue mode but uses atomic task claiming via the ClaimTask API instead of iterating tasks.
 
 ## Todo Types Reference
 
@@ -40,7 +40,7 @@ Solo checks conditions in this exact order. First match wins.
 
 ### `[read:comments]`
 - **Trigger**: Unread comments (for `llm` role) on an open issue or feature.
-- **Agent action**: Read and respond to comments via `dx comment add`. Solo auto-marks comments as read after displaying them.
+- **Agent action**: Read and respond to comments via `dx comment add`. The queue auto-marks comments as read after displaying them.
 - **Advances when**: Comments are marked read.
 
 ### `[clarify]`
@@ -60,7 +60,7 @@ Solo checks conditions in this exact order. First match wins.
 
 ### `[owner:standup]` / `[tech:standup]`
 - **Trigger**: Standup check-in is overdue based on cadence (30 days / max(1, closed_tasks/10), clamped to min 7 days). Owner is checked before tech.
-- **Agent action**: Gather data (`dx issue list`, `dx feature list`, `dx focus list`, `dx goal list`, `dx todo list`, `dx standup show --role=<role>`, `git log`), then `dx standup checkin --role=<owner|tech> --tldr=... --assessment=... --concerns=... --next=...`. `--tldr` must lead with the stakeholder-actionable bottom line ("project healthy, no blockers" or "N items need your attention: …"). Full playbook (data sources, per-role section structure, anti-patterns) lives in the todo text returned by `dx todo solo`. Builder is persona-agnostic so new roles (e.g. a future Ops persona) plug in without rewriting. `dx standup review` acknowledges SOMEONE ELSE's entry — never use it in place of a checkin.
+- **Agent action**: Gather data (`dx issue list`, `dx feature list`, `dx focus list`, `dx goal list`, `dx todo list`, `dx standup show --role=<role>`, `git log`), then `dx standup checkin --role=<owner|tech> --tldr=... --assessment=... --concerns=... --next=...`. `--tldr` must lead with the stakeholder-actionable bottom line ("project healthy, no blockers" or "N items need your attention: …"). Full playbook (data sources, per-role section structure, anti-patterns) lives in the todo text returned by `dx todo queue`. Builder is persona-agnostic so new roles (e.g. a future Ops persona) plug in without rewriting. `dx standup review` acknowledges SOMEONE ELSE's entry — never use it in place of a checkin.
 - **Advances when**: Standup entry is recorded with a recent date.
 
 ### `[triage]`
@@ -86,7 +86,7 @@ Solo checks conditions in this exact order. First match wins.
 ### `[add]`
 - **Trigger**: Open triaged issue with no tasks (ready or active). Issue has zero completed tasks.
 - **Agent action**: Decompose the issue into tasks via `dx todo tech add --issue=IS-N` with structured flags:
-  - `--title="<one-line outcome>"` — short headline shown in the UI and solo messages.
+  - `--title="<one-line outcome>"` — short headline shown in the UI and agent queue messages.
   - `--text="<implementation plan>"` — step-by-step plan; what to change, in what files, in what order.
   - `--reason="<why now>"` — why this work is needed at this point in the vertical.
   - `--test-plan="<how it will be verified>"` — concrete verification the closer must satisfy (required on `dev done`).
@@ -113,5 +113,5 @@ More closed tasks → more frequent standup check-ins. Minimum cadence is 7 days
 
 ## Blocker-Question Behavior
 
-- **Global mode**: Issues with pending blocker-questions are filtered out entirely. Solo picks other work.
+- **Global mode**: Issues with pending blocker-questions are filtered out entirely. The queue picks other work.
 - **Issue mode**: Pending blocker-questions surface as `[clarify]` and block all other work on that issue until answered.

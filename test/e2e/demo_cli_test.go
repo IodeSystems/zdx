@@ -159,7 +159,7 @@ func TestDemoCLI_ProjectAndIssueFlow(t *testing.T) {
 
 	rec.Run("issue", "add", "--title=First issue", "--context=Added via CLI demo")
 	rec.Run("issue", "list")
-	rec.Run("todo", "solo")
+	rec.Run("todo", "queue")
 
 	for _, s := range rec.steps {
 		if s.ExitCode != 0 {
@@ -181,7 +181,7 @@ func TestDemoCLI_TaskFlow(t *testing.T) {
 
 	rec.Run("todo", "tech", "add", "--issue="+issueID, "--text=Write the implementation")
 	rec.Run("todo", "list", "--issue="+issueID)
-	rec.Run("todo", "solo")
+	rec.Run("todo", "queue")
 
 	for _, s := range rec.steps {
 		if s.ExitCode != 0 {
@@ -279,12 +279,12 @@ func TestDemoCLI_BlockerQuestionFlow(t *testing.T) {
 	// Spec 4: question list --status pending → only pending shown
 	rec.Run("question", "list", "--status=pending")
 
-	// Spec 89: solo in global mode excludes BQ-blocked issues from the queue.
+	// Spec 89: agent queue in global mode excludes BQ-blocked issues from the queue.
 	// Issue title should NOT appear in this output while questions are pending.
-	rec.Run("todo", "solo")
+	rec.Run("todo", "queue")
 
-	// Spec 90: solo with --issue=IS-N surfaces the pending question as clarify.
-	rec.Run("todo", "solo", "--issue="+issueID)
+	// Spec 90: agent queue with --issue=IS-N surfaces the pending question as clarify.
+	rec.Run("todo", "queue", "--issue="+issueID)
 
 	// Spec 2: question answer → status changes to answered
 	if bqID != "" {
@@ -348,7 +348,7 @@ func TestDemoCLI_JournalFlow(t *testing.T) {
 	}
 }
 
-// TestDemoCLI_UnifiedMixedSources is the demo for spec 99: dx todo solo integrates
+// TestDemoCLI_UnifiedMixedSources is the demo for spec 99: dx todo queue integrates
 // all signal sources (untriaged issues, unread comments, blocker questions, pending tasks,
 // decomposition gaps, closable issues) into a single unified queue ordered by priority.
 func TestDemoCLI_UnifiedMixedSources(t *testing.T) {
@@ -406,11 +406,11 @@ func TestDemoCLI_UnifiedMixedSources(t *testing.T) {
 	_ = decompID    // appears as add in global queue
 
 	// Global queue: all signal sources merged into one prioritized view.
-	rec.Run("todo", "solo")
+	rec.Run("todo", "queue")
 
 	// Issue-scoped queue for BQ-blocked issue: clarify surfaces.
 	if bqIssueID != "" {
-		rec.Run("todo", "solo", "--issue="+bqIssueID)
+		rec.Run("todo", "queue", "--issue="+bqIssueID)
 	}
 
 	for _, s := range rec.steps {
@@ -421,7 +421,7 @@ func TestDemoCLI_UnifiedMixedSources(t *testing.T) {
 }
 
 // TestDemoCLI_TodoDelegation is the demo for spec 100: the dx todo CLI commands
-// (solo, list, show, take) delegate to server-side queue evaluation and persistence,
+// (queue, list, show, take) delegate to server-side queue evaluation and persistence,
 // so the CLI remains a thin view with no client-side queue logic divergence.
 // The recorder configures DX_REMOTE_URL/SLUG — every command below goes over the
 // API and reads server-persisted state.
@@ -439,8 +439,8 @@ func TestDemoCLI_TodoDelegation(t *testing.T) {
 	rec.Run("todo", "tech", "add", "--issue="+issueID, "--text=Implement delegation")
 	taskID := extractFirstID(rec.steps[len(rec.steps)-1].Stdout)
 
-	// solo: server evaluates the queue and returns the next item.
-	rec.Run("todo", "solo")
+	// queue: server evaluates the queue and returns the next item.
+	rec.Run("todo", "queue")
 
 	// list: returns server-persisted tasks for the issue.
 	rec.Run("todo", "list", "--issue="+issueID)
@@ -461,7 +461,7 @@ func TestDemoCLI_TodoDelegation(t *testing.T) {
 	}
 }
 
-// TestDemoCLI_SharedTodoQueue is the demo for spec 101: humans (dx todo solo)
+// TestDemoCLI_SharedTodoQueue is the demo for spec 101: humans (dx todo queue)
 // and agents (dx todo take) operate on the same persisted todo records with no
 // separate agent-only queue. The demo shows a human evaluating the queue, an
 // agent claiming from that same queue, and the human seeing the claimed item as
@@ -479,17 +479,17 @@ func TestDemoCLI_SharedTodoQueue(t *testing.T) {
 	rec.Run("todo", "owner", "triage", issueID, "--priority=2")
 	rec.Run("todo", "tech", "add", "--issue="+issueID, "--text=Write the shared queue logic")
 
-	// Human path: dx todo solo evaluates and shows the queue.
-	rec.Run("todo", "solo")
+	// Human path: dx todo queue evaluates and shows the queue.
+	rec.Run("todo", "queue")
 
 	// Agent path: dx todo take atomically claims the next item from the same queue.
-	// The claimed item will be one of the same todos that solo just showed —
+	// The claimed item will be one of the same todos that the queue just showed —
 	// there is no separate agent-only queue.
 	rec.Run("todo", "take", "--agent-id=human-agent-parity", "--lease-minutes=5")
 
 	// Human re-evaluates: the claimed item is still in the persisted todo set
 	// (claim preserves open status), so it appears as unchanged rather than new.
-	rec.Run("todo", "solo")
+	rec.Run("todo", "queue")
 
 	// Agent claims the next unclaimed item — demonstrating the queue is finite
 	// and shared: once claimed by either caller, the item is not re-issued.
@@ -532,7 +532,7 @@ func TestDemoCLI_TodoItemFields(t *testing.T) {
 
 	// Queue view: each line carries the tier ([owner:*]/[tech:*]/[dev]) and the
 	// target reference (IS-N / TK-N) so the caller can dispatch directly.
-	rec.Run("todo", "solo")
+	rec.Run("todo", "queue")
 
 	// Claim view: take returns a structured item with kind (tier:action),
 	// target_type:target_id, issue_ref, and the claiming agent's lease — the
@@ -546,13 +546,13 @@ func TestDemoCLI_TodoItemFields(t *testing.T) {
 	}
 }
 
-// TestDemoCLI_SoloPriorityOrder is the demo for spec 62: when solo is run without
+// TestDemoCLI_QueuePriorityOrder is the demo for spec 62: when the queue is run without
 // --issue, items are returned in strict priority order:
 // comments (5) < questions (10) < triage (20) < specs (25) < closable (35) < decomposition (38) < tasks (40).
-// The demo seeds one representative item per tier so the solo output visibly
+// The demo seeds one representative item per tier so the queue output visibly
 // steps through the full priority ladder in a single run.
-func TestDemoCLI_SoloPriorityOrder(t *testing.T) {
-	rec := newRecorder(t, "solo-priority-order", "bin/dx")
+func TestDemoCLI_QueuePriorityOrder(t *testing.T) {
+	rec := newRecorder(t, "queue-priority-order", "bin/dx")
 	t.Cleanup(rec.Save)
 
 	// Priority 5 — unread comment: triaged issue with an unread comment.
@@ -600,7 +600,7 @@ func TestDemoCLI_SoloPriorityOrder(t *testing.T) {
 	}
 
 	// Global queue: all tiers present; output must appear in ascending priority order.
-	rec.Run("todo", "solo")
+	rec.Run("todo", "queue")
 
 	for _, s := range rec.steps {
 		if s.ExitCode != 0 {
@@ -609,10 +609,10 @@ func TestDemoCLI_SoloPriorityOrder(t *testing.T) {
 	}
 }
 
-// TestDemoCLI_IssueScopedQueue is the demo for spec 63: when solo is run with
+// TestDemoCLI_IssueScopedQueue is the demo for spec 63: when the queue is run with
 // --issue=IS-N, only items scoped to that issue are returned. The demo seeds
 // one issue per scoped kind (triage, add, dev, closable) and runs
-// dx todo solo --issue=IS-N for each, showing scope isolation in action.
+// dx todo queue --issue=IS-N for each, showing scope isolation in action.
 func TestDemoCLI_IssueScopedQueue(t *testing.T) {
 	rec := newRecorder(t, "issue-scoped-queue", "bin/dx")
 	t.Cleanup(rec.Save)
@@ -650,16 +650,16 @@ func TestDemoCLI_IssueScopedQueue(t *testing.T) {
 
 	// Issue-scoped queries: each returns only the item for that issue.
 	if triagedIssueID != "" {
-		rec.Run("todo", "solo", "--issue="+triagedIssueID)
+		rec.Run("todo", "queue", "--issue="+triagedIssueID)
 	}
 	if addIssueID != "" {
-		rec.Run("todo", "solo", "--issue="+addIssueID)
+		rec.Run("todo", "queue", "--issue="+addIssueID)
 	}
 	if devIssueID != "" {
-		rec.Run("todo", "solo", "--issue="+devIssueID)
+		rec.Run("todo", "queue", "--issue="+devIssueID)
 	}
 	if closableIssueID != "" {
-		rec.Run("todo", "solo", "--issue="+closableIssueID)
+		rec.Run("todo", "queue", "--issue="+closableIssueID)
 	}
 
 	for _, s := range rec.steps {
@@ -669,11 +669,11 @@ func TestDemoCLI_IssueScopedQueue(t *testing.T) {
 	}
 }
 
-// TestDemoCLI_WipIssueBlocksSolo is the demo for spec 85: when solo is run
+// TestDemoCLI_WipIssueBlocksQueue is the demo for spec 85: when the queue is run
 // with --issue=IS-N and that issue is still in wip status, the command exits
 // non-zero with a message directing the user to promote it via dx issue ready.
-func TestDemoCLI_WipIssueBlocksSolo(t *testing.T) {
-	rec := newRecorder(t, "wip-issue-blocks-solo", "bin/dx")
+func TestDemoCLI_WipIssueBlocksQueue(t *testing.T) {
+	rec := newRecorder(t, "wip-issue-blocks-queue", "bin/dx")
 	t.Cleanup(rec.Save)
 
 	// Create the issue directly via the API so it stays in wip status.
@@ -683,32 +683,32 @@ func TestDemoCLI_WipIssueBlocksSolo(t *testing.T) {
 		ID int32 `json:"id"`
 	}
 	apiDo(t, "POST", "/api/dx/todo/issue/add",
-		map[string]any{"slug": "demo-wip-issue-blocks-solo", "title": "WIP issue not ready", "auto_ready": false},
+		map[string]any{"slug": "demo-wip-issue-blocks-queue", "title": "WIP issue not ready", "auto_ready": false},
 		&addResp)
 	if addResp.ID == 0 {
 		t.Fatal("issue creation via API failed")
 	}
 	wipIssueID := fmt.Sprintf("IS-%d", addResp.ID)
 
-	// solo --issue on a wip issue must fail with a descriptive error.
-	rec.Run("todo", "solo", "--issue="+wipIssueID)
-	soloStep := rec.steps[len(rec.steps)-1]
-	if soloStep.ExitCode == 0 {
-		t.Errorf("expected non-zero exit for wip issue, got 0; stdout: %s", soloStep.Stdout)
+	// queue --issue on a wip issue must fail with a descriptive error.
+	rec.Run("todo", "queue", "--issue="+wipIssueID)
+	queueStep := rec.steps[len(rec.steps)-1]
+	if queueStep.ExitCode == 0 {
+		t.Errorf("expected non-zero exit for wip issue, got 0; stdout: %s", queueStep.Stdout)
 	}
-	if !strings.Contains(soloStep.Stderr, "still in draft (wip)") {
-		t.Errorf("expected 'still in draft (wip)' in stderr, got: %s", soloStep.Stderr)
+	if !strings.Contains(queueStep.Stderr, "still in draft (wip)") {
+		t.Errorf("expected 'still in draft (wip)' in stderr, got: %s", queueStep.Stderr)
 	}
-	if !strings.Contains(soloStep.Stderr, "dx issue ready") {
-		t.Errorf("expected 'dx issue ready' in stderr, got: %s", soloStep.Stderr)
+	if !strings.Contains(queueStep.Stderr, "dx issue ready") {
+		t.Errorf("expected 'dx issue ready' in stderr, got: %s", queueStep.Stderr)
 	}
 }
 
 // TestDemoCLI_QueueBQBlockedGlobal is the demo for spec 64: given an issue
-// blocked by a pending blocker question, when solo is run in global mode,
+// blocked by a pending blocker question, when the queue is run in global mode,
 // that issue's items are excluded from the queue. The demo seeds a triaged
 // issue with a pending blocker question plus a distractor issue that should
-// remain visible, then runs dx todo solo to show the BQ-blocked issue's
+// remain visible, then runs dx todo queue to show the BQ-blocked issue's
 // dev/add/closable rows are suppressed globally — they only return once the
 // question is answered.
 func TestDemoCLI_QueueBQBlockedGlobal(t *testing.T) {
@@ -738,15 +738,15 @@ func TestDemoCLI_QueueBQBlockedGlobal(t *testing.T) {
 		rec.Run("todo", "tech", "add", "--issue="+openIssueID, "--text=Document /api/auth endpoints")
 	}
 
-	// Global solo: the BQ-blocked issue's add/dev/closable rows are suppressed;
+	// Global queue: the BQ-blocked issue's add/dev/closable rows are suppressed;
 	// the distractor issue's task still appears.
-	rec.Run("todo", "solo")
+	rec.Run("todo", "queue")
 
 	// Answer the blocker question; the previously-blocked issue rejoins the queue.
 	if bqID != "" {
 		rec.Run("question", "answer", strings.TrimPrefix(bqID, "BQ-"), "--answer=Redis")
 	}
-	rec.Run("todo", "solo")
+	rec.Run("todo", "queue")
 
 	for _, s := range rec.steps {
 		if s.ExitCode != 0 {
@@ -756,7 +756,7 @@ func TestDemoCLI_QueueBQBlockedGlobal(t *testing.T) {
 }
 
 // TestDemoCLI_QueueBQClarifyScoped is the demo for spec 65: given an issue with
-// pending blocker questions, when solo is run with --issue=IS-N scoped to that
+// pending blocker questions, when the queue is run with --issue=IS-N scoped to that
 // issue, the blocker questions surface as clarify items with priority 5. The demo
 // seeds a triaged issue with a blocker question, shows clarify appearing in the
 // issue-scoped queue but not in the global queue, then answers the question to
@@ -782,17 +782,17 @@ func TestDemoCLI_QueueBQClarifyScoped(t *testing.T) {
 	)
 	bqID := extractFirstBQID(rec.steps[len(rec.steps)-1].Stdout)
 
-	// Global solo: BQ-blocked issue's tasks are suppressed — no clarify surfaced here.
-	rec.Run("todo", "solo")
+	// Global queue: BQ-blocked issue's tasks are suppressed — no clarify surfaced here.
+	rec.Run("todo", "queue")
 
-	// Issue-scoped solo: blocker question surfaces as clarify (priority 5).
-	rec.Run("todo", "solo", "--issue="+issueID)
+	// Issue-scoped queue: blocker question surfaces as clarify (priority 5).
+	rec.Run("todo", "queue", "--issue="+issueID)
 
 	// Answer the question; the clarify item should no longer appear.
 	if bqID != "" {
 		rec.Run("question", "answer", strings.TrimPrefix(bqID, "BQ-"), "--answer=ClickHouse — sub-100ms p99 on our workload")
 	}
-	rec.Run("todo", "solo", "--issue="+issueID)
+	rec.Run("todo", "queue", "--issue="+issueID)
 
 	for _, s := range rec.steps {
 		if s.ExitCode != 0 {
@@ -802,10 +802,10 @@ func TestDemoCLI_QueueBQClarifyScoped(t *testing.T) {
 }
 
 // TestDemoCLI_QueueTrackerExcluded is the demo for spec 82: given a tracker-type
-// issue, when solo evaluates the queue, the tracker is excluded because tracker
+// issue, when queue evaluates the queue, the tracker is excluded because tracker
 // issues are closed by their children, not worked directly. The demo seeds a
 // tracker alongside a regular triaged issue with a pending task, then runs
-// dx todo solo to show the tracker does not surface as triage/add/dev/closable
+// dx todo queue to show the tracker does not surface as triage/add/dev/closable
 // while the regular issue's dev task still appears.
 func TestDemoCLI_QueueTrackerExcluded(t *testing.T) {
 	rec := newRecorder(t, "queue-tracker-excluded", "bin/dx")
@@ -830,7 +830,7 @@ func TestDemoCLI_QueueTrackerExcluded(t *testing.T) {
 
 	// Full queue evaluate: the tracker is absent from every regular kind
 	// (triage/add/dev/closable); the distractor issue's [dev] task surfaces.
-	rec.Run("todo", "solo", "--evaluate")
+	rec.Run("todo", "queue", "--evaluate")
 
 	for _, s := range rec.steps {
 		if s.ExitCode != 0 {
@@ -840,7 +840,7 @@ func TestDemoCLI_QueueTrackerExcluded(t *testing.T) {
 }
 
 // TestDemoCLI_ClosableIssueSurfaced is the demo for spec 83: given an issue where
-// all linked tasks are done, when solo evaluates the queue, a closable item is
+// all linked tasks are done, when queue evaluates the queue, a closable item is
 // surfaced at priority 35 indicating the issue can be closed.
 func TestDemoCLI_ClosableIssueSurfaced(t *testing.T) {
 	rec := newRecorder(t, "closable-issue-surfaced", "bin/dx")
@@ -862,12 +862,12 @@ func TestDemoCLI_ClosableIssueSurfaced(t *testing.T) {
 	}
 	rec.Run("todo", "dev", "done", taskID, "--test-plan=certificates renewed and verified on all nodes")
 
-	// Solo queue: with all tasks done, the issue surfaces as closable (priority 35).
+	// Agent queue: with all tasks done, the issue surfaces as closable (priority 35).
 	// The suggested action is dx issue close IS-N --reason=done.
-	rec.Run("todo", "solo")
+	rec.Run("todo", "queue")
 
 	// Issue-scoped: confirm closable surfaces when scoped to this specific issue.
-	rec.Run("todo", "solo", "--issue="+issueID)
+	rec.Run("todo", "queue", "--issue="+issueID)
 
 	for _, s := range rec.steps {
 		if s.ExitCode != 0 {
@@ -887,16 +887,16 @@ func extractFirstBQID(output string) string {
 	return ""
 }
 
-// TestDemoCLI_SoloBootstrapGuidance is the demo for spec 79: when dx todo solo
+// TestDemoCLI_QueueBootstrapGuidance is the demo for spec 79: when dx todo queue
 // is run on an empty project (no issues, no features), it emits a [bootstrap]
 // line with the project slug and guidance directing the user toward onboarding.
-func TestDemoCLI_SoloBootstrapGuidance(t *testing.T) {
-	const name = "solo-bootstrap-cli"
+func TestDemoCLI_QueueBootstrapGuidance(t *testing.T) {
+	const name = "queue-bootstrap-cli"
 	const slug = "demo-" + name
 	rec := newRecorder(t, name, "bin/dx")
 	t.Cleanup(rec.Save)
 
-	rec.Run("todo", "solo")
+	rec.Run("todo", "queue")
 
 	if len(rec.steps) == 0 {
 		t.Fatal("no steps recorded")
@@ -909,28 +909,28 @@ func TestDemoCLI_SoloBootstrapGuidance(t *testing.T) {
 	if !strings.Contains(combined, slug) {
 		t.Errorf("expected slug %q in output, got:\n%s", slug, combined)
 	}
-	if !strings.Contains(combined, "answer") && !strings.Contains(combined, "todo solo") {
+	if !strings.Contains(combined, "answer") && !strings.Contains(combined, "todo queue") {
 		t.Errorf("expected onboarding guidance in output, got:\n%s", combined)
 	}
 }
 
-// TestDemoCLI_SoloOwnerGoalsGate is the demo for spec 53: when dx todo solo runs
+// TestDemoCLI_QueueOwnerGoalsGate is the demo for spec 53: when dx todo queue runs
 // on a project with zero goals, it emits an [owner:goals] gate instructing the
 // user to define a goal before further work proceeds. Once a goal exists, the
-// gate clears and solo advances to the next item.
-func TestDemoCLI_SoloOwnerGoalsGate(t *testing.T) {
-	rec := newRecorder(t, "solo-owner-goals-gate", "bin/dx")
+// gate clears and the queue advances to the next item.
+func TestDemoCLI_QueueOwnerGoalsGate(t *testing.T) {
+	rec := newRecorder(t, "queue-owner-goals-gate", "bin/dx")
 	t.Cleanup(rec.Save)
 
 	// Seed an issue so the [bootstrap] check (zero issues AND zero features) does
 	// not pre-empt the owner:goals gate under test.
 	rec.Run("issue", "add", "--title=Wire up auth middleware", "--auto-ready")
 
-	// With zero goals, solo must emit [owner:goals] and stop.
-	rec.Run("todo", "solo")
+	// With zero goals, the queue must emit [owner:goals] and stop.
+	rec.Run("todo", "queue")
 	gateOut := rec.steps[len(rec.steps)-1].Stdout + rec.steps[len(rec.steps)-1].Stderr
 	if !strings.Contains(gateOut, "[owner:goals]") {
-		t.Errorf("expected '[owner:goals]' in solo output before goal exists, got:\n%s", gateOut)
+		t.Errorf("expected '[owner:goals]' in queue output before goal exists, got:\n%s", gateOut)
 	}
 	if !strings.Contains(gateOut, "dx goal add") {
 		t.Errorf("expected guidance to run 'dx goal add', got:\n%s", gateOut)
@@ -939,8 +939,8 @@ func TestDemoCLI_SoloOwnerGoalsGate(t *testing.T) {
 	// Define a goal — the gate's advance condition.
 	rec.Run("goal", "add", "Ship v1")
 
-	// Solo should no longer emit the owner:goals gate now that a goal exists.
-	rec.Run("todo", "solo")
+	// The queue should no longer emit the owner:goals gate now that a goal exists.
+	rec.Run("todo", "queue")
 	clearedOut := rec.steps[len(rec.steps)-1].Stdout + rec.steps[len(rec.steps)-1].Stderr
 	if strings.Contains(clearedOut, "[owner:goals]") {
 		t.Errorf("did not expect '[owner:goals]' after goal added, got:\n%s", clearedOut)
@@ -953,7 +953,7 @@ func TestDemoCLI_SoloOwnerGoalsGate(t *testing.T) {
 	}
 }
 
-// TestDemoCLI_SoloOwnerConstraintsGate removed in IS-627: zdx_project_constraints
+// TestDemoCLI_QueueOwnerConstraintsGate removed in IS-627: zdx_project_constraints
 // dropped, owner:constraints gate kind no longer emitted, dx constraint CLI gone.
 
 // TestDemoCLI_TodoShowDetail is the demo for spec 81: given an issue, task, or
@@ -1014,7 +1014,7 @@ func extractFirstID(output string) string {
 
 // TestDemoCLI_TriageClarifyQuestions is the demo for spec 73: given an untriaged
 // issue needing human input, when owner triage is run with --clarify and --questions,
-// then blocker questions are created and solo blocks until they are answered. Drives
+// then blocker questions are created and the queue blocks until they are answered. Drives
 // the full --clarify --questions flag surface via CLI exec; uses the API driver for
 // BQ-count and priority verification.
 func TestDemoCLI_TriageClarifyQuestions(t *testing.T) {
@@ -1040,8 +1040,8 @@ func TestDemoCLI_TriageClarifyQuestions(t *testing.T) {
 	if !strings.Contains(clarifyStep.Stdout, "BQ-") {
 		t.Errorf("expected BQ-N line(s) in output, got:\n%s", clarifyStep.Stdout)
 	}
-	if !strings.Contains(clarifyStep.Stdout, "solo will block") {
-		t.Errorf("expected 'solo will block' message in output, got:\n%s", clarifyStep.Stdout)
+	if !strings.Contains(clarifyStep.Stdout, "the queue will block") {
+		t.Errorf("expected 'the queue will block' message in output, got:\n%s", clarifyStep.Stdout)
 	}
 
 	// 3. Verify via API: two pending BQs on this issue, priority still unset.
@@ -1061,14 +1061,14 @@ func TestDemoCLI_TriageClarifyQuestions(t *testing.T) {
 		}
 	}
 
-	// 4. Issue-scoped solo: pending BQs surface as [clarify] items (blocking the issue).
-	rec.Run("todo", "solo", "--issue="+issueID)
-	soloBlocked := rec.steps[len(rec.steps)-1]
-	if soloBlocked.ExitCode != 0 {
-		t.Errorf("solo --issue exited %d:\n%s", soloBlocked.ExitCode, soloBlocked.Stderr)
+	// 4. Issue-scoped queue: pending BQs surface as [clarify] items (blocking the issue).
+	rec.Run("todo", "queue", "--issue="+issueID)
+	queueBlocked := rec.steps[len(rec.steps)-1]
+	if queueBlocked.ExitCode != 0 {
+		t.Errorf("queue --issue exited %d:\n%s", queueBlocked.ExitCode, queueBlocked.Stderr)
 	}
-	if !strings.Contains(soloBlocked.Stdout, "[clarify]") {
-		t.Errorf("expected [clarify] in issue-scoped solo output while BQs pending, got:\n%s", soloBlocked.Stdout)
+	if !strings.Contains(queueBlocked.Stdout, "[clarify]") {
+		t.Errorf("expected [clarify] in issue-scoped queue output while BQs pending, got:\n%s", queueBlocked.Stdout)
 	}
 
 	// 5. Answer both BQs via API.
@@ -1076,17 +1076,17 @@ func TestDemoCLI_TriageClarifyQuestions(t *testing.T) {
 		d.AnswerBlockerQuestion(q.ID, "answered")
 	}
 
-	// 6. Issue-scoped solo after answering: [clarify] gone, issue surfaced for triage.
-	rec.Run("todo", "solo", "--issue="+issueID)
-	soloAfter := rec.steps[len(rec.steps)-1]
-	if soloAfter.ExitCode != 0 {
-		t.Errorf("solo after answering BQs exited %d:\n%s", soloAfter.ExitCode, soloAfter.Stderr)
+	// 6. Issue-scoped queue after answering: [clarify] gone, issue surfaced for triage.
+	rec.Run("todo", "queue", "--issue="+issueID)
+	queueAfter := rec.steps[len(rec.steps)-1]
+	if queueAfter.ExitCode != 0 {
+		t.Errorf("queue after answering BQs exited %d:\n%s", queueAfter.ExitCode, queueAfter.Stderr)
 	}
-	if strings.Contains(soloAfter.Stdout, "[clarify]") {
-		t.Errorf("[clarify] should be gone after all BQs answered, got:\n%s", soloAfter.Stdout)
+	if strings.Contains(queueAfter.Stdout, "[clarify]") {
+		t.Errorf("[clarify] should be gone after all BQs answered, got:\n%s", queueAfter.Stdout)
 	}
-	if !strings.Contains(soloAfter.Stdout, issueID) {
-		t.Errorf("expected %s to resurface in solo after BQs answered, got:\n%s", issueID, soloAfter.Stdout)
+	if !strings.Contains(queueAfter.Stdout, issueID) {
+		t.Errorf("expected %s to resurface in queue after BQs answered, got:\n%s", issueID, queueAfter.Stdout)
 	}
 
 	// 7. Negative: --clarify without --questions must exit non-zero with clear error.
@@ -1148,7 +1148,7 @@ func TestDemoCLI_TodoDevUndone(t *testing.T) {
 	}
 
 	// Confirm the task re-enters the issue-scoped queue.
-	rec.Run("todo", "solo", "--issue="+issueID)
+	rec.Run("todo", "queue", "--issue="+issueID)
 	queueOut := rec.steps[len(rec.steps)-1].Stdout
 	if !strings.Contains(queueOut, taskID) {
 		t.Errorf("expected %s in queue output after undone, got:\n%s", taskID, queueOut)

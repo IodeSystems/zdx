@@ -87,7 +87,7 @@ func (b *ScenarioBuilder) ReviewedFeature(name string) *ScenarioBuilder {
 	return b
 }
 
-// HealthPrereqs sets up goals + journals so solo doesn't gate on health
+// HealthPrereqs sets up goals + journals so the agent queue does not gate on health
 // checks. Constraints were dropped in IS-627 (migration 147 removed
 // zdx_project_constraints + the /api/constraint endpoint); the synthetic
 // owner:constraints health-check is also gone, so seeding constraints is

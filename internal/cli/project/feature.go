@@ -70,7 +70,7 @@ Feature kinds:
 A good feature name is kebab-case and outcome-oriented:
   - "fast-cold-start"          (direct: speeds up the thing users wait on)
   - "test-parallelism"         (multiplier: makes the whole test suite faster)
-  - "solo-agent-queue"         (direct: enables unattended work)
+  - "agent-queue"         (direct: enables unattended work)
 
 Over-specced features (>8 specs) are a signal to decompose using --parent-feature.
 

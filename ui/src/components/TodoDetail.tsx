@@ -325,7 +325,7 @@ export function TodoDetail({ slug, todoKey }: { slug: string; todoKey: string })
         <DialogTitle>Bump priority</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Lower number = earlier in the claim queue. The next solo
+            Lower number = earlier in the claim queue. The next agent
             re-evaluate keeps this value (LEAST clause), so the bump sticks.
             Current: <strong>{todo.priority}</strong>.
           </Typography>

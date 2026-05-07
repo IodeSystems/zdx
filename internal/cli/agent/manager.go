@@ -278,7 +278,7 @@ func installLoopSignalHandler(ctx context.Context, cancel context.CancelFunc, cl
 	}()
 }
 
-// RunManagedLoop atomically claims work via /api/dx/solo/claim, runs a
+// RunManagedLoop atomically claims work via /api/dx/agent/claim, runs a
 // managed session per pick, renews the lease while the session runs, and
 // releases on completion. The shared scaffolding (signal handling, state-
 // file checkpoint, idle backoff, self-update re-exec) is owned here.

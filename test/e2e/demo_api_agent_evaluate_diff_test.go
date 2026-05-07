@@ -7,27 +7,27 @@ import (
 	"time"
 )
 
-// TestDemoAPI_SoloEvaluateDiff is the demo for spec 66 on feature
+// TestDemoAPI_AgentEvaluateDiff is the demo for spec 66 on feature
 // dx-todo-persistence: given an existing persisted queue, when
-// /api/dx/solo/evaluate runs, then a diff is returned with four buckets
+// /api/dx/agent/evaluate runs, then a diff is returned with four buckets
 // (added/removed/changed/unchanged) comparing the persisted todos to a freshly
 // generated queue.
 //
-// Strategy mirrors the integration test (TestSoloEvaluateDiff): seed three
+// Strategy mirrors the integration test (TestAgentEvaluateDiff): seed three
 // untriaged issues so the generator proposes triage-IS-N candidates, persist a
-// deliberately divergent snapshot via /api/dx/solo/apply (one exact, one with
+// deliberately divergent snapshot via /api/dx/agent/apply (one exact, one with
 // a wrong priority, one omitted, one fabricated), then evaluate and inspect
 // each bucket.
-func TestDemoAPI_SoloEvaluateDiff(t *testing.T) {
-	rec := newApiRecorder(t, "solo-evaluate-diff")
-	rec.AddCoderef(coderef{FilePath: "test/e2e/demo_api_solo_evaluate_diff_test.go", Note: "solo-evaluate-diff demo source"})
-	rec.AddCoderef(coderef{FilePath: "internal/server/handlers/handlers_solo.go", LineStart: 809, LineEnd: 870, Note: "POST /api/dx/solo/evaluate computes added/removed/changed/unchanged"})
+func TestDemoAPI_AgentEvaluateDiff(t *testing.T) {
+	rec := newApiRecorder(t, "agent-evaluate-diff")
+	rec.AddCoderef(coderef{FilePath: "test/e2e/demo_api_solo_evaluate_diff_test.go", Note: "agent-evaluate-diff demo source"})
+	rec.AddCoderef(coderef{FilePath: "internal/server/handlers/handlers_solo.go", LineStart: 809, LineEnd: 870, Note: "POST /api/dx/agent/evaluate computes added/removed/changed/unchanged"})
 	t.Cleanup(rec.Save)
 
 	const slug = "demo-evaluate-diff"
 	mustOK(t, rec.Do(http.MethodPost, "/api/project", map[string]any{
 		"slug": slug,
-		"name": "Demo Solo Evaluate Diff",
+		"name": "Demo Agent Evaluate Diff",
 	}, nil))
 
 	addIssue := func(title, ctx string) int32 {
@@ -54,16 +54,16 @@ func TestDemoAPI_SoloEvaluateDiff(t *testing.T) {
 
 	// Capture the proposed queue once so we can craft a divergent snapshot.
 	var initial struct {
-		Added     []SoloQueueItem  `json:"added"`
+		Added     []AgentQueueItem `json:"added"`
 		Removed   []TodoItem       `json:"removed"`
 		Changed   []EvaluateChange `json:"changed"`
-		Unchanged []SoloQueueItem  `json:"unchanged"`
+		Unchanged []AgentQueueItem `json:"unchanged"`
 	}
-	mustOK(t, rec.Do(http.MethodPost, "/api/dx/solo/evaluate", map[string]any{
+	mustOK(t, rec.Do(http.MethodPost, "/api/dx/agent/evaluate", map[string]any{
 		"slug": slug, "issue": "",
 	}, &initial))
 
-	proposed := append([]SoloQueueItem{}, initial.Added...)
+	proposed := append([]AgentQueueItem{}, initial.Added...)
 	proposed = append(proposed, initial.Unchanged...)
 	for _, c := range initial.Changed {
 		proposed = append(proposed, c.After)
@@ -75,7 +75,7 @@ func TestDemoAPI_SoloEvaluateDiff(t *testing.T) {
 	// uses LEAST(existing, EXCLUDED) so an operator-style bump survives
 	// re-evaluate (commit 2625eb18); a higher number is silently dropped and
 	// the diff has nothing to detect.
-	var applyItems []SoloQueueItem
+	var applyItems []AgentQueueItem
 	for _, it := range proposed {
 		switch it.Key {
 		case keyX:
@@ -90,24 +90,24 @@ func TestDemoAPI_SoloEvaluateDiff(t *testing.T) {
 			applyItems = append(applyItems, it)
 		}
 	}
-	applyItems = append(applyItems, SoloQueueItem{
+	applyItems = append(applyItems, AgentQueueItem{
 		Key: keyFake, Kind: "triage", Text: "sentinel from a prior evaluation",
 		TargetType: "project", TargetID: slug,
 		Priority: 50, Persona: "owner", Status: "open",
 	})
 
-	mustOK(t, rec.Do(http.MethodPost, "/api/dx/solo/apply", map[string]any{
+	mustOK(t, rec.Do(http.MethodPost, "/api/dx/agent/apply", map[string]any{
 		"slug": slug, "items": applyItems,
 	}, nil))
 
 	// Evaluate again — the response is the diff between the persisted snapshot
 	// and the freshly generated proposal.
 	var diff EvaluateDiffResult
-	mustOK(t, rec.Do(http.MethodPost, "/api/dx/solo/evaluate", map[string]any{
+	mustOK(t, rec.Do(http.MethodPost, "/api/dx/agent/evaluate", map[string]any{
 		"slug": slug, "issue": "",
 	}, &diff))
 
-	containsKey := func(items []SoloQueueItem, key string) bool {
+	containsKey := func(items []AgentQueueItem, key string) bool {
 		for _, it := range items {
 			if it.Key == key {
 				return true

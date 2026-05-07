@@ -19,7 +19,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/workflowhints"
 )
 
-type soloCandidate struct {
+type agentCandidate struct {
 	Key           string
 	Title         string
 	Description   string
@@ -52,8 +52,8 @@ func foldIssuePriority(base int32, issuePriority string) int32 {
 	return base - int32(5-p)*5
 }
 
-func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueFilter string, autonomousMode bool) ([]soloCandidate, error) {
-	var candidates []soloCandidate
+func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issueFilter string, autonomousMode bool) ([]agentCandidate, error) {
+	var candidates []agentCandidate
 
 	issues, err := h.Q.ListOpenIssues(ctx, projectID)
 	if err != nil {
@@ -125,7 +125,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			for _, iss := range issues {
 				if iss.ID == q.TargetID {
 					if issueFilter != "" {
-						candidates = append(candidates, soloCandidate{
+						candidates = append(candidates, agentCandidate{
 							Key:           fmt.Sprintf("bq-%d", q.ID),
 							Title:         fmt.Sprintf("Answer BQ-%d on %s", q.ID, iss.ID),
 							Description:   q.Context,
@@ -165,7 +165,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 	if issueFilter != "" && len(ancestorBlocked) > 0 {
 		for _, iss := range issues {
 			if reason, blocked := ancestorBlocked[iss.ID]; blocked {
-				candidates = append(candidates, soloCandidate{
+				candidates = append(candidates, agentCandidate{
 					Key:           fmt.Sprintf("ancestor-blocked-%s", iss.ID),
 					Title:         fmt.Sprintf("%s gated: %s", iss.ID, reason),
 					Description:   reason,
@@ -203,7 +203,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 	// IS-1040: prior to per-target read tracking this listed every issue with
 	// any comment, so the synthetic todo regenerated every iteration and the
 	// agent could never clear it. The seen high-water mark advances when
-	// solo/release resolves a read:comments todo, so subsequent regens skip
+	// agent/release resolves a read:comments todo, so subsequent regens skip
 	// targets the agent has already processed.
 	//
 	// IS-687 / TK-1455: even with the watermark, an agent reply (new comment
@@ -235,7 +235,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 				continue
 			}
 			hint := workflowhints.UnreadCommentsText(iss.ID, iss.Title)
-			candidates = append(candidates, soloCandidate{
+			candidates = append(candidates, agentCandidate{
 				Key:         fmt.Sprintf("comment-issue-%s", iss.ID),
 				Title:       hint.Title,
 				Description: hint.Description,
@@ -252,7 +252,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			pendingFeatures, _ := h.Q.ListFeaturesWithPendingComments(ctx, projectID)
 			for _, featureID := range pendingFeatures {
 				hint := workflowhints.UnreadFeatureCommentsText(featureID)
-				candidates = append(candidates, soloCandidate{
+				candidates = append(candidates, agentCandidate{
 					Key:         fmt.Sprintf("comment-feature-%s", featureID),
 					Title:       hint.Title,
 					Description: hint.Description,
@@ -271,7 +271,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 	if issueFilter == "" {
 		unanswered, _ := h.Q.ListUnansweredQuestions(ctx, projectID)
 		for _, q := range unanswered {
-			candidates = append(candidates, soloCandidate{
+			candidates = append(candidates, agentCandidate{
 				Key:         fmt.Sprintf("qa-%d", q.ID),
 				Title:       fmt.Sprintf("Answer QA-%d", q.ID),
 				Description: q.Question,
@@ -296,7 +296,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			}
 			dsID := fmt.Sprintf("DS-%d", d.ID)
 			dh := workflowhints.RespondDiscussionText(dsID, title, d.Content)
-			candidates = append(candidates, soloCandidate{
+			candidates = append(candidates, agentCandidate{
 				Key:         fmt.Sprintf("discussion-%d", d.ID),
 				Title:       dh.Title,
 				Description: dh.Description,
@@ -315,7 +315,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		goalCount, _ := h.Q.CountProjectGoals(ctx, projectID)
 		if goalCount == 0 {
 			gh := workflowhints.NoGoalsText()
-			candidates = append(candidates, soloCandidate{
+			candidates = append(candidates, agentCandidate{
 				Key: "health-goals", Title: gh.Title, Description: gh.Description, Text: gh.Instructions,
 				Kind: "owner:goals", TargetType: "project", Priority: 15, Persona: "owner",
 			})
@@ -333,7 +333,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			if ownerDate != "" {
 				if t, err := time.Parse("2006-01-02", ownerDate); err == nil && now.Sub(t) > 7*24*time.Hour {
 					oh := workflowhints.StandupOverdueText("owner")
-					candidates = append(candidates, soloCandidate{
+					candidates = append(candidates, agentCandidate{
 						Key: "health-owner-standup", Title: oh.Title, Description: oh.Description, Text: oh.Instructions,
 						Kind: "owner:standup", TargetType: "project", Priority: 18, Persona: "owner",
 					})
@@ -342,7 +342,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			if techDate != "" {
 				if t, err := time.Parse("2006-01-02", techDate); err == nil && now.Sub(t) > 7*24*time.Hour {
 					th := workflowhints.StandupOverdueText("tech")
-					candidates = append(candidates, soloCandidate{
+					candidates = append(candidates, agentCandidate{
 						Key: "health-tech-standup", Title: th.Title, Description: th.Description, Text: th.Instructions,
 						Kind: "tech:standup", TargetType: "project", Priority: 18, Persona: "tech",
 					})
@@ -353,7 +353,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		for _, r := range []string{"owner", "tech"} {
 			if _, err := h.Q.GetUnreviewedJournalEntry(ctx, db.GetUnreviewedJournalEntryParams{ProjectID: projectID, Role: r}); err == nil {
 				jh := workflowhints.JournalReviewText(r)
-				candidates = append(candidates, soloCandidate{
+				candidates = append(candidates, agentCandidate{
 					Key: fmt.Sprintf("journal-review-%s", r), Title: jh.Title, Description: jh.Description, Text: jh.Instructions,
 					Kind: r + ":journal-review", TargetType: "project", Priority: 20, Persona: r,
 				})
@@ -365,7 +365,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 	for _, iss := range issues {
 		if iss.Priority == "" {
 			th := workflowhints.TriageText(iss.ID, iss.Title)
-			candidates = append(candidates, soloCandidate{
+			candidates = append(candidates, agentCandidate{
 				Key:         fmt.Sprintf("triage-%s", iss.ID),
 				Title:       th.Title,
 				Description: th.Description,
@@ -386,7 +386,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			specs, _ := h.Q.ListSpecs(ctx, f.ID)
 			if len(specs) == 0 {
 				sh := workflowhints.NoSpecsText(f.Name)
-				candidates = append(candidates, soloCandidate{
+				candidates = append(candidates, agentCandidate{
 					Key:         fmt.Sprintf("spec-missing-%s", f.Name),
 					Title:       sh.Title,
 					Description: sh.Description,
@@ -403,7 +403,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		staleFeatures, _ := h.Q.ListStaleFeatures(ctx, db.ListStaleFeaturesParams{ProjectID: projectID, StaleDays: 30})
 		for _, f := range staleFeatures {
 			sfh := workflowhints.StaleFeatureText(f.Name)
-			candidates = append(candidates, soloCandidate{
+			candidates = append(candidates, agentCandidate{
 				Key:         fmt.Sprintf("review-feature-%s", f.Name),
 				Title:       sfh.Title,
 				Description: sfh.Description,
@@ -430,7 +430,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 				continue
 			}
 			nth := workflowhints.NoTestRefsText(sp.ID, sp.Description, sp.FeatureName)
-			candidates = append(candidates, soloCandidate{
+			candidates = append(candidates, agentCandidate{
 				Key:         fmt.Sprintf("test-ref-%d", sp.ID),
 				Title:       nth.Title,
 				Description: nth.Description,
@@ -446,7 +446,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		demoGaps, _ := h.Q.ListSpecsWithoutDemos(ctx, projectID)
 		for _, sp := range demoGaps {
 			dh := workflowhints.DemoGapText(sp.ID, sp.Description, sp.FeatureName)
-			candidates = append(candidates, soloCandidate{
+			candidates = append(candidates, agentCandidate{
 				Key:         fmt.Sprintf("demo-gap-%d", sp.ID),
 				Title:       dh.Title,
 				Description: dh.Description,
@@ -484,7 +484,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			if strings.HasPrefix(it.Kind, "tech:") {
 				persona = "tech"
 			}
-			candidates = append(candidates, soloCandidate{
+			candidates = append(candidates, agentCandidate{
 				Key:         fmt.Sprintf("maturity-%d", it.ID),
 				Title:       mh.Title,
 				Description: mh.Description,
@@ -509,7 +509,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		if len(children) == 0 {
 			// Tracker has no children — needs decomposition
 			dth := workflowhints.DecomposeTrackerText(iss.ID)
-			candidates = append(candidates, soloCandidate{
+			candidates = append(candidates, agentCandidate{
 				Key:         fmt.Sprintf("decompose-tracker-%s", iss.ID),
 				Title:       dth.Title,
 				Description: dth.Description,
@@ -534,7 +534,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			continue
 		}
 		cth := workflowhints.CloseTrackerText(iss.ID)
-		candidates = append(candidates, soloCandidate{
+		candidates = append(candidates, agentCandidate{
 			Key:         fmt.Sprintf("close-tracker-%s", iss.ID),
 			Title:       cth.Title,
 			Description: cth.Description,
@@ -554,7 +554,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		readySpecs, _ := h.Q.ListSpecsWithAllBlockersClosed(ctx)
 		for _, sp := range readySpecs {
 			rds := workflowhints.ReviewDeferredSpecText(sp.ID, sp.Description)
-			candidates = append(candidates, soloCandidate{
+			candidates = append(candidates, agentCandidate{
 				Key:         fmt.Sprintf("review-deferred-spec-%d", sp.ID),
 				Title:       rds.Title,
 				Description: rds.Description,
@@ -586,7 +586,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		if !hasPending {
 			if len(tasks) > 0 && allDone {
 				clh := workflowhints.ClosableIssueText(iss.ID, iss.Title)
-				candidates = append(candidates, soloCandidate{
+				candidates = append(candidates, agentCandidate{
 					Key:          fmt.Sprintf("closable-%s", iss.ID),
 					Title:        clh.Title,
 					Description:  clh.Description,
@@ -601,7 +601,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 				})
 			} else if len(tasks) == 0 {
 				dih := workflowhints.DecomposeIssueText(iss.ID, iss.Title)
-				candidates = append(candidates, soloCandidate{
+				candidates = append(candidates, agentCandidate{
 					Key:          fmt.Sprintf("add-%s", iss.ID),
 					Title:        dih.Title,
 					Description:  dih.Description,
@@ -631,7 +631,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 				if targetBranch == "" || targetBranch == "dev" {
 					targetBranch = iss.TargetBranch
 				}
-				candidates = append(candidates, soloCandidate{
+				candidates = append(candidates, agentCandidate{
 					Key:          fmt.Sprintf("dev-%s", t.ID),
 					Title:        dth.Title,
 					Description:  dth.Description,
@@ -653,7 +653,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		orphans, _ := h.Q.ListOrphanReadyTasks(ctx, projectID)
 		for _, t := range orphans {
 			oth := workflowhints.OrphanTaskText(t.ID, t.Title)
-			candidates = append(candidates, soloCandidate{
+			candidates = append(candidates, agentCandidate{
 				Key:         fmt.Sprintf("orphan-%s", t.ID),
 				Title:       oth.Title,
 				Description: oth.Description,
@@ -689,7 +689,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 	return candidates, nil
 }
 
-type SoloQueueItem struct {
+type AgentQueueItem struct {
 	Key             string `json:"key"`
 	Title           string `json:"title,omitempty"`
 	Description     string `json:"description,omitempty"`
@@ -760,15 +760,15 @@ func suggestedActionForKind(kind, targetType, targetID string) string {
 }
 
 type EvaluateChange struct {
-	Before TodoItem      `json:"before"`
-	After  SoloQueueItem `json:"after"`
+	Before TodoItem       `json:"before"`
+	After  AgentQueueItem `json:"after"`
 }
 
 type EvaluateDiff struct {
-	Added     []SoloQueueItem  `json:"added"`
+	Added     []AgentQueueItem `json:"added"`
 	Removed   []TodoItem       `json:"removed"`
 	Changed   []EvaluateChange `json:"changed"`
-	Unchanged []SoloQueueItem  `json:"unchanged"`
+	Unchanged []AgentQueueItem `json:"unchanged"`
 }
 
 // loadExistingBlockedByKey returns maps of key→blocked and key→blocked_reason
@@ -796,12 +796,12 @@ func loadExistingBlockedByKey(ctx context.Context, q *db.Queries, projectID int3
 	return
 }
 
-// refreshQueueAsync regenerates and applies the solo queue for a project in the background.
+// refreshQueueAsync regenerates and applies the agent queue for a project in the background.
 // Call fire-and-forget after any state mutation that affects queue composition.
 func (h *Handler) refreshQueueAsync(projectID int32) {
 	go func() {
 		ctx := context.Background()
-		proposed, err := h.generateSoloQueue(ctx, projectID, "", false)
+		proposed, err := h.generateAgentQueue(ctx, projectID, "", false)
 		if err != nil {
 			return
 		}
@@ -843,10 +843,10 @@ func (h *Handler) refreshQueueAsync(projectID int32) {
 	}()
 }
 
-func (h *Handler) registerSoloRoutes(api huma.API) {
+func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 
-	// GET /api/dx/solo — return persisted todo queue
-	huma.Register(api, huma.Operation{OperationID: "list-solo-queue", Method: http.MethodGet, Path: "/api/dx/solo"},
+	// GET /api/dx/agent — return persisted todo queue
+	huma.Register(api, huma.Operation{OperationID: "list-agent-queue", Method: http.MethodGet, Path: "/api/dx/agent/queue"},
 		func(ctx context.Context, in *struct {
 			Slug    string `query:"slug" required:"true"`
 			Issue   string `query:"issue"`
@@ -893,8 +893,8 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			return &struct{ Body []TodoItem }{Body: out}, nil
 		})
 
-	// POST /api/dx/solo/evaluate — regenerate queue, diff against persisted
-	huma.Register(api, huma.Operation{OperationID: "solo-evaluate", Method: http.MethodPost, Path: "/api/dx/solo/evaluate"},
+	// POST /api/dx/agent/evaluate — regenerate queue, diff against persisted
+	huma.Register(api, huma.Operation{OperationID: "agent-evaluate", Method: http.MethodPost, Path: "/api/dx/agent/queue/evaluate"},
 		func(ctx context.Context, in *struct {
 			Body struct {
 				Slug  string `json:"slug"`
@@ -908,7 +908,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				return nil, err
 			}
 
-			proposed, err := h.generateSoloQueue(ctx, p.ID, in.Body.Issue, false)
+			proposed, err := h.generateAgentQueue(ctx, p.ID, in.Body.Issue, false)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -925,15 +925,15 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			}
 
 			diff := EvaluateDiff{
-				Added:     []SoloQueueItem{},
+				Added:     []AgentQueueItem{},
 				Removed:   []TodoItem{},
 				Changed:   []EvaluateChange{},
-				Unchanged: []SoloQueueItem{},
+				Unchanged: []AgentQueueItem{},
 			}
 			proposedKeys := map[string]bool{}
 			for _, c := range proposed {
 				proposedKeys[c.Key] = true
-				item := SoloQueueItem{
+				item := AgentQueueItem{
 					Key: c.Key, Title: c.Title, Description: c.Description, Text: c.Text, Kind: c.Kind,
 					TargetType: c.TargetType, TargetID: c.TargetID,
 					IssueRef: c.IssueRef, TargetBranch: c.TargetBranch, Priority: c.Priority,
@@ -961,12 +961,12 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			return &struct{ Body EvaluateDiff }{Body: diff}, nil
 		})
 
-	// POST /api/dx/solo/apply — apply an evaluated queue (upsert proposed, resolve stale)
-	huma.Register(api, huma.Operation{OperationID: "solo-apply", Method: http.MethodPost, Path: "/api/dx/solo/apply"},
+	// POST /api/dx/agent/apply — apply an evaluated queue (upsert proposed, resolve stale)
+	huma.Register(api, huma.Operation{OperationID: "agent-apply", Method: http.MethodPost, Path: "/api/dx/agent/queue/apply"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug  string          `json:"slug"`
-				Items []SoloQueueItem `json:"items"`
+				Slug  string           `json:"slug"`
+				Items []AgentQueueItem `json:"items"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
@@ -1010,12 +1010,12 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
-	// POST /api/dx/solo/claim — generate queue, merge, claim next unclaimed todo
-	type soloClaimBody struct {
+	// POST /api/dx/agent/claim — generate queue, merge, claim next unclaimed todo
+	type agentClaimBody struct {
 		TodoItem
 		Debug *DebugOutput `json:"debug,omitempty"`
 	}
-	huma.Register(api, huma.Operation{OperationID: "solo-claim", Method: http.MethodPost, Path: "/api/dx/solo/claim"},
+	huma.Register(api, huma.Operation{OperationID: "agent-claim", Method: http.MethodPost, Path: "/api/dx/agent/claim"},
 		func(ctx context.Context, in *struct {
 			Debug       string `query:"debug" required:"false"`
 			XAtlasDebug string `header:"X-Atlas-Debug" required:"false"`
@@ -1025,7 +1025,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				LeaseMinutes int32  `json:"lease_minutes" required:"false"`
 				Mode         string `json:"mode" required:"false"`
 			}
-		}) (*struct{ Body soloClaimBody }, error) {
+		}) (*struct{ Body agentClaimBody }, error) {
 			var err error
 			ctx, _, err = debugStart(ctx, in.Debug, in.XAtlasDebug)
 			if err != nil {
@@ -1049,7 +1049,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 						})
 					}
 				}
-				proposed, err := h.generateSoloQueue(ctx, p.ID, "", autonomous)
+				proposed, err := h.generateAgentQueue(ctx, p.ID, "", autonomous)
 				if err != nil {
 					return nil, err
 				}
@@ -1128,7 +1128,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 					if err != nil {
 						continue
 					}
-					return &struct{ Body soloClaimBody }{Body: soloClaimBody{TodoItem: *item, Debug: debugOutput(ctx)}}, nil
+					return &struct{ Body agentClaimBody }{Body: agentClaimBody{TodoItem: *item, Debug: debugOutput(ctx)}}, nil
 				}
 				return nil, apiErr(404, "no claimable todo items")
 			}
@@ -1142,18 +1142,18 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				h.maybeAutoFileQueueStall(ctx, p.ID, p.Slug)
 				return nil, apiErr(404, "no claimable todo items")
 			}
-			return &struct{ Body soloClaimBody }{Body: soloClaimBody{TodoItem: *item, Debug: debugOutput(ctx)}}, nil
+			return &struct{ Body agentClaimBody }{Body: agentClaimBody{TodoItem: *item, Debug: debugOutput(ctx)}}, nil
 		})
 
-	// POST /api/dx/solo/claim-any — cross-project claim for unpinned global agents.
+	// POST /api/dx/agent/claim-any — cross-project claim for unpinned global agents.
 	// Refreshes every project's persisted queue in priority order (so
-	// generateSoloQueue's invariants — same as the per-project /claim path —
+	// generateAgentQueue's invariants — same as the per-project /claim path —
 	// hold here too: stale persisted state can't cause a missed claim), then
 	// runs a single atomic ClaimNextTodoAny that picks the best todo across
 	// projects ordered by project.priority, todo.priority, created_at. The
 	// claimed item carries project_slug so the caller can route follow-up
 	// API calls to the right namespace. See docs/plan.md GAPD phase 3.
-	huma.Register(api, huma.Operation{OperationID: "solo-claim-any", Method: http.MethodPost, Path: "/api/dx/solo/claim-any"},
+	huma.Register(api, huma.Operation{OperationID: "agent-claim-any", Method: http.MethodPost, Path: "/api/dx/agent/claim-any"},
 		func(ctx context.Context, in *struct {
 			Debug       string `query:"debug" required:"false"`
 			XAtlasDebug string `header:"X-Atlas-Debug" required:"false"`
@@ -1162,7 +1162,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				LeaseMinutes int32  `json:"lease_minutes" required:"false"`
 				Mode         string `json:"mode" required:"false"`
 			}
-		}) (*struct{ Body soloClaimBody }, error) {
+		}) (*struct{ Body agentClaimBody }, error) {
 			var err error
 			ctx, _, err = debugStart(ctx, in.Debug, in.XAtlasDebug)
 			if err != nil {
@@ -1190,7 +1190,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 						})
 					}
 				}
-				proposed, err := h.generateSoloQueue(ctx, p.ID, "", autonomous)
+				proposed, err := h.generateAgentQueue(ctx, p.ID, "", autonomous)
 				if err != nil {
 					trace.Note(ctx, "queue_refresh_skipped", map[string]any{"slug": p.Slug, "err": err.Error()})
 					continue
@@ -1248,10 +1248,10 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				LeaseExpiresAt: row.LeaseExpiresAt,
 			})
 			item := toTodoItemFromAnyClaim(row)
-			return &struct{ Body soloClaimBody }{Body: soloClaimBody{TodoItem: item, Debug: debugOutput(ctx)}}, nil
+			return &struct{ Body agentClaimBody }{Body: agentClaimBody{TodoItem: item, Debug: debugOutput(ctx)}}, nil
 		})
 
-	// POST /api/dx/solo/release — release or resolve a claimed todo
+	// POST /api/dx/agent/release — release or resolve a claimed todo
 	//
 	// When resolve=true the todo is marked resolved. Two guards prevent a
 	// resolve from sticking when the underlying work isn't actually done:
@@ -1264,7 +1264,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 	//
 	// The reopen_count churn guard (auto-block at 3+ reopens) remains as a
 	// secondary safety net in UpsertTodo.
-	huma.Register(api, huma.Operation{OperationID: "solo-release", Method: http.MethodPost, Path: "/api/dx/solo/release"},
+	huma.Register(api, huma.Operation{OperationID: "agent-release", Method: http.MethodPost, Path: "/api/dx/agent/release"},
 		func(ctx context.Context, in *struct {
 			Body struct {
 				ID          int32        `json:"id"`
@@ -1331,7 +1331,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			// the agent has examined the comments either way), advance the
 			// per-target seen watermark. Without this the regenerator emits the
 			// same synthetic candidate next iteration and the loop spins. We
-			// run it before the post-resolve cycle check below so generateSoloQueue
+			// run it before the post-resolve cycle check below so generateAgentQueue
 			// reflects the new watermark and won't false-positive a cycle.
 			if todo.ID != 0 && todo.Kind == "read:comments" && todo.TargetType != "" && todo.TargetID != "" {
 				_ = h.Q.MarkTargetCommentsSeen(ctx, db.MarkTargetCommentsSeenParams{
@@ -1360,7 +1360,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				// Post-resolve cycle check: if we just resolved a todo, regenerate
 				// the queue and see if the same key would come back. If so, the
 				// agent cannot fix this — auto-block to prevent infinite loops.
-				candidates, err := h.generateSoloQueue(ctx, todo.ProjectID, "", true)
+				candidates, err := h.generateAgentQueue(ctx, todo.ProjectID, "", true)
 				if err == nil {
 					for _, c := range candidates {
 						if c.Key == todo.Key {
@@ -1392,8 +1392,8 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			}{OK: true, CycleDetected: cycleDetected}}, nil
 		})
 
-	// GET /api/dx/solo/claims — list all active todo + task claims (unexpired leases)
-	huma.Register(api, huma.Operation{OperationID: "solo-list-claims", Method: http.MethodGet, Path: "/api/dx/solo/claims"},
+	// GET /api/dx/agent/claims — list all active todo + task claims (unexpired leases)
+	huma.Register(api, huma.Operation{OperationID: "agent-list-claims", Method: http.MethodGet, Path: "/api/dx/agent/claims"},
 		func(ctx context.Context, in *struct {
 			Slug string `query:"slug" required:"true"`
 		}) (*struct {
@@ -1468,8 +1468,8 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			}{Todos: todos, Tasks: tasks}}, nil
 		})
 
-	// POST /api/dx/solo/unblock-all — clear blocked flag on all open blocked todos
-	huma.Register(api, huma.Operation{OperationID: "solo-unblock-all", Method: http.MethodPost, Path: "/api/dx/solo/unblock-all"},
+	// POST /api/dx/agent/unblock-all — clear blocked flag on all open blocked todos
+	huma.Register(api, huma.Operation{OperationID: "agent-unblock-all", Method: http.MethodPost, Path: "/api/dx/agent/queue/unblock-all"},
 		func(ctx context.Context, in *struct {
 			Body struct {
 				Slug string `json:"slug" required:"true"`
@@ -1496,9 +1496,9 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			}{OK: true}}, nil
 		})
 
-	// GET /api/dx/solo/reservations — list historical + active reservations for a project
+	// GET /api/dx/agent/reservations — list historical + active reservations for a project
 	// Optional issue_id param filters to reservations whose todo targets that issue.
-	huma.Register(api, huma.Operation{OperationID: "solo-list-reservations", Method: http.MethodGet, Path: "/api/dx/solo/reservations"},
+	huma.Register(api, huma.Operation{OperationID: "agent-list-reservations", Method: http.MethodGet, Path: "/api/dx/agent/reservations"},
 		func(ctx context.Context, in *struct {
 			Slug    string `query:"slug" required:"true"`
 			IssueID string `query:"issue_id" required:"false"`
@@ -1576,8 +1576,8 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			}{Reservations: items}}, nil
 		})
 
-	// POST /api/dx/solo/renew — extend lease on a claimed todo
-	huma.Register(api, huma.Operation{OperationID: "solo-renew", Method: http.MethodPost, Path: "/api/dx/solo/renew"},
+	// POST /api/dx/agent/renew — extend lease on a claimed todo
+	huma.Register(api, huma.Operation{OperationID: "agent-renew", Method: http.MethodPost, Path: "/api/dx/agent/renew"},
 		func(ctx context.Context, in *struct {
 			Body struct {
 				ID           int32  `json:"id"`

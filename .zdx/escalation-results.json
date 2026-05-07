@@ -1,0 +1,7 @@
+[
+  {
+    "test_name": "TestDemoCLI_AgentForceContainerBlocksHost",
+    "action": "failed",
+    "fingerprint": "test failure: TestDemoCLI_AgentForceContainerBlocksHost runner=api error=demo_cli_agent_force_container_test.go:92: gate set: error missing \"spec-117\" in stderr: \"error: dx agent requires a project config with a remote slug\\n\""
+  }
+]

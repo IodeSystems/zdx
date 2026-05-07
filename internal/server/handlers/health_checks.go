@@ -22,7 +22,7 @@ type HealthOutput struct {
 	Subsystems map[string]SubsystemState `json:"subsystems"`
 }
 
-// checkQueue probes the solo-queue worker subsystem. Reports the count of
+// checkQueue probes the agent-queue worker subsystem. Reports the count of
 // unclaimed open todos as `depth`. Per IS-809, this subsystem is non-fatal:
 // queue health never degrades the top-level status.
 func (h *Handler) checkQueue(ctx context.Context) SubsystemState {

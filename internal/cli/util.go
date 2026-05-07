@@ -95,7 +95,7 @@ type ClaimBase struct {
 // FetchClaimBase looks up the active claim for issueRef from the list-claims
 // endpoint. Returns zero-value ClaimBase if unavailable.
 func (c *Client) FetchClaimBase(slug, issueRef string) ClaimBase {
-	resp, err := c.SoloListClaimsWithResponse(context.Background(), &dxclient.SoloListClaimsParams{Slug: slug})
+	resp, err := c.AgentListClaimsWithResponse(context.Background(), &dxclient.AgentListClaimsParams{Slug: slug})
 	if err != nil || resp.JSON200 == nil || resp.JSON200.Todos == nil {
 		return ClaimBase{}
 	}

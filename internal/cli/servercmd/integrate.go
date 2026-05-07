@@ -110,7 +110,7 @@ func IntegrateCmd() *cobra.Command {
 				}
 			}
 
-			fmt.Printf("ready:   dx todo solo\n")
+			fmt.Printf("ready:   dx todo queue\n")
 			return nil
 		},
 	}

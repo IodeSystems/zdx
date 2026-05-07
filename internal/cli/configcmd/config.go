@@ -377,7 +377,7 @@ func configRegisterCmd() *cobra.Command {
 			}
 			writeRemoteSlug(slug)
 			fmt.Printf("slug written to .zdx/config.yaml\n")
-			fmt.Printf("ready: dx todo solo\n")
+			fmt.Printf("ready: dx todo queue\n")
 			return nil
 		},
 	}

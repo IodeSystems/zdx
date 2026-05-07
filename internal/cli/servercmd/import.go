@@ -122,7 +122,7 @@ func ImportCmd() *cobra.Command {
 				}
 			}
 
-			fmt.Println("ready:   dx todo solo")
+			fmt.Println("ready:   dx todo queue")
 			return nil
 		},
 	}

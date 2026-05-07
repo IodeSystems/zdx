@@ -155,7 +155,7 @@ func (a *opencodeAdapter) Start(ctx context.Context, sid, issueID, alias string)
 		if issueID != "" {
 			user = fmt.Sprintf("Work the vertical for %s. Use run_bash to invoke `dx` CLI commands (issue show, comment add, todo dev start/done, ...) for project state, and filesystem tools to implement code. Stop when the issue is closed.", issueID)
 		} else {
-			user = "Use run_bash to call `dx todo solo` to pick the next item, then work it. Stop when idle."
+			user = "Use run_bash to call `dx agent claim` to pick the next item, then work it. Stop when idle."
 		}
 	}
 

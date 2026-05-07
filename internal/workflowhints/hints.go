@@ -1,7 +1,7 @@
 // Package workflowhints centralizes the workflow-guidance strings surfaced to
 // LLM agents and CLI users. Keeping hints in one place means that changing a
 // workflow rule (e.g. how to handle similar issues, or what counts as a valid
-// test plan) updates every surface — solo queue candidates, MCP tool
+// test plan) updates every surface — agent queue candidates, MCP tool
 // responses, and CLI output — in lock-step.
 //
 // Every *Text builder returns self-contained agent-actionable text. An LLM
@@ -15,7 +15,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/todoclaim"
 )
 
-// Hint is the structured return type for solo-queue candidate builders.
+// Hint is the structured return type for agent-queue candidate builders.
 // Title and Description are persisted in zdx_todos; Instructions are generated
 // at read time and not stored.
 type Hint struct {
@@ -57,7 +57,7 @@ const PostWorkDXAnalysisFragment = "\n\nPost-work: if you flailed on a command, 
 const StopAfterVerticalFragment = "\n\nOne vertical per session — stop after this issue is closed and shipped."
 
 // TriageChecklist is the checklist block printed after the triage context
-// (active focuses/goals + similar issues) in `dx todo solo`.
+// (active focuses/goals + similar issues) in `dx todo queue`.
 const TriageChecklist = `  triage checklist:
     1. verify independently (reproduce or read the code)
     2. dup-check: scan the 'similar issues' list above (and dx issue list for wider context).
@@ -71,12 +71,12 @@ const TriageChecklist = `  triage checklist:
          ops    = one-time verifiable action (demo/test plan required)
          impl   = durable code change (resolution link required to close)
          ask    = investigation/research/justification (no test plan; may spawn follow-up issues)
-         tracker = umbrella issue (closed by its children; solo skips it)
+         tracker = umbrella issue (closed by its children; the agent queue skips it)
     if the issue is too vague to triage, create clarification questions instead:
       dx question add --target-type=issue --target-id=IS-N --context="<question>" --choices="opt1,opt2,..."
       - prefer --choices when the question has enumerable options; do not embed numbered/lettered lists in freeform --context
       - for multi-stage questions (answer to Q1 changes Q2+), ask only the first stage now; file follow-ups after the answer arrives
-    solo will block progress on the issue until all questions are answered.
+    the queue will block progress on the issue until all questions are answered.
 `
 
 // ContractFooter returns the one-line claim-contract footer for the given
@@ -148,8 +148,8 @@ func MissingTestRefsError(taskID, issueRef string) error {
 	)
 }
 
-// ── Solo queue candidate text ──────────────────────────────────────────────
-// Each function returns the full agent-actionable text for a solo candidate.
+// ── Agent queue candidate text ──────────────────────────────────────────────
+// Each function returns the full agent-actionable text for a agent candidate.
 // The text should be self-contained: an agent reading ONLY this text should
 // know exactly what to do without consulting any skill file.
 
@@ -174,7 +174,7 @@ func TriageText(issueID, title string) Hint {
 				"5. Rewrite prescriptively — title = intended outcome (not symptom); context covers (a) what should happen, (b) what did happen, (c) implementation direction if known.\n"+
 				"6. Apply: `dx todo owner triage %s --title=\"...\" --context=\"...\" --type=<ops|impl|ask|tracker> --priority=<1-4> --focus=<FO-N> --goal=<G-N>`.\n"+
 				"   ops = one-time verifiable action; impl = durable code change; ask = investigation; tracker = umbrella (decomposed into children).\n\n"+
-				"If the issue is too vague to classify: `dx question add --target-type=issue --target-id=%s --context=\"<what to decide>\" --choices=\"opt1,opt2,...\"` and stop. Solo blocks progress until answered.",
+				"If the issue is too vague to classify: `dx question add --target-type=issue --target-id=%s --context=\"<what to decide>\" --choices=\"opt1,opt2,...\"` and stop. The queue blocks progress until answered.",
 			issueID, title, issueID, issueID, issueID, issueID, issueID, issueID, issueID,
 		) + ContractFooter("triage"),
 	}
@@ -193,11 +193,11 @@ func DecomposeIssueText(issueID, title string) Hint {
 				"2. Break into tasks — each task is ONE shippable unit (not a multi-day epic). If you find yourself writing >3 tasks, the issue probably should have been a tracker — consider `dx issue edit %s --type=tracker` and decompose into child issues instead.\n"+
 				"3. Create each task:\n"+
 				"   `dx todo tech add --issue=%s --title=\"<one-line outcome>\" --text=\"<implementation plan, file-by-file>\" --reason=\"<why this task now>\" --test-plan=\"<how it will be verified>\"`\n"+
-				"   - `--title` is the outcome-focused headline (shown in the UI, list rows, and solo [dev] messages)\n"+
+				"   - `--title` is the outcome-focused headline (shown in the UI, list rows, and agent queue [dev] messages)\n"+
 				"   - `--text` is the step-by-step plan: what to edit, in what files, in what order (markdown supported)\n"+
 				"   - `--reason` explains why this is needed at this point in the vertical\n"+
 				"   - `--test-plan` is REQUIRED to close via `dev done`. If you skip two flags, keep title + test-plan.\n"+
-				"4. Stop after creating tasks — let the solo loop pick the next action.",
+				"4. Stop after creating tasks — let the agent queue loop pick the next action.",
 			issueID, title, issueID, issueID, issueID,
 		) + ContractFooter("add"),
 	}
@@ -229,7 +229,7 @@ func DevTaskText(taskID, title, issueRef string) Hint {
 				"4. Close: `dx todo dev done %s --test-plan=\"<how it was verified>\"%s\n"+
 				"   `--file` grammar: `<path>[:start[-end]][@hash]` — e.g. `--file internal/cli/work/todo.go:1005-1036`. "+
 				"Attached to the parent issue as zdx_issue_code_refs.\n"+
-				"5. After closing, re-run `dx todo solo --issue=%s` to let the loop pick the next step (more tasks, or issue-closable).",
+				"5. After closing, re-run `dx todo queue --issue=%s` to let the loop pick the next step (more tasks, or issue-closable).",
 			taskID, title, taskID, taskID, gating, issueRef,
 		) + ContractFooter("dev"),
 	}
@@ -267,7 +267,7 @@ func DecomposeTrackerText(issueID string) Hint {
 				"If the listed sub-issues ARE the children (filed earlier with --parent or\n"+
 				"meant as composition), retag with:\n"+
 				"   `dx issue block %s --by=IS-N --kind=composition`\n"+
-				"That reclassifies the edge in place. Re-run `dx todo solo` after — the\n"+
+				"That reclassifies the edge in place. Re-run `dx todo queue` after — the\n"+
 				"decompose-tracker todo will clear once composition children exist.\n\n"+
 				"OTHERWISE (genuine empty tracker):\n"+
 				"1. Read the tracker context: `dx issue show %s`.\n"+
@@ -314,7 +314,7 @@ func UnreadCommentsText(issueID, title string) Hint {
 				"2. Understand each — question / clarification request / feedback / decision.\n"+
 				"3. Respond if a reply is warranted: `dx comment add issue %s --body=\"<reply>\"`. "+
 				"The CLI auto-tags with $DX_AUTHOR_ALIAS (usually `claude`); pass `--as <alias>` only to override.\n"+
-				"4. Re-run `dx todo solo --issue=%s` — comments are handled inline, not as a separate vertical.",
+				"4. Re-run `dx todo queue --issue=%s` — comments are handled inline, not as a separate vertical.",
 			issueID, title, issueID, issueID, issueID,
 		) + ContractFooter("read:comments"),
 	}
@@ -365,7 +365,7 @@ func ReviewPendingTaskText(taskID, title, issueRef string) Hint {
 				"3. Submit your verdict:\n"+
 				"   approve: `dx todo dev review %s --verdict=approve [--body=\"<note>\"]`\n"+
 				"   reject:  `dx todo dev review %s --verdict=reject --body=\"<what needs to change>\"`\n"+
-				"4. After approving, re-run `dx todo solo --issue=%s` to let the loop close or pick next steps.\n"+
+				"4. After approving, re-run `dx todo queue --issue=%s` to let the loop close or pick next steps.\n"+
 				"   After rejecting, a new dev task will be needed — create one: `dx todo tech add --issue=%s --title=\"...\" --text=\"...\"`.",
 			taskID, title, taskID, taskID, taskID, issueRef, issueRef,
 		) + ContractFooter("owner:review"),
@@ -403,8 +403,8 @@ func BootstrapText(slug string) Hint {
 				"3. Create a feature for each conceptual capability: `dx feature add <name> --desc=\"<what it does>\"`. "+
 				"Set `--kind=direct` (deposits goal currency) or `--kind=multiplier` (amplifies other features; needs metric + baseline + target + graph_url). "+
 				"Link to a goal: `dx feature set <name> --goal <G-N>`.\n"+
-				"4. File a setup issue: `dx issue add --title=\"Integrate project with zdx tooling\" --context=\"Set up .zdx/config.yaml close-hooks (lint, gen), configure components, and verify dx todo solo cycle works end-to-end.\"`\n"+
-				"5. Re-run `dx todo solo` — the triage flow will engage on the setup issue.",
+				"4. File a setup issue: `dx issue add --title=\"Integrate project with zdx tooling\" --context=\"Set up .zdx/config.yaml close-hooks (lint, gen), configure components, and verify dx todo queue cycle works end-to-end.\"`\n"+
+				"5. Re-run `dx todo queue` — the triage flow will engage on the setup issue.",
 			slug,
 		) + BlockerQuestionCriteriaFragment + ContractFooter("add"),
 	}
@@ -437,7 +437,7 @@ func NoGoalsText() Hint {
 			"1. Talk with the owner (or read plan/product docs) to list top-level objectives.\n" +
 			"2. For each: `dx goal add \"<goal title>\"`.\n" +
 			"3. Optionally quantify: `dx goal set <G-N> --metric-name=<name> --metric-unit=<unit>`.\n" +
-			"Stop after adding — let the next solo pick guide what's next." +
+			"Stop after adding — let the next agent queue pick guide what's next." +
 			ContractFooter("owner:goals"),
 	}
 }
@@ -599,7 +599,7 @@ func NoTestRefsText(specID int32, description, featureName string) Hint {
 }
 
 // ── Maturity-kind texts ────────────────────────────────────────────────────
-// Surfaced by handlers_solo.go when ListOpenMaturityItems returns items.
+// Surfaced by handlers_agent_queue.go when ListOpenMaturityItems returns items.
 // These are maturity-gradient items — the project is healthy enough to work
 // but could be healthier. Each text explains the kind and when to resolve
 // directly vs. file a blocker question.

@@ -69,7 +69,7 @@ func todoInstructions(kind string) string {
      ops     = one-time verifiable action (demo/test plan required)
      impl    = durable code change (resolution link required to close)
      ask     = investigation/research/justification (no test plan; may spawn follow-up issues)
-     tracker = umbrella issue (closed by its children; solo skips it)
+     tracker = umbrella issue (closed by its children; agent queue skips it)
 If the issue is too vague, file clarification questions:
   dx question add --target-type=issue --target-id=IS-N --context="<question>" --choices="opt1,opt2,..."`
 	case "add":
@@ -88,13 +88,13 @@ Claim before starting: dx todo take --agent-id=<id>`
 		return `All dependency issues are closed — close the tracker:
   dx issue close <issue-ref> --reason=done`
 	case "clarify":
-		return `A blocker question is pending. Answer it, then re-run dx todo solo:
+		return `A blocker question is pending. Answer it, then re-run dx todo queue:
   dx question answer <QA-N> --answer="<answer>"`
 	case "read:comments":
 		return `Unread comments need a response:
 1. Read the comments and understand the context (question, feedback, or decision).
 2. Reply: dx comment add <type> <id> --body="<reply>"
-3. Solo marks comments read automatically after showing them.`
+3. The queue marks comments read automatically after showing them.`
 	case "respond:stale":
 		return `A comment has gone unanswered for >24 hours. Reply or acknowledge:
   dx comment add <type> <id> --body="<reply>"`
