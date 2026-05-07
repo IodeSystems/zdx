@@ -214,6 +214,14 @@ func hasLayer(a Adapter, l Layer) bool {
 	return false
 }
 
+// ClassifiedResults groups test failures into preexisting (fail on base branch)
+// and regressions (fail only on the current diff).
+type ClassifiedResults struct {
+	Preexisting []Result `json:"preexisting"`
+	Regressions []Result `json:"regressions"`
+	AllResults  []Result `json:"all_results,omitempty"`
+}
+
 // DemoMeta describes a single demo artifact produced by a test run.
 type DemoMeta struct {
 	Test         string `json:"test"`

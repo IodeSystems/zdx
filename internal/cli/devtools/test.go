@@ -78,6 +78,9 @@ to target the browser/CLI recording tests.`,
 	cmd.Flags().Bool("no-ephemeral", false, "skip ephemeral devserver bootstrap (use caller's DX_API_URL instead)")
 	cmd.Flags().Bool("ephemeral-per-test", false, "spin a fresh devserver per demo test (coverage accuracy; multiplies wall time)")
 	cmd.Flags().String("importance", "", "spec importance tier filter: must | should | nice-to-have")
+	cmd.Flags().Bool("classify-preexisting", false, "re-run failures against base branch to classify preexisting vs. regression")
+	cmd.Flags().Bool("escalate", false, "auto-file deduplicated blocker issues for preexisting failures (requires --classify-preexisting)")
+	cmd.Flags().String("agent-issue", "", "agent issue ID for escalation (defaults to DX_AGENT_ISSUE env var)")
 	// Legacy sub-commands kept for compatibility.
 	cmd.AddCommand(testListCmd(), testRunCmd(), testE2ECmd())
 	return cmd
@@ -95,6 +98,12 @@ func testHarnessRunE(cmd *cobra.Command, _ []string) error {
 	noEphemeral, _ := cmd.Flags().GetBool("no-ephemeral")
 	ephemeralPerTest, _ := cmd.Flags().GetBool("ephemeral-per-test")
 	importance, _ := cmd.Flags().GetString("importance")
+	classifyPreexisting, _ := cmd.Flags().GetBool("classify-preexisting")
+	escalate, _ := cmd.Flags().GetBool("escalate")
+	agentIssue, _ := cmd.Flags().GetString("agent-issue")
+	if agentIssue == "" {
+		agentIssue = os.Getenv("DX_AGENT_ISSUE")
+	}
 
 	f := testharness.Filter{
 		Name:       filter,
@@ -245,6 +254,83 @@ func testHarnessRunE(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
+	if testharness.HasFailure(results) && (classifyPreexisting || escalate) {
+		// ── Classify failures: preexisting vs. regression ──────────────
+		failures := filterFailures(results)
+		classified := testharness.ClassifiedResults{
+			AllResults:  results,
+			Preexisting: make([]testharness.Result, 0),
+			Regressions: make([]testharness.Result, 0),
+		}
+
+		if len(failures) > 0 {
+			baseFailures, err := runAgainstBaseBranch(failures)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "[classify] warning: base-branch run failed: %v\n", err)
+				// Treat all failures as regressions if we can't run on base.
+				classified.Regressions = failures
+			} else {
+				// Tests that also fail on base = preexisting; rest = regression.
+				baseFailSet := make(map[string]bool)
+				for _, bf := range baseFailures {
+					baseFailSet[bf.Test] = true
+				}
+				for _, f := range failures {
+					if baseFailSet[f.Test] {
+						classified.Preexisting = append(classified.Preexisting, f)
+					} else {
+						classified.Regressions = append(classified.Regressions, f)
+					}
+				}
+			}
+		}
+
+		// Print classification summary.
+		printClassification(classified)
+
+		// Write classified results as JSON if requested.
+		if os.Getenv("DX_TEST_JSON") == "1" {
+			if b, err := json.MarshalIndent(classified, "", "  "); err == nil {
+				fmt.Println(string(b))
+			}
+		}
+		_ = testharness.WriteResults(filepath.Join(".zdx", "classified-results.json"), classified.AllResults)
+
+		// ── Escalate preexisting failures ──────────────────────────────
+		if escalate {
+			kc, err := cli.DefaultClient()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "[escalate] no CLI client configured, skipping escalation\n")
+			} else {
+				slug := kc.Slug()
+				if slug == "" {
+					fmt.Fprintf(os.Stderr, "[escalate] no project slug configured, skipping escalation\n")
+				} else {
+					escConfig := EscalationConfig{
+						AgentIssue:          agentIssue,
+						SimilarityThreshold: 0.85,
+						MaxResults:          5,
+					}
+					if threshold := os.Getenv("DX_ESCALATE_THRESHOLD"); threshold != "" {
+						if t, err := strconv.ParseFloat(threshold, 32); err == nil {
+							escConfig.SimilarityThreshold = float32(t)
+						}
+					}
+					escResults, err := EscalatePreexisting(context.Background(), kc, slug, classified, escConfig)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "[escalate] %v\n", err)
+					} else {
+						PrintEscalationSummary(escResults)
+						_ = WriteEscalationJSON(filepath.Join(".zdx", "escalation-results.json"), escResults)
+					}
+				}
+			}
+		}
+
+		// Exit non-zero if any failures (preexisting or regression).
+		return fmt.Errorf("tests failed")
+	}
+
 	if testharness.HasFailure(results) {
 		return fmt.Errorf("tests failed")
 	}
@@ -267,6 +353,189 @@ func buildE2EEnv(dbURL string) []string {
 		return []string{"TEST_DATABASE_URL=" + dbURL}
 	}
 	return nil
+}
+
+// ── Classification helpers ────────────────────────────────────────────────────
+
+// filterFailures returns only the failed results.
+func filterFailures(results []testharness.Result) []testharness.Result {
+	var failures []testharness.Result
+	for _, r := range results {
+		if r.Status == "fail" {
+			failures = append(failures, r)
+		}
+	}
+	return failures
+}
+
+// runAgainstBaseBranch creates a temp worktree at the base branch, runs the
+// failing tests there, and returns the results that also fail on base.
+func runAgainstBaseBranch(failures []testharness.Result) ([]testharness.Result, error) {
+	if len(failures) == 0 {
+		return nil, nil
+	}
+
+	// Resolve base ref.
+	baseRef, err := baseBranchRef()
+	if err != nil {
+		return nil, fmt.Errorf("resolve base ref: %w", err)
+	}
+
+	// Create a temp worktree.
+	tmpDir, err := os.MkdirTemp("", "zdx-base-*")
+	if err != nil {
+		return nil, fmt.Errorf("create temp dir: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	// git worktree add <tmp> <baseRef>
+	if out, err := exec.Command("git", "worktree", "add", "--detach", tmpDir, baseRef).CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("git worktree add %s %s: %s", tmpDir, baseRef, out)
+	}
+	defer func() {
+		_ = exec.Command("git", "worktree", "remove", "--force", tmpDir).Run()
+	}()
+
+	// Build the test binary in the base worktree.
+	buildCmd := exec.Command("go", "test", "-c", "-o", filepath.Join(tmpDir, "zdx-test"), testPkg)
+	buildCmd.Dir = tmpDir
+	buildCmd.Env = os.Environ()
+	if out, err := buildCmd.CombinedOutput(); err != nil {
+		fmt.Fprintf(os.Stderr, "[classify] warning: could not build e2e binary on base: %s\n", out)
+		// Fall back: try running without building (if binary already exists on base).
+	}
+
+	// Collect failing test names.
+	var testNames []string
+	for _, f := range failures {
+		testNames = append(testNames, f.Test)
+	}
+
+	// Run only the failing tests on the base worktree.
+	var baseFailures []testharness.Result
+
+	// Try the e2e binary first.
+	baseBin := filepath.Join(tmpDir, "zdx-test")
+	if _, err := os.Stat(baseBin); err == nil {
+		runArgs := []string{"-test.v", "-test.run=" + strings.Join(testNames, "|")}
+		cmd := exec.Command(baseBin, runArgs...)
+		cmd.Dir = tmpDir
+		cmd.Env = os.Environ()
+
+		var jsonBuf bytes.Buffer
+		t2jArgs := append([]string{"tool", "test2json", baseBin}, runArgs...)
+		t2jCmd := exec.Command("go", t2jArgs...)
+		t2jCmd.Dir = tmpDir
+		t2jCmd.Env = os.Environ()
+
+		var outBuf bytes.Buffer
+		t2jCmd.Stdout = io.MultiWriter(&outBuf, &jsonBuf)
+		t2jCmd.Stderr = &outBuf
+		_ = t2jCmd.Run()
+
+		results := parseBaseTestJSON(jsonBuf.Bytes())
+		for _, r := range results {
+			if r.Status == "fail" {
+				baseFailures = append(baseFailures, r)
+			}
+		}
+	}
+
+	// Also run Go unit tests on base.
+	unitCmd := exec.Command("go", "test", "-json", "-run="+strings.Join(testNames, "|"), "./internal/...", "./test/scripts/...")
+	unitCmd.Dir = tmpDir
+	unitCmd.Env = os.Environ()
+
+	var unitBuf bytes.Buffer
+	unitCmd.Stdout = &unitBuf
+	unitCmd.Stderr = &unitBuf
+	_ = unitCmd.Run()
+
+	unitResults := parseBaseTestJSON(unitBuf.Bytes())
+	for _, r := range unitResults {
+		if r.Status == "fail" {
+			// Avoid duplicates.
+			dup := false
+			for _, bf := range baseFailures {
+				if bf.Test == r.Test {
+					dup = true
+					break
+				}
+			}
+			if !dup {
+				baseFailures = append(baseFailures, r)
+			}
+		}
+	}
+
+	return baseFailures, nil
+}
+
+// baseBranchRef returns the merge-base between HEAD and the default branch.
+func baseBranchRef() (string, error) {
+	// Try origin/main first, then origin/master, then just use HEAD~1.
+	for _, ref := range []string{"origin/main", "origin/master"} {
+		if out, err := exec.Command("git", "merge-base", "HEAD", ref).Output(); err == nil {
+			return strings.TrimSpace(string(out)), nil
+		}
+	}
+	// Fallback: HEAD~1
+	if out, err := exec.Command("git", "rev-parse", "HEAD~1").Output(); err == nil {
+		return strings.TrimSpace(string(out)), nil
+	}
+	return "HEAD", nil
+}
+
+// parseBaseTestJSON is a simplified parser for go test -json output.
+func parseBaseTestJSON(data []byte) []testharness.Result {
+	type event struct {
+		Action  string  `json:"Action"`
+		Test    string  `json:"Test"`
+		Elapsed float64 `json:"Elapsed"`
+		Output  string  `json:"Output"`
+	}
+	var results []testharness.Result
+	sc := bufio.NewScanner(bytes.NewReader(data))
+	for sc.Scan() {
+		var ev event
+		if err := json.Unmarshal(sc.Bytes(), &ev); err != nil {
+			continue
+		}
+		if ev.Test == "" {
+			continue
+		}
+		switch ev.Action {
+		case "pass", "fail", "skip":
+			results = append(results, testharness.Result{
+				Test:       ev.Test,
+				Status:     ev.Action,
+				DurationMs: int64(ev.Elapsed * 1000),
+				RunAt:      time.Now().Format(time.RFC3339),
+			})
+		}
+	}
+	return results
+}
+
+// printClassification outputs the classified results to stderr.
+func printClassification(classified testharness.ClassifiedResults) {
+	if len(classified.Preexisting) == 0 && len(classified.Regressions) == 0 {
+		return
+	}
+
+	fmt.Fprintln(os.Stderr)
+	if len(classified.Preexisting) > 0 {
+		fmt.Fprintln(os.Stderr, "PREEXISTING FAILURES (not caused by this diff):")
+		for _, r := range classified.Preexisting {
+			fmt.Fprintf(os.Stderr, "  %s (%s/%s)\n", r.Test, r.Component, r.Layer)
+		}
+	}
+	if len(classified.Regressions) > 0 {
+		fmt.Fprintln(os.Stderr, "REGRESSION FAILURES (caused by this diff):")
+		for _, r := range classified.Regressions {
+			fmt.Fprintf(os.Stderr, "  %s (%s/%s)\n", r.Test, r.Component, r.Layer)
+		}
+	}
 }
 
 func resolveTestNamesByImportance(importance string) ([]string, error) {
