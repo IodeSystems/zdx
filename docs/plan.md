@@ -481,19 +481,19 @@ blocks the GAPD stream from being considered done.
   hits are in different files and unaffected by this change. See
   next bullet.
 
-- **`raw-api-calls` lint advisory — 3 remaining hits, unrelated
-  to GAPD.** `bin/lint` still reports 3 callsites:
-  - `internal/cli/configcmd/config.go:344` —
-    `c.Get("/api/projects", …)` (project list during config bootstrap)
-  - `internal/cli/configcmd/config.go:363` —
-    `c.Post("/api/project", …)` (project create during config bootstrap)
-  - `internal/cli/util.go:107` —
-    `c.Get("/api/dx/solo/claims", …)` in `(*Client).FetchClaimBase`
-    (looks up the active claim for an issueRef during agent session
-    bootstrap; consumer of the existing `ListSoloClaims` typed call —
-    swap to `ListSoloClaimsWithResponse`).
-  Trivial individually. Pick up as a one-off when someone wants
-  the advisory clean. Not GAPD.
+- ✅ **`raw-api-calls` lint advisory cleared (2026-05-06).**
+  All 3 remaining callsites converted to typed dxclient:
+  - `internal/cli/configcmd/config.go` register flow now uses
+    `c.ListProjectsWithResponse` + `c.CreateProjectWithResponse`
+    (with `c.CheckStatus` for the authHint-enriched 4xx path).
+  - `internal/cli/util.go` `(*Client).FetchClaimBase` now uses
+    `c.SoloListClaimsWithResponse` against the typed
+    `SoloListClaimsParams{Slug: …}` and walks the
+    `*resp.JSON200.Todos` slice. `net/url` import retained — still
+    used by `QuerySlug`.
+  `bin/lint --intent` now reports `OK: raw-api-calls` (was
+  `WARN: 3 callsites in 2 files`). `go vet` + `go test ./internal/cli/...`
+  clean.
 - **Browser-demo cross-test flake.**
   `TestDemoBrowser_ProjectDirectionTab` passes alone (~3s) but times
   out on the Goals heading when run after another browser demo in the

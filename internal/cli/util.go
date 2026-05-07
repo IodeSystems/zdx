@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -94,23 +95,22 @@ type ClaimBase struct {
 // FetchClaimBase looks up the active claim for issueRef from the list-claims
 // endpoint. Returns zero-value ClaimBase if unavailable.
 func (c *Client) FetchClaimBase(slug, issueRef string) ClaimBase {
-	type todoEntry struct {
-		IssueRef        string `json:"issue_ref"`
-		Kind            string `json:"kind"`
-		ClaimBaseSha    string `json:"claim_base_sha"`
-		ClaimBaseBranch string `json:"claim_base_branch"`
-	}
-	type claimsResp struct {
-		Todos []todoEntry `json:"todos"`
-	}
-	var r claimsResp
-	if err := c.Get("/api/dx/solo/claims", url.Values{"slug": {slug}}, &r); err != nil {
+	resp, err := c.SoloListClaimsWithResponse(context.Background(), &dxclient.SoloListClaimsParams{Slug: slug})
+	if err != nil || resp.JSON200 == nil || resp.JSON200.Todos == nil {
 		return ClaimBase{}
 	}
-	for _, t := range r.Todos {
-		if t.IssueRef == issueRef {
-			return ClaimBase{SHA: t.ClaimBaseSha, Branch: t.ClaimBaseBranch, Kind: t.Kind}
+	for _, t := range *resp.JSON200.Todos {
+		if t.IssueRef != issueRef {
+			continue
 		}
+		base := ClaimBase{Kind: t.Kind}
+		if t.ClaimBaseSha != nil {
+			base.SHA = *t.ClaimBaseSha
+		}
+		if t.ClaimBaseBranch != nil {
+			base.Branch = *t.ClaimBaseBranch
+		}
+		return base
 	}
 	return ClaimBase{}
 }

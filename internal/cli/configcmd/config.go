@@ -336,35 +336,39 @@ func configRegisterCmd() *cobra.Command {
 			}
 
 			// Check if project already exists.
-			var listResp struct {
-				Projects []struct {
-					Slug string `json:"slug"`
-				} `json:"projects"`
+			listResp, err := c.ListProjectsWithResponse(cmd.Context())
+			if err != nil {
+				return fmt.Errorf("listing projects: %w", err)
 			}
-			if err := c.Get("/api/projects", nil, &listResp); err != nil {
+			if err := c.CheckStatus(listResp.StatusCode(), listResp.Body); err != nil {
 				return fmt.Errorf("listing projects: %w", err)
 			}
 
 			exists := false
-			for _, p := range listResp.Projects {
-				if p.Slug == slug {
-					exists = true
-					break
+			if listResp.JSON200 != nil && listResp.JSON200.Projects != nil {
+				for _, p := range *listResp.JSON200.Projects {
+					if p.Slug == slug {
+						exists = true
+						break
+					}
 				}
 			}
 
 			if exists {
 				fmt.Printf("project: %s (already registered)\n", slug)
 			} else {
-				var proj struct {
-					Slug string `json:"slug"`
-					Name string `json:"name"`
-				}
-				if err := c.Post("/api/project", dxclient.CreateProjectRequest{Slug: slug, Name: projectName}, &proj); err != nil {
+				createResp, err := c.CreateProjectWithResponse(cmd.Context(), dxclient.CreateProjectRequest{Slug: slug, Name: projectName})
+				if err != nil {
 					return fmt.Errorf("registering project: %w", err)
 				}
-				fmt.Printf("project: %s registered\n", proj.Slug)
-				slug = proj.Slug
+				if err := c.CheckStatus(createResp.StatusCode(), createResp.Body); err != nil {
+					return fmt.Errorf("registering project: %w", err)
+				}
+				if createResp.JSON200 == nil {
+					return fmt.Errorf("registering project: empty response")
+				}
+				fmt.Printf("project: %s registered\n", createResp.JSON200.Slug)
+				slug = createResp.JSON200.Slug
 			}
 
 			// Ensure .zdx/ exists and write remote config with slug.
