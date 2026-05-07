@@ -64,14 +64,26 @@ For the long-running work loop, use ` + "`dx agent loop --provider=X`" + `.`,
 			if err != nil {
 				return err
 			}
-			if mode == ContainerDocker {
-				return fmt.Errorf("single-session container mode (--container=docker) is not yet wired for `dx agent run`; use `dx agent loop --container=docker` or pass --container=local")
-			}
 			if err := rejectUnimplementedExplicit("worktree", worktree); err != nil {
 				return err
 			}
 			if err := rejectUnimplementedExplicit("branch", branch); err != nil {
 				return err
+			}
+			if mode == ContainerDocker {
+				// Single session in slot container: provision one slot via the
+				// same primitive runMCPContainerLoop uses, run one session
+				// inside it via RunManagedSession, tear the slot down. Closes
+				// the gap that previously errored ("not yet wired").
+				tier, terr := NormalizeComplexity(complexity)
+				if terr != nil {
+					return terr
+				}
+				opts, oerr := loadManagedOptsFromCmd(cmd, provider, alias, issue, model, tier, 0, mcpContainer)
+				if oerr != nil {
+					return oerr
+				}
+				return runMCPContainerSingle(cmd.Context(), provider, opts)
 			}
 			return runManagedFromFlags(cmd.Context(), cmd, provider, alias, issue, model, complexity, mcpContainer)
 		},
@@ -257,12 +269,12 @@ mounted, sandboxed); LLM lives on the host, tool calls dispatch into the
 slot via docker exec dx-agent --mcp-stdio. Pass --container=local to run
 claude directly on the host (debug / no-docker fallback).
 
-For parallel work, run multiple `+"`dx agent loop`"+` processes — each is its
-own visible alias and claim stream. The `+"`--concurrency=N`"+` flag is an
+For parallel work, run multiple ` + "`dx agent loop`" + ` processes — each is its
+own visible alias and claim stream. The ` + "`--concurrency=N`" + ` flag is an
 explicit opt-in to in-process fan-out (N slot containers under one parent
 process); most operators should not need it. The agent.max_worktrees
 config field is NOT consulted here — that's the project-wide
-concurrent-agents ceiling read by `+"`dx agent start`"+`.`,
+concurrent-agents ceiling read by ` + "`dx agent start`" + `.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			provider := cmd.Flag("provider").Value.String()
 			alias := cmd.Flag("alias").Value.String()
