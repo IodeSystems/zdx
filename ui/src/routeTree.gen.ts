@@ -75,6 +75,7 @@ import { Route as ProjectSlugPlansIdRouteImport } from './routes/project/$slug/p
 import { Route as ProjectSlugPatternsIdRouteImport } from './routes/project/$slug/patterns/$id'
 import { Route as ProjectSlugJournalIdRouteImport } from './routes/project/$slug/journal/$id'
 import { Route as ProjectSlugIssuesIdRouteImport } from './routes/project/$slug/issues/$id'
+import { Route as ProjectSlugGoalsIdRouteImport } from './routes/project/$slug/goals/$id'
 import { Route as ProjectSlugFocusesNameRouteImport } from './routes/project/$slug/focuses/$name'
 import { Route as ProjectSlugFeaturesNameRouteImport } from './routes/project/$slug/features/$name'
 import { Route as ProjectSlugErrorsIdRouteImport } from './routes/project/$slug/errors/$id'
@@ -424,6 +425,11 @@ const ProjectSlugIssuesIdRoute = ProjectSlugIssuesIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ProjectSlugIssuesRoute,
 } as any)
+const ProjectSlugGoalsIdRoute = ProjectSlugGoalsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ProjectSlugGoalsRoute,
+} as any)
 const ProjectSlugFocusesNameRoute = ProjectSlugFocusesNameRouteImport.update({
   id: '/focuses/$name',
   path: '/focuses/$name',
@@ -514,6 +520,7 @@ export interface FileRoutesByFullPath {
   '/project/$slug/errors/$id': typeof ProjectSlugErrorsIdRoute
   '/project/$slug/features/$name': typeof ProjectSlugFeaturesNameRoute
   '/project/$slug/focuses/$name': typeof ProjectSlugFocusesNameRoute
+  '/project/$slug/goals/$id': typeof ProjectSlugGoalsIdRoute
   '/project/$slug/issues/$id': typeof ProjectSlugIssuesIdRoute
   '/project/$slug/journal/$id': typeof ProjectSlugJournalIdRoute
   '/project/$slug/patterns/$id': typeof ProjectSlugPatternsIdRoute
@@ -575,6 +582,7 @@ export interface FileRoutesByTo {
   '/project/$slug/errors/$id': typeof ProjectSlugErrorsIdRoute
   '/project/$slug/features/$name': typeof ProjectSlugFeaturesNameRoute
   '/project/$slug/focuses/$name': typeof ProjectSlugFocusesNameRoute
+  '/project/$slug/goals/$id': typeof ProjectSlugGoalsIdRoute
   '/project/$slug/issues/$id': typeof ProjectSlugIssuesIdRoute
   '/project/$slug/journal/$id': typeof ProjectSlugJournalIdRoute
   '/project/$slug/patterns/$id': typeof ProjectSlugPatternsIdRoute
@@ -652,6 +660,7 @@ export interface FileRoutesById {
   '/project/$slug/errors/$id': typeof ProjectSlugErrorsIdRoute
   '/project/$slug/features/$name': typeof ProjectSlugFeaturesNameRoute
   '/project/$slug/focuses/$name': typeof ProjectSlugFocusesNameRoute
+  '/project/$slug/goals/$id': typeof ProjectSlugGoalsIdRoute
   '/project/$slug/issues/$id': typeof ProjectSlugIssuesIdRoute
   '/project/$slug/journal/$id': typeof ProjectSlugJournalIdRoute
   '/project/$slug/patterns/$id': typeof ProjectSlugPatternsIdRoute
@@ -730,6 +739,7 @@ export interface FileRouteTypes {
     | '/project/$slug/errors/$id'
     | '/project/$slug/features/$name'
     | '/project/$slug/focuses/$name'
+    | '/project/$slug/goals/$id'
     | '/project/$slug/issues/$id'
     | '/project/$slug/journal/$id'
     | '/project/$slug/patterns/$id'
@@ -791,6 +801,7 @@ export interface FileRouteTypes {
     | '/project/$slug/errors/$id'
     | '/project/$slug/features/$name'
     | '/project/$slug/focuses/$name'
+    | '/project/$slug/goals/$id'
     | '/project/$slug/issues/$id'
     | '/project/$slug/journal/$id'
     | '/project/$slug/patterns/$id'
@@ -867,6 +878,7 @@ export interface FileRouteTypes {
     | '/project/$slug/errors/$id'
     | '/project/$slug/features/$name'
     | '/project/$slug/focuses/$name'
+    | '/project/$slug/goals/$id'
     | '/project/$slug/issues/$id'
     | '/project/$slug/journal/$id'
     | '/project/$slug/patterns/$id'
@@ -1377,6 +1389,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectSlugIssuesIdRouteImport
       parentRoute: typeof ProjectSlugIssuesRoute
     }
+    '/project/$slug/goals/$id': {
+      id: '/project/$slug/goals/$id'
+      path: '/$id'
+      fullPath: '/project/$slug/goals/$id'
+      preLoaderRoute: typeof ProjectSlugGoalsIdRouteImport
+      parentRoute: typeof ProjectSlugGoalsRoute
+    }
     '/project/$slug/focuses/$name': {
       id: '/project/$slug/focuses/$name'
       path: '/focuses/$name'
@@ -1526,10 +1545,12 @@ const ProjectSlugFeaturesRouteWithChildren =
   ProjectSlugFeaturesRoute._addFileChildren(ProjectSlugFeaturesRouteChildren)
 
 interface ProjectSlugGoalsRouteChildren {
+  ProjectSlugGoalsIdRoute: typeof ProjectSlugGoalsIdRoute
   ProjectSlugGoalsIndexRoute: typeof ProjectSlugGoalsIndexRoute
 }
 
 const ProjectSlugGoalsRouteChildren: ProjectSlugGoalsRouteChildren = {
+  ProjectSlugGoalsIdRoute: ProjectSlugGoalsIdRoute,
   ProjectSlugGoalsIndexRoute: ProjectSlugGoalsIndexRoute,
 }
 
