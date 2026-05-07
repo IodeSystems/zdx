@@ -1,14 +1,13 @@
 package agent
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"time"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 // claimedTodo is the wire shape returned by POST /api/dx/solo/claim (or
@@ -32,6 +31,42 @@ type claimedTodo struct {
 	ClaimBaseBranch string `json:"claim_base_branch,omitempty"`
 }
 
+// fromSoloClaimBody projects the typed dxclient response into the internal
+// claimedTodo shape used by the rest of the lifecycle (take.go, manager.go,
+// claude.go). The typed body has many more fields than callers need; we
+// translate only what the lifecycle reads.
+func fromSoloClaimBody(b *dxclient.SoloClaimBody) *claimedTodo {
+	if b == nil {
+		return nil
+	}
+	t := &claimedTodo{
+		ID:         b.Id,
+		Text:       b.Text,
+		Key:        b.Key,
+		Kind:       b.Kind,
+		TargetType: b.TargetType,
+		TargetID:   b.TargetId,
+		IssueRef:   b.IssueRef,
+		Priority:   b.Priority,
+	}
+	if b.TargetBranch != nil {
+		t.TargetBranch = *b.TargetBranch
+	}
+	if b.ClaimedBy != nil {
+		t.ClaimedBy = *b.ClaimedBy
+	}
+	if b.ProjectSlug != nil {
+		t.ProjectSlug = *b.ProjectSlug
+	}
+	if b.ClaimBaseSha != nil {
+		t.ClaimBaseSha = *b.ClaimBaseSha
+	}
+	if b.ClaimBaseBranch != nil {
+		t.ClaimBaseBranch = *b.ClaimBaseBranch
+	}
+	return t
+}
+
 // claimNextTodo atomically reserves the next available todo for agentID via
 // the server's solo claim endpoint (FOR UPDATE SKIP LOCKED on the DB side).
 // Returns nil + nil error when no work is available so callers can sleep
@@ -43,61 +78,53 @@ type claimedTodo struct {
 // daemon stays on the project-scoped /claim path. The wire response shape
 // is identical (claim-any populates project_slug; /claim leaves it blank).
 func claimNextTodo(rc remoteConfig, agentID string, leaseMinutes int32) (*claimedTodo, error) {
-	var (
-		path    string
-		payload map[string]any
-	)
+	c := cli.NewClient(rc.url, rc.key)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	mode := "autonomous"
+
 	if rc.slug == "" {
-		path = "/api/dx/solo/claim-any"
-		payload = map[string]any{
-			"agent_id":      agentID,
-			"lease_minutes": leaseMinutes,
-			"mode":          "autonomous",
+		resp, err := c.SoloClaimAnyWithResponse(ctx, &dxclient.SoloClaimAnyParams{}, dxclient.SoloClaimAnyJSONRequestBody{
+			AgentId:      agentID,
+			LeaseMinutes: &leaseMinutes,
+			Mode:         &mode,
+		})
+		if err != nil {
+			return nil, err
 		}
-	} else {
-		path = "/api/dx/solo/claim"
-		payload = map[string]any{
-			"slug":          rc.slug,
-			"agent_id":      agentID,
-			"lease_minutes": leaseMinutes,
-			"mode":          "autonomous",
+		if resp.StatusCode() >= 400 {
+			return nil, fmt.Errorf("claim HTTP %d", resp.StatusCode())
 		}
+		return fromSoloClaimBody(resp.JSON200), nil
 	}
-	body, _ := json.Marshal(payload)
-	req, _ := http.NewRequest("POST", rc.url+path, bytes.NewReader(body))
-	req.Header.Set("X-Api-Key", rc.key)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+
+	resp, err := c.SoloClaimWithResponse(ctx, &dxclient.SoloClaimParams{}, dxclient.SoloClaimJSONRequestBody{
+		Slug:         rc.slug,
+		AgentId:      agentID,
+		LeaseMinutes: &leaseMinutes,
+		Mode:         &mode,
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("claim HTTP %d", resp.StatusCode)
+	if resp.StatusCode() >= 400 {
+		return nil, fmt.Errorf("claim HTTP %d", resp.StatusCode())
 	}
-	var todo claimedTodo
-	if err := json.NewDecoder(resp.Body).Decode(&todo); err != nil {
-		return nil, err
-	}
-	return &todo, nil
+	return fromSoloClaimBody(resp.JSON200), nil
 }
 
 // renewTodoLease pushes the lease deadline forward so a long-running session
 // retains its claim. Best-effort — failures are silent because the next tick
 // will retry, and a single missed renewal won't break the session.
 func renewTodoLease(rc remoteConfig, todoID int32, agentID string, leaseMinutes int32) {
-	body, _ := json.Marshal(map[string]any{
-		"id":            todoID,
-		"agent_id":      agentID,
-		"lease_minutes": leaseMinutes,
+	c := cli.NewClient(rc.url, rc.key)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, _ = c.SoloRenewWithResponse(ctx, dxclient.SoloRenewJSONRequestBody{
+		Id:           todoID,
+		AgentId:      agentID,
+		LeaseMinutes: &leaseMinutes,
 	})
-	req, _ := http.NewRequest("POST", rc.url+"/api/dx/solo/renew", bytes.NewReader(body))
-	req.Header.Set("X-Api-Key", rc.key)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
-	if err == nil {
-		resp.Body.Close()
-	}
 }
 
 type releaseResult struct {
@@ -110,34 +137,36 @@ type releaseResult struct {
 //   - cycle_detected: the resolved todo would be immediately regenerated by the queue,
 //     indicating the agent cannot actually fix the underlying condition. Server auto-blocks.
 func releaseTodo(rc remoteConfig, todoID int32, agentID, sessionID, claimBaseSHA, todoKind, claimBaseBranch string, resolve bool) releaseResult {
-	body := map[string]any{
-		"id":         todoID,
-		"agent_id":   agentID,
-		"resolve":    resolve,
-		"session_id": sessionID,
+	body := dxclient.SoloReleaseJSONRequestBody{
+		Id:        todoID,
+		AgentId:   agentID,
+		Resolve:   &resolve,
+		SessionId: &sessionID,
 	}
 	if bs := cli.CollectBranchState(claimBaseSHA); bs != nil {
-		body["branch_state"] = bs
+		body.BranchState = bs
 		if resolve {
 			if err := cli.ValidateBranchState(todoKind, bs, claimBaseSHA, claimBaseBranch); err != nil {
 				fmt.Fprintf(os.Stderr, "branch contract violation: %v\ndowngrading resolve to release\n", err)
-				body["resolve"] = false
+				downgraded := false
+				body.Resolve = &downgraded
 			}
 		}
 	}
-	encoded, _ := json.Marshal(body)
-	req, _ := http.NewRequest("POST", rc.url+"/api/dx/solo/release", bytes.NewReader(encoded))
-	req.Header.Set("X-Api-Key", rc.key)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
-	if err != nil || resp == nil {
+	c := cli.NewClient(rc.url, rc.key)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	resp, err := c.SoloReleaseWithResponse(ctx, body)
+	if err != nil || resp == nil || resp.JSON200 == nil {
 		return releaseResult{}
 	}
-	defer resp.Body.Close()
-	var r struct {
-		ChurnDowngraded bool `json:"churn_downgraded"`
-		CycleDetected   bool `json:"cycle_detected"`
+	r := resp.JSON200
+	out := releaseResult{}
+	if r.ChurnDowngraded != nil {
+		out.ChurnDowngraded = *r.ChurnDowngraded
 	}
-	_ = json.NewDecoder(resp.Body).Decode(&r)
-	return releaseResult{ChurnDowngraded: r.ChurnDowngraded, CycleDetected: r.CycleDetected}
+	if r.CycleDetected != nil {
+		out.CycleDetected = *r.CycleDetected
+	}
+	return out
 }

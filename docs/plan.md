@@ -458,11 +458,42 @@ blocks the GAPD stream from being considered done.
   operator's project tree, fixing the operator-vs-agent collision
   class at the directory level rather than per-slot. Sized days, not
   hours; worth a fresh design pass before starting.
-- **Daemon claim is still raw `http`** (`internal/cli/agent/claim.go`).
-  Switch to the typed `dxclient.SoloClaimWithResponse` /
-  `SoloClaimAnyWithResponse` to clear the advisory `raw-api-calls`
-  lint warning. Trivial once the merge-train has regenerated the
-  client.
+- ✅ **Daemon claim raw-`http` swap (2026-05-06).**
+  `internal/cli/agent/claim.go` now uses
+  `cli.NewClient(rc.url, rc.key)` + the typed
+  `SoloClaimWithResponse` / `SoloClaimAnyWithResponse` /
+  `SoloRenewWithResponse` / `SoloReleaseWithResponse` calls. Wire
+  shapes verified against `SoloClaimRequest` / `SoloClaimAnyRequest`
+  / `SoloRenewRequest` / `SoloReleaseRequest`; the internal
+  `claimedTodo` shape is preserved (all downstream callers in
+  `take.go`, `manager.go`, `claude.go` keep working unchanged).
+  Side-effect: outbound requests now also carry
+  `X-ZDX-Agent-Id` / `X-ZDX-Session-Id` attribution headers (via
+  `cli.Client`'s authEditor) when those env vars are set — old
+  raw-http path didn't. Harmless additive change. `go vet` +
+  `go test ./internal/cli/agent/...` clean.
+
+  **Plan-note correction:** the original followup claimed this
+  swap would "clear the advisory `raw-api-calls` lint warning."
+  It doesn't — the lint detects the `c.Get("/api/`, `c.Post("/api/`,
+  `c.Delete("/api/` patterns in `internal/cli/`, which `claim.go`
+  never used (it was raw `http.NewRequest`). The 3 remaining lint
+  hits are in different files and unaffected by this change. See
+  next bullet.
+
+- **`raw-api-calls` lint advisory — 3 remaining hits, unrelated
+  to GAPD.** `bin/lint` still reports 3 callsites:
+  - `internal/cli/configcmd/config.go:344` —
+    `c.Get("/api/projects", …)` (project list during config bootstrap)
+  - `internal/cli/configcmd/config.go:363` —
+    `c.Post("/api/project", …)` (project create during config bootstrap)
+  - `internal/cli/util.go:107` —
+    `c.Get("/api/dx/solo/claims", …)` in `(*Client).FetchClaimBase`
+    (looks up the active claim for an issueRef during agent session
+    bootstrap; consumer of the existing `ListSoloClaims` typed call —
+    swap to `ListSoloClaimsWithResponse`).
+  Trivial individually. Pick up as a one-off when someone wants
+  the advisory clean. Not GAPD.
 - **Browser-demo cross-test flake.**
   `TestDemoBrowser_ProjectDirectionTab` passes alone (~3s) but times
   out on the Goals heading when run after another browser demo in the
