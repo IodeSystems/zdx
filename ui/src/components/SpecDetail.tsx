@@ -29,7 +29,7 @@ import {
   type SpecIssueItem,
   type SpecTestItem,
 } from '../api'
-import { CommentsAndRevisions } from './CommentsAndRevisions'
+import { EventStream } from './EventStream'
 import { CodeRefs } from './CodeRefs'
 import { SpecDemos } from './DemoPlayer'
 
@@ -204,7 +204,7 @@ export function SpecDetail({ slug, specId }: { slug: string; specId: number }) {
 
       <SpecDemos specId={specId} slug={slug} />
 
-      <CommentsAndRevisions slug={slug} targetType="spec" targetId={String(specId)} />
+      <EventStream slug={slug} targetType="spec" targetId={String(specId)} />
 
       <Dialog open={issueOpen} onClose={() => setIssueOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>File issue against spec</DialogTitle>
