@@ -1,84 +1,65 @@
 package mcpcmd
 
 import (
-	"context"
-	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/printer"
 	"go/token"
 	"os"
-	"path/filepath"
 	"strings"
-
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// registerGoOutline registers a `go_outline` tool that returns a structured
-// summary of every top-level declaration in a Go file or directory. Agents
-// should prefer this over read_file when probing what a package exposes —
-// it's far smaller and skips function bodies entirely.
-func registerGoOutline(srv *mcp.Server, root string) {
-	type goOutlineIn struct {
-		Path string `json:"path,omitempty" jsonschema:"repo-relative .go file or directory (defaults to repo root)"`
+// outlineFileGo parses a Go source file and returns a structured outline at
+// the requested level of detail. Level semantics:
+//
+//	0 — {path, language}                          (skeleton: just identifies the file)
+//	1 — +package, decl_names                      (one-liner per decl)
+//	2 — +imports, decl[].kind/signature/line/exported  (default; decision-grade)
+//	3 — +decl[].doc, +var/const names/type, +alias underlying  (full detail)
+//
+// Function bodies are never included.
+func outlineFileGo(rel, content string, lod int) map[string]any {
+	out := map[string]any{
+		"path":     rel,
+		"language": "go",
 	}
-	mcp.AddTool(srv, &mcp.Tool{
-		Name:        "go_outline",
-		Description: "Parse Go source and return a structured outline: package, imports, top-level type/func/var/const declarations with signatures and doc comments. Function bodies are omitted, so this is much smaller than read_file. Accepts a single .go file or a directory (recursive, skips vendor/, .git/, node_modules/).",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, in goOutlineIn) (*mcp.CallToolResult, any, error) {
-		target := in.Path
-		if target == "" {
-			target = "."
-		}
-		abs, err := resolveInRoot(root, target)
-		if err != nil {
-			return nil, nil, err
-		}
-		info, err := os.Stat(abs)
-		if err != nil {
-			return nil, nil, err
-		}
-		var paths []string
-		if info.IsDir() {
-			_ = filepath.Walk(abs, func(p string, fi os.FileInfo, walkErr error) error {
-				if walkErr != nil || fi == nil {
-					return nil
-				}
-				if fi.IsDir() {
-					name := filepath.Base(p)
-					if name == ".git" || name == "node_modules" || name == "vendor" {
-						return filepath.SkipDir
+	if lod < 1 {
+		return out
+	}
+
+	fset := token.NewFileSet()
+	f, parseErr := parser.ParseFile(fset, rel, content, parser.ParseComments|parser.SkipObjectResolution)
+	if parseErr != nil {
+		out["parse_error"] = parseErr.Error()
+		return out
+	}
+	out["package"] = f.Name.Name
+
+	if lod == 1 {
+		// Just decl names — fastest skeleton beyond LOD 0.
+		var names []string
+		for _, d := range f.Decls {
+			switch decl := d.(type) {
+			case *ast.FuncDecl:
+				names = append(names, decl.Name.Name)
+			case *ast.GenDecl:
+				for _, spec := range decl.Specs {
+					switch s := spec.(type) {
+					case *ast.TypeSpec:
+						names = append(names, s.Name.Name)
+					case *ast.ValueSpec:
+						for _, n := range s.Names {
+							names = append(names, n.Name)
+						}
 					}
-					return nil
 				}
-				if strings.HasSuffix(p, ".go") {
-					paths = append(paths, p)
-				}
-				return nil
-			})
-		} else {
-			if !strings.HasSuffix(abs, ".go") {
-				return nil, nil, fmt.Errorf("not a .go file: %s", target)
 			}
-			paths = []string{abs}
 		}
+		out["decl_names"] = names
+		return out
+	}
 
-		fset := token.NewFileSet()
-		var files []map[string]any
-		for _, p := range paths {
-			rel, _ := filepath.Rel(root, p)
-			f, parseErr := parser.ParseFile(fset, p, nil, parser.ParseComments|parser.SkipObjectResolution)
-			if parseErr != nil {
-				files = append(files, map[string]any{"path": rel, "parse_error": parseErr.Error()})
-				continue
-			}
-			files = append(files, summarizeGoFile(fset, rel, f))
-		}
-		return nil, map[string]any{"path": target, "files": files}, nil
-	})
-}
-
-func summarizeGoFile(fset *token.FileSet, rel string, f *ast.File) map[string]any {
+	// LOD 2+: full(ish) decl entries.
 	var imports []map[string]any
 	for _, im := range f.Imports {
 		entry := map[string]any{"path": strings.Trim(im.Path.Value, "\"")}
@@ -87,29 +68,35 @@ func summarizeGoFile(fset *token.FileSet, rel string, f *ast.File) map[string]an
 		}
 		imports = append(imports, entry)
 	}
+	out["imports"] = imports
 
 	var decls []map[string]any
 	for _, d := range f.Decls {
 		switch decl := d.(type) {
 		case *ast.FuncDecl:
-			decls = append(decls, summarizeFunc(fset, decl))
+			decls = append(decls, summarizeFunc(fset, decl, lod))
 		case *ast.GenDecl:
 			for _, spec := range decl.Specs {
-				if entry := summarizeSpec(fset, decl, spec); entry != nil {
+				if entry := summarizeSpec(fset, decl, spec, lod); entry != nil {
 					decls = append(decls, entry)
 				}
 			}
 		}
 	}
-	return map[string]any{
-		"path":    rel,
-		"package": f.Name.Name,
-		"imports": imports,
-		"decls":   decls,
-	}
+	out["decls"] = decls
+	return out
 }
 
-func summarizeFunc(fset *token.FileSet, d *ast.FuncDecl) map[string]any {
+// outlineFileGoFromPath is a convenience wrapper that reads the file off disk.
+func outlineFileGoFromPath(absPath, rel string, lod int) map[string]any {
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		return map[string]any{"path": rel, "language": "go", "error": err.Error()}
+	}
+	return outlineFileGo(rel, string(data), lod)
+}
+
+func summarizeFunc(fset *token.FileSet, d *ast.FuncDecl, lod int) map[string]any {
 	name := d.Name.Name
 	out := map[string]any{
 		"kind":     "func",
@@ -117,7 +104,6 @@ func summarizeFunc(fset *token.FileSet, d *ast.FuncDecl) map[string]any {
 		"line":     fset.Position(d.Pos()).Line,
 		"exported": ast.IsExported(name),
 	}
-	// Reconstruct the signature without the body.
 	var sig strings.Builder
 	sig.WriteString("func ")
 	if d.Recv != nil && len(d.Recv.List) > 0 {
@@ -146,13 +132,15 @@ func summarizeFunc(fset *token.FileSet, d *ast.FuncDecl) map[string]any {
 		}
 	}
 	out["signature"] = sig.String()
-	if doc := firstDocLine(d.Doc); doc != "" {
-		out["doc"] = doc
+	if lod >= 3 {
+		if doc := firstDocLine(d.Doc); doc != "" {
+			out["doc"] = doc
+		}
 	}
 	return out
 }
 
-func summarizeSpec(fset *token.FileSet, gen *ast.GenDecl, spec ast.Spec) map[string]any {
+func summarizeSpec(fset *token.FileSet, gen *ast.GenDecl, spec ast.Spec, lod int) map[string]any {
 	switch s := spec.(type) {
 	case *ast.TypeSpec:
 		entry := map[string]any{
@@ -168,12 +156,16 @@ func summarizeSpec(fset *token.FileSet, gen *ast.GenDecl, spec ast.Spec) map[str
 			entry["type_kind"] = "interface"
 		default:
 			entry["type_kind"] = "alias"
-			entry["underlying"] = exprText(fset, s.Type)
+			if lod >= 3 {
+				entry["underlying"] = exprText(fset, s.Type)
+			}
 		}
-		if doc := firstDocLine(s.Doc); doc != "" {
-			entry["doc"] = doc
-		} else if doc := firstDocLine(gen.Doc); doc != "" {
-			entry["doc"] = doc
+		if lod >= 3 {
+			if doc := firstDocLine(s.Doc); doc != "" {
+				entry["doc"] = doc
+			} else if doc := firstDocLine(gen.Doc); doc != "" {
+				entry["doc"] = doc
+			}
 		}
 		return entry
 	case *ast.ValueSpec:
@@ -181,29 +173,29 @@ func summarizeSpec(fset *token.FileSet, gen *ast.GenDecl, spec ast.Spec) map[str
 		if gen.Tok == token.CONST {
 			kind = "const"
 		}
-		// One spec can declare multiple names (var a, b int). Flatten into the
-		// first name for outline brevity but record all names in the entry.
 		first := s.Names[0]
-		names := make([]string, 0, len(s.Names))
-		for _, n := range s.Names {
-			names = append(names, n.Name)
-		}
 		entry := map[string]any{
 			"kind":     kind,
 			"name":     first.Name,
 			"line":     fset.Position(s.Pos()).Line,
 			"exported": ast.IsExported(first.Name),
 		}
-		if len(names) > 1 {
-			entry["names"] = names
-		}
-		if s.Type != nil {
-			entry["type"] = exprText(fset, s.Type)
-		}
-		if doc := firstDocLine(s.Doc); doc != "" {
-			entry["doc"] = doc
-		} else if doc := firstDocLine(gen.Doc); doc != "" {
-			entry["doc"] = doc
+		if lod >= 3 {
+			if len(s.Names) > 1 {
+				names := make([]string, 0, len(s.Names))
+				for _, n := range s.Names {
+					names = append(names, n.Name)
+				}
+				entry["names"] = names
+			}
+			if s.Type != nil {
+				entry["type"] = exprText(fset, s.Type)
+			}
+			if doc := firstDocLine(s.Doc); doc != "" {
+				entry["doc"] = doc
+			} else if doc := firstDocLine(gen.Doc); doc != "" {
+				entry["doc"] = doc
+			}
 		}
 		return entry
 	}

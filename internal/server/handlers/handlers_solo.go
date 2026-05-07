@@ -195,13 +195,20 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 	features, _ := h.Q.ListFeatures(ctx, projectID)
 
 	// Surface read:comments for issues with unread comments (newer than the
-	// per-target seen high-water mark), and for features only when the last
-	// comment has no author_alias (human posted last, agent hasn't replied).
+	// per-target seen high-water mark) only when the latest unread comment
+	// is from a non-agent author (human posted last). For features, only
+	// surface when the last comment has no author_alias (human posted last,
+	// agent hasn't replied).
 	//
 	// IS-1040: prior to per-target read tracking this listed every issue with
 	// any comment, so the synthetic todo regenerated every iteration and the
 	// agent could never clear it. The seen high-water mark advances when
 	// solo/release resolves a read:comments todo, so subsequent regens skip
+	// targets the agent has already processed.
+	//
+	// IS-687 / TK-1455: even with the watermark, an agent reply (new comment
+	// with higher ID) would re-surface the target, creating a cycle. The query
+	// now filters to targets whose latest unread comment is from a human.
 	// targets the agent has already processed.
 	{
 		targetsWithComments, _ := h.Q.ListTargetsWithUnreadComments(ctx, projectID)
@@ -219,6 +226,12 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			}
 			iss, ok := allIssuesByID[t.TargetID]
 			if !ok {
+				continue
+			}
+			// IS-687: skip closed issues — comments on closed issues should
+			// not surface read:comments, preventing agent churn from repeatedly
+			// claiming unread comments on already-closed issues.
+			if iss.Status == "closed" {
 				continue
 			}
 			hint := workflowhints.UnreadCommentsText(iss.ID, iss.Title)

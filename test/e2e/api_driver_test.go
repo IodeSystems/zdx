@@ -148,6 +148,13 @@ func (d *ApiDriver) AddComment(targetType, targetID, body string) {
 		map[string]any{"slug": d.Slug, "target_type": targetType, "target_id": targetID, "body": body}, nil))
 }
 
+// AddCommentAs posts a comment with an explicit author alias (e.g. an agent reply).
+func (d *ApiDriver) AddCommentAs(targetType, targetID, body, authorAlias string) {
+	d.t.Helper()
+	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/comment/add",
+		map[string]any{"slug": d.Slug, "target_type": targetType, "target_id": targetID, "body": body, "author_alias": authorAlias}, nil))
+}
+
 func (d *ApiDriver) AddBlockerQuestion(targetType, targetID, context string) int32 {
 	d.t.Helper()
 	var q struct {

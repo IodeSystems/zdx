@@ -79,3 +79,71 @@ func TestReadCommentsResolveAdvancesSeenMark(t *testing.T) {
 		t.Error("new comment did not re-surface read:comments candidate — watermark may be set too high")
 	}
 }
+
+// TestReadCommentsClearsAfterAgentReply is the IS-687 regression: after an
+// agent replies to a comment (author_alias != ”), the read:comments candidate
+// must NOT re-surface — the agent has already done its job and should not be
+// asked to read its own reply. Only a new human comment (author_alias = ”)
+// should re-surface the candidate.
+func TestReadCommentsClearsAfterAgentReply(t *testing.T) {
+	d := NewApiDriver(t, "rc-agent-reply", "ReadComments Agent Reply")
+	sc := Given(d).TriagedIssue("Agent reply issue", "test", 3).Build()
+	issueID := sc.Issues[0]
+	targetID := fmt.Sprintf("IS-%d", issueID)
+
+	// Seed one user comment so the synthetic read:comments candidate appears.
+	d.AddComment("issue", targetID, "User question")
+
+	// Claim and resolve the read:comments todo.
+	var claimed TodoItem
+	for i := 0; i < 10; i++ {
+		c, status := soloClaimNext(t, d.Slug, fmt.Sprintf("rc-agent-reply-%d", i))
+		if status != http.StatusOK {
+			t.Fatalf("solo/claim: status=%d on attempt %d", status, i)
+		}
+		if c.Kind == "read:comments" && c.TargetID == targetID {
+			claimed = c
+			break
+		}
+	}
+	if claimed.ID == 0 {
+		t.Fatal("never claimed the read:comments todo for the seeded issue")
+	}
+
+	var rel struct {
+		OK            bool `json:"ok"`
+		CycleDetected bool `json:"cycle_detected"`
+	}
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/release",
+		map[string]any{"id": claimed.ID, "agent_id": "rc-agent-reply", "resolve": true}, &rel))
+
+	// Agent posts a reply (author_alias != '').
+	// This simulates the agent responding to the user comment.
+	// Without the TK-1455 fix, this new comment (with a higher ID) would
+	// re-surface the read:comments candidate because it's newer than the
+	// seen watermark, creating a cycle.
+	d.AddCommentAs("issue", targetID, "Agent reply to the user", "agent-alias")
+
+	// Re-evaluate: read:comments must NOT appear because the latest comment
+	// is agent-authored.
+	items := d.EvaluateQueue("")
+	for _, it := range items {
+		if it.Kind == "read:comments" && it.TargetID == targetID {
+			t.Errorf("read:comments candidate %q present after agent reply — should be suppressed", it.Key)
+		}
+	}
+
+	// A new user comment should re-surface the candidate.
+	d.AddComment("issue", targetID, "Another user question")
+	items = d.EvaluateQueue("")
+	found := false
+	for _, it := range items {
+		if it.Kind == "read:comments" && it.TargetID == targetID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("new user comment did not re-surface read:comments candidate")
+	}
+}

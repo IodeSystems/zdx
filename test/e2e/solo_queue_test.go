@@ -47,13 +47,9 @@ func TestQueueKindReadCommentsClosedIssue(t *testing.T) {
 	d.CloseIssue(issueID)
 	d.AddComment("issue", targetID, "Follow-up question on closed issue")
 	items := d.EvaluateQueue("")
-	item := requireKind(t, items, "read:comments")
-	if item.TargetType != "issue" {
-		t.Errorf("expected target_type=issue, got %q", item.TargetType)
-	}
-	if item.TargetID != targetID {
-		t.Errorf("expected target_id=%s, got %s", targetID, item.TargetID)
-	}
+	// Closed issues should NOT surface read:comments — prevents agent churn
+	// from repeatedly claiming unread comments on already-closed issues (IS-687).
+	requireNoKind(t, items, "read:comments")
 }
 
 func TestQueueKindReadCommentsFeature(t *testing.T) {
