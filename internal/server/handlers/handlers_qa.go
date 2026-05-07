@@ -284,6 +284,104 @@ func (h *Handler) registerQARoutes(api huma.API) {
 			return &struct{ Body QuestionItem }{Body: toQuestionItem(row)}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "link-question-task", Method: http.MethodPost, Path: "/api/dx/qa/link-task"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug       string `json:"slug"`
+				QuestionID int32  `json:"question_id"`
+				TaskID     string `json:"task_id"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			_, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if err := h.Q.LinkQuestionTask(ctx, db.LinkQuestionTaskParams{
+				QuestionID: in.Body.QuestionID,
+				TaskID:     in.Body.TaskID,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "unlink-question-task", Method: http.MethodDelete, Path: "/api/dx/qa/unlink-task"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug       string `json:"slug"`
+				QuestionID int32  `json:"question_id"`
+				TaskID     string `json:"task_id"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			_, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if err := h.Q.UnlinkQuestionTask(ctx, db.UnlinkQuestionTaskParams{
+				QuestionID: in.Body.QuestionID,
+				TaskID:     in.Body.TaskID,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-tasks-by-question", Method: http.MethodGet, Path: "/api/dx/qa/tasks"},
+		func(ctx context.Context, in *struct {
+			Slug       string `query:"slug" required:"true"`
+			QuestionID int32  `query:"question_id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Tasks []db.ListTasksByQuestionRow `json:"tasks"`
+			}
+		}, error) {
+			_, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := h.Q.ListTasksByQuestion(ctx, in.QuestionID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct {
+				Body struct {
+					Tasks []db.ListTasksByQuestionRow `json:"tasks"`
+				}
+			}{Body: struct {
+				Tasks []db.ListTasksByQuestionRow `json:"tasks"`
+			}{Tasks: rows}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-questions-by-task", Method: http.MethodGet, Path: "/api/dx/qa/questions-by-task"},
+		func(ctx context.Context, in *struct {
+			Slug   string `query:"slug" required:"true"`
+			TaskID string `query:"task_id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Questions []QuestionItem `json:"questions"`
+			}
+		}, error) {
+			_, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := h.Q.ListQuestionsByTask(ctx, in.TaskID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]QuestionItem, len(rows))
+			for i, r := range rows {
+				out[i] = toQuestionItem(r)
+			}
+			return &struct {
+				Body struct {
+					Questions []QuestionItem `json:"questions"`
+				}
+			}{Body: struct {
+				Questions []QuestionItem `json:"questions"`
+			}{Questions: out}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "add-blocker-question", Method: http.MethodPost, Path: "/api/dx/blocker-questions/add"},
 		func(ctx context.Context, in *struct {
 			Body struct {

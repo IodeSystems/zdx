@@ -326,6 +326,7 @@ type Querier interface {
 	LinkConcernPattern(ctx context.Context, arg LinkConcernPatternParams) error
 	LinkConcernSpec(ctx context.Context, arg LinkConcernSpecParams) error
 	LinkGoalIssue(ctx context.Context, arg LinkGoalIssueParams) error
+	LinkQuestionTask(ctx context.Context, arg LinkQuestionTaskParams) error
 	LinkSpecIssue(ctx context.Context, arg LinkSpecIssueParams) error
 	LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) error
 	// Return tasks that currently have an unexpired, unreleased reservation.
@@ -507,6 +508,7 @@ type Querier interface {
 	ListQuestionProposalsByQuestion(ctx context.Context, arg ListQuestionProposalsByQuestionParams) ([]ZdxQuestionProposal, error)
 	ListQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error)
 	ListQuestionsByOwner(ctx context.Context, arg ListQuestionsByOwnerParams) ([]ZdxQuestion, error)
+	ListQuestionsByTask(ctx context.Context, taskID string) ([]ZdxQuestion, error)
 	// Ready tasks linked to an issue that have no test_refs. CancelOrphanedTasks
 	// skips these; surface them at close time so agents know to adopt rather than
 	// re-file.
@@ -574,6 +576,7 @@ type Querier interface {
 	ListTasksByAgent(ctx context.Context, claimedBy string) ([]ListTasksByAgentRow, error)
 	ListTasksByFeature(ctx context.Context, arg ListTasksByFeatureParams) ([]ListTasksByFeatureRow, error)
 	ListTasksByIssue(ctx context.Context, arg ListTasksByIssueParams) ([]ListTasksByIssueRow, error)
+	ListTasksByQuestion(ctx context.Context, questionID int32) ([]ListTasksByQuestionRow, error)
 	// Tasks (any status) whose title or text references spec N by ID ("spec N" word boundary).
 	ListTasksForSpec(ctx context.Context, id int32) ([]ListTasksForSpecRow, error)
 	ListTestDemos(ctx context.Context, testID int32) ([]ListTestDemosRow, error)
@@ -770,6 +773,7 @@ type Querier interface {
 	UnlinkConcernPattern(ctx context.Context, arg UnlinkConcernPatternParams) error
 	UnlinkConcernSpec(ctx context.Context, arg UnlinkConcernSpecParams) error
 	UnlinkGoalIssue(ctx context.Context, arg UnlinkGoalIssueParams) error
+	UnlinkQuestionTask(ctx context.Context, arg UnlinkQuestionTaskParams) error
 	UnlinkSpecIssue(ctx context.Context, arg UnlinkSpecIssueParams) error
 	UnlinkSpecTest(ctx context.Context, arg UnlinkSpecTestParams) error
 	UpdateAgentHeartbeat(ctx context.Context, id string) error

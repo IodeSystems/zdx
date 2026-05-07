@@ -759,6 +759,12 @@ type ZdxQuestionProposal struct {
 	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
+type ZdxQuestionTask struct {
+	QuestionID int32              `db:"question_id" json:"question_id"`
+	TaskID     string             `db:"task_id" json:"task_id"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxReservation struct {
 	ID             int64              `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`

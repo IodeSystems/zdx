@@ -107,6 +107,22 @@ func (q *Queries) InsertQuestion(ctx context.Context, arg InsertQuestionParams) 
 	return i, err
 }
 
+const linkQuestionTask = `-- name: LinkQuestionTask :exec
+INSERT INTO zdx_question_tasks (question_id, task_id)
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+`
+
+type LinkQuestionTaskParams struct {
+	QuestionID int32  `db:"question_id" json:"question_id"`
+	TaskID     string `db:"task_id" json:"task_id"`
+}
+
+func (q *Queries) LinkQuestionTask(ctx context.Context, arg LinkQuestionTaskParams) error {
+	_, err := q.db.Exec(ctx, linkQuestionTask, arg.QuestionID, arg.TaskID)
+	return err
+}
+
 const listChildQuestions = `-- name: ListChildQuestions :many
 SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id, owner_user_id
 FROM zdx_questions
@@ -228,6 +244,103 @@ func (q *Queries) ListQuestionsByOwner(ctx context.Context, arg ListQuestionsByO
 	return items, nil
 }
 
+const listQuestionsByTask = `-- name: ListQuestionsByTask :many
+SELECT q.id, q.project_id, q.category, q.question, q.answer, q.created_at, q.updated_at, q.parent_question_id, q.owner_user_id
+FROM zdx_questions q
+JOIN zdx_question_tasks qt ON qt.question_id = q.id
+WHERE qt.task_id = $1
+ORDER BY qt.created_at
+`
+
+func (q *Queries) ListQuestionsByTask(ctx context.Context, taskID string) ([]ZdxQuestion, error) {
+	rows, err := q.db.Query(ctx, listQuestionsByTask, taskID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxQuestion
+	for rows.Next() {
+		var i ZdxQuestion
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Category,
+			&i.Question,
+			&i.Answer,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ParentQuestionID,
+			&i.OwnerUserID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTasksByQuestion = `-- name: ListTasksByQuestion :many
+SELECT t.id, t.issue, t.title, t.text, t.status, t.feature, t.reason,
+       t.created_at, t.updated_at, t.test_plan, t.test_refs, t.task_group, t.target_branch
+FROM zdx_tasks t
+JOIN zdx_question_tasks qt ON qt.task_id = t.id
+WHERE qt.question_id = $1
+ORDER BY qt.created_at
+`
+
+type ListTasksByQuestionRow struct {
+	ID           string             `db:"id" json:"id"`
+	Issue        string             `db:"issue" json:"issue"`
+	Title        string             `db:"title" json:"title"`
+	Text         string             `db:"text" json:"text"`
+	Status       string             `db:"status" json:"status"`
+	Feature      string             `db:"feature" json:"feature"`
+	Reason       string             `db:"reason" json:"reason"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	TestPlan     string             `db:"test_plan" json:"test_plan"`
+	TestRefs     string             `db:"test_refs" json:"test_refs"`
+	TaskGroup    string             `db:"task_group" json:"task_group"`
+	TargetBranch string             `db:"target_branch" json:"target_branch"`
+}
+
+func (q *Queries) ListTasksByQuestion(ctx context.Context, questionID int32) ([]ListTasksByQuestionRow, error) {
+	rows, err := q.db.Query(ctx, listTasksByQuestion, questionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTasksByQuestionRow
+	for rows.Next() {
+		var i ListTasksByQuestionRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Issue,
+			&i.Title,
+			&i.Text,
+			&i.Status,
+			&i.Feature,
+			&i.Reason,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TestPlan,
+			&i.TestRefs,
+			&i.TaskGroup,
+			&i.TargetBranch,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUnansweredQuestions = `-- name: ListUnansweredQuestions :many
 SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id, owner_user_id
 FROM zdx_questions
@@ -308,6 +421,21 @@ func (q *Queries) SearchQuestions(ctx context.Context, arg SearchQuestionsParams
 		return nil, err
 	}
 	return items, nil
+}
+
+const unlinkQuestionTask = `-- name: UnlinkQuestionTask :exec
+DELETE FROM zdx_question_tasks
+WHERE question_id = $1 AND task_id = $2
+`
+
+type UnlinkQuestionTaskParams struct {
+	QuestionID int32  `db:"question_id" json:"question_id"`
+	TaskID     string `db:"task_id" json:"task_id"`
+}
+
+func (q *Queries) UnlinkQuestionTask(ctx context.Context, arg UnlinkQuestionTaskParams) error {
+	_, err := q.db.Exec(ctx, unlinkQuestionTask, arg.QuestionID, arg.TaskID)
+	return err
 }
 
 const updateQuestionOwner = `-- name: UpdateQuestionOwner :one

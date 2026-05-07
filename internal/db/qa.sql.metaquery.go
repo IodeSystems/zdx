@@ -174,6 +174,25 @@ var InsertQuestionCols = struct {
 	OwnerUserID:      metaquery.NewIntCol("owner_user_id"),
 }
 
+var MetaLinkQuestionTask = metaquery.Query{
+	Name:   "LinkQuestionTask",
+	Cmd:    ":exec",
+	Source: "qa.sql",
+	SQL: `INSERT INTO zdx_question_tasks (question_id, task_id)
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "question_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "task_id", GoType: "string", DBType: "text", NotNull: true},
+	},
+	Table: &metaquery.Table{Name: "zdx_question_tasks"},
+}
+
+// WrapLinkQuestionTask returns a metaquery.Builder over MetaLinkQuestionTask, pre-bound with typed arguments.
+func WrapLinkQuestionTask(arg LinkQuestionTaskParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaLinkQuestionTask, arg.QuestionID, arg.TaskID)
+}
+
 var MetaListChildQuestions = metaquery.Query{
 	Name:   "ListChildQuestions",
 	Cmd:    ":many",
@@ -332,6 +351,125 @@ var ListQuestionsByOwnerCols = struct {
 	OwnerUserID:      metaquery.NewIntCol("owner_user_id"),
 }
 
+var MetaListQuestionsByTask = metaquery.Query{
+	Name:   "ListQuestionsByTask",
+	Cmd:    ":many",
+	Source: "qa.sql",
+	SQL: `SELECT q.id, q.project_id, q.category, q.question, q.answer, q.created_at, q.updated_at, q.parent_question_id, q.owner_user_id
+FROM zdx_questions q
+JOIN zdx_question_tasks qt ON qt.question_id = q.id
+WHERE qt.task_id = $1
+ORDER BY qt.created_at`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_questions"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_questions"},
+		{Name: "category", OriginalName: "category", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_questions"},
+		{Name: "question", OriginalName: "question", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_questions"},
+		{Name: "answer", OriginalName: "answer", GoType: "pgtype.Text", DBType: "text", Table: "zdx_questions"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_questions"},
+		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_questions"},
+		{Name: "parent_question_id", OriginalName: "parent_question_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_questions"},
+		{Name: "owner_user_id", OriginalName: "owner_user_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_questions"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "task_id", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapListQuestionsByTask returns a metaquery.Builder over MetaListQuestionsByTask, pre-bound with typed arguments.
+func WrapListQuestionsByTask(taskID string) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListQuestionsByTask, taskID)
+}
+
+// ListQuestionsByTaskCols gives typed, name-safe access to ListQuestionsByTask's output columns.
+var ListQuestionsByTaskCols = struct {
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Category         metaquery.TextCol
+	Question         metaquery.TextCol
+	Answer           metaquery.TextCol
+	CreatedAt        metaquery.TimeCol
+	UpdatedAt        metaquery.TimeCol
+	ParentQuestionID metaquery.IntCol
+	OwnerUserID      metaquery.IntCol
+}{
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Category:         metaquery.NewTextCol("category"),
+	Question:         metaquery.NewTextCol("question"),
+	Answer:           metaquery.NewTextCol("answer"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
+	ParentQuestionID: metaquery.NewIntCol("parent_question_id"),
+	OwnerUserID:      metaquery.NewIntCol("owner_user_id"),
+}
+
+var MetaListTasksByQuestion = metaquery.Query{
+	Name:   "ListTasksByQuestion",
+	Cmd:    ":many",
+	Source: "qa.sql",
+	SQL: `SELECT t.id, t.issue, t.title, t.text, t.status, t.feature, t.reason,
+       t.created_at, t.updated_at, t.test_plan, t.test_refs, t.task_group, t.target_branch
+FROM zdx_tasks t
+JOIN zdx_question_tasks qt ON qt.task_id = t.id
+WHERE qt.question_id = $1
+ORDER BY qt.created_at`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "issue", OriginalName: "issue", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "text", OriginalName: "text", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "feature", OriginalName: "feature", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "reason", OriginalName: "reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
+		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
+		{Name: "test_plan", OriginalName: "test_plan", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "question_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapListTasksByQuestion returns a metaquery.Builder over MetaListTasksByQuestion, pre-bound with typed arguments.
+func WrapListTasksByQuestion(questionID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListTasksByQuestion, questionID)
+}
+
+// ListTasksByQuestionCols gives typed, name-safe access to ListTasksByQuestion's output columns.
+var ListTasksByQuestionCols = struct {
+	ID           metaquery.TextCol
+	Issue        metaquery.TextCol
+	Title        metaquery.TextCol
+	Text         metaquery.TextCol
+	Status       metaquery.TextCol
+	Feature      metaquery.TextCol
+	Reason       metaquery.TextCol
+	CreatedAt    metaquery.TimeCol
+	UpdatedAt    metaquery.TimeCol
+	TestPlan     metaquery.TextCol
+	TestRefs     metaquery.TextCol
+	TaskGroup    metaquery.TextCol
+	TargetBranch metaquery.TextCol
+}{
+	ID:           metaquery.NewTextCol("id"),
+	Issue:        metaquery.NewTextCol("issue"),
+	Title:        metaquery.NewTextCol("title"),
+	Text:         metaquery.NewTextCol("text"),
+	Status:       metaquery.NewTextCol("status"),
+	Feature:      metaquery.NewTextCol("feature"),
+	Reason:       metaquery.NewTextCol("reason"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
+	TestPlan:     metaquery.NewTextCol("test_plan"),
+	TestRefs:     metaquery.NewTextCol("test_refs"),
+	TaskGroup:    metaquery.NewTextCol("task_group"),
+	TargetBranch: metaquery.NewTextCol("target_branch"),
+}
+
 var MetaListUnansweredQuestions = metaquery.Query{
 	Name:   "ListUnansweredQuestions",
 	Cmd:    ":many",
@@ -382,6 +520,23 @@ var ListUnansweredQuestionsCols = struct {
 	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
 	ParentQuestionID: metaquery.NewIntCol("parent_question_id"),
 	OwnerUserID:      metaquery.NewIntCol("owner_user_id"),
+}
+
+var MetaUnlinkQuestionTask = metaquery.Query{
+	Name:   "UnlinkQuestionTask",
+	Cmd:    ":exec",
+	Source: "qa.sql",
+	SQL: `DELETE FROM zdx_question_tasks
+WHERE question_id = $1 AND task_id = $2`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "question_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "task_id", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapUnlinkQuestionTask returns a metaquery.Builder over MetaUnlinkQuestionTask, pre-bound with typed arguments.
+func WrapUnlinkQuestionTask(arg UnlinkQuestionTaskParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaUnlinkQuestionTask, arg.QuestionID, arg.TaskID)
 }
 
 var MetaUpdateQuestionOwner = metaquery.Query{

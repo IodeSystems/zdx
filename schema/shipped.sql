@@ -6188,6 +6188,28 @@ ALTER TABLE ONLY public.zdx_work_log
 
 
 --
+-- Name: zdx_question_tasks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_question_tasks (
+    question_id integer NOT NULL,
+    task_id text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+ALTER TABLE ONLY public.zdx_question_tasks
+    ADD CONSTRAINT zdx_question_tasks_pkey PRIMARY KEY (question_id, task_id);
+
+CREATE INDEX idx_question_tasks_question ON public.zdx_question_tasks USING btree (question_id);
+CREATE INDEX idx_question_tasks_task ON public.zdx_question_tasks USING btree (task_id);
+
+ALTER TABLE ONLY public.zdx_question_tasks
+    ADD CONSTRAINT zdx_question_tasks_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.zdx_questions(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.zdx_question_tasks
+    ADD CONSTRAINT zdx_question_tasks_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.zdx_tasks(id) ON DELETE CASCADE;
+
+--
 -- PostgreSQL database dump complete
 --
 
