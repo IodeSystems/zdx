@@ -40,6 +40,9 @@ func (h *Handler) registerQARoutes(api huma.API) {
 			}
 			if in.Body.OwnerUserID != nil {
 				params.OwnerUserID = pgtype.Int4{Int32: *in.Body.OwnerUserID, Valid: true}
+			} else if uid := ctxUserIDVal(ctx); uid != 0 {
+				// Default owner to the asker when not explicitly set.
+				params.OwnerUserID = pgtype.Int4{Int32: uid, Valid: true}
 			}
 			row, err := h.Q.InsertQuestion(ctx, params)
 			if err != nil {
