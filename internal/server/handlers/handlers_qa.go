@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -121,7 +122,12 @@ func (h *Handler) registerQARoutes(api huma.API) {
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "list-questions", Method: http.MethodGet, Path: "/api/dx/qa/list"},
-		func(ctx context.Context, in *PaginatedSlugInput) (*struct {
+		func(ctx context.Context, in *struct {
+			Slug   string `query:"slug" required:"true"`
+			Owner  string `query:"owner"`
+			Limit  int32  `query:"limit"`
+			Offset int32  `query:"offset"`
+		}) (*struct {
 			Body struct {
 				Questions []QuestionItem `json:"questions"`
 				Total     int64          `json:"total"`
@@ -130,6 +136,35 @@ func (h *Handler) registerQARoutes(api huma.API) {
 			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
+			}
+			// When owner filter is set, use ListQuestionsByOwner.
+			if in.Owner != "" {
+				ownerID, err := resolveOwnerID(ctx, h.Q, in.Owner)
+				if err != nil {
+					return nil, apiErr(400, "resolve owner: "+err.Error())
+				}
+				rows, err := h.Q.ListQuestionsByOwner(ctx, db.ListQuestionsByOwnerParams{
+					ProjectID:   p.ID,
+					OwnerUserID: pgtype.Int4{Int32: ownerID, Valid: true},
+				})
+				if err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				out := make([]QuestionItem, len(rows))
+				for i, r := range rows {
+					out[i] = toQuestionItem(r)
+				}
+				return &struct {
+					Body struct {
+						Questions []QuestionItem `json:"questions"`
+						Total     int64          `json:"total"`
+					}
+				}{
+					Body: struct {
+						Questions []QuestionItem `json:"questions"`
+						Total     int64          `json:"total"`
+					}{Questions: out, Total: int64(len(out))},
+				}, nil
 			}
 			limit, offset := parsePage(in.Limit, in.Offset)
 			b := db.WrapListQuestions(p.ID).
@@ -610,4 +645,20 @@ func toBlockerQuestionItem(r db.ZdxBlockerQuestion) BlockerQuestionItem {
 		CreatedAt:  fmtTS(r.CreatedAt),
 		AnsweredAt: fmtTS(r.AnsweredAt),
 	}
+}
+
+// resolveOwnerID resolves "me" to the current user's ID or looks up by email.
+func resolveOwnerID(ctx context.Context, q *db.Queries, owner string) (int32, error) {
+	if owner == "me" {
+		if uid := ctxUserIDVal(ctx); uid != 0 {
+			return uid, nil
+		}
+		return 0, fmt.Errorf("not authenticated")
+	}
+	// Try email lookup.
+	u, err := q.GetUserByEmail(ctx, owner)
+	if err == nil {
+		return u.ID, nil
+	}
+	return 0, fmt.Errorf("user %q not found", owner)
 }
