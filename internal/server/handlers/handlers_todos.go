@@ -290,6 +290,7 @@ func (h *Handler) registerTodoRoutes(api huma.API) {
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			traceEvent(ctx, h.Q, p.ID, "todo.priority_set", "todo_key", in.Key, "priority", in.Body.Priority)
 			return &struct {
 				Body struct {
 					Priority int32 `json:"priority"`

@@ -452,6 +452,7 @@ func (h *Handler) registerQARoutes(api huma.API) {
 			}
 			issueItem := toIssueItem(issue)
 			h.Broker.PublishIssue(in.Body.Slug, issue.ID, "issue.created", issueItem)
+			traceEvent(ctx, h.Q, p.ID, "issue.created", "issue_id", issue.ID, "title", issue.Title, "via", "proposal-approval")
 			return &struct {
 				Body struct {
 					Proposal QuestionProposalItem `json:"proposal"`

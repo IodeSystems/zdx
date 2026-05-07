@@ -331,6 +331,7 @@ func (h *Handler) registerProposalRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			traceEvent(ctx, h.Q, p.ID, "proposal.approved", "proposal_id", in.ID, "issue_id", issue.ID)
 			type respBody = struct {
 				Proposal ProposalItem `json:"proposal"`
 				IssueID  string       `json:"issue_id"`

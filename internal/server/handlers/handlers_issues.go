@@ -275,6 +275,7 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			go h.Emb.UpsertIssue(context.Background(), p.ID, row.ID, issueText)
 			item := toIssueItem(row)
 			h.Broker.PublishIssue(in.Body.Slug, row.ID, "issue.created", item)
+			traceEvent(ctx, h.Q, p.ID, "issue.created", "issue_id", row.ID, "title", row.Title, "auto_ready", in.Body.AutoReady)
 			if in.Body.AutoReady {
 				h.refreshQueueAsync(p.ID)
 			}
@@ -600,6 +601,7 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			}
 			_ = h.Q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: issueID, Agent: agent, Note: note})
 			h.Broker.PublishIssue(in.Body.Slug, issueID, "issue.closed", map[string]any{"id": issueID, "reason": reason})
+			traceEvent(ctx, h.Q, p.ID, "issue.closed", "issue_id", issueID, "reason", reason)
 
 			// Warn about ready tasks with no test_refs that will not be cascade-closed.
 			// These were never verified; they stay open for re-adoption.
@@ -627,6 +629,7 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 						cascadeNote := "[closed:cascade] target " + issueID + " closed"
 						_ = h.Q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: li.ID, Agent: agent, Note: cascadeNote})
 						h.Broker.PublishIssue(in.Body.Slug, li.ID, "issue.closed", map[string]any{"id": li.ID, "reason": "cascade"})
+						traceEvent(ctx, h.Q, p.ID, "issue.closed", "issue_id", li.ID, "reason", "cascade", "trigger_issue_id", issueID)
 					}
 				}
 
@@ -657,6 +660,7 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 						trackerNote := "[closed:tracker-cascade] all children closed; last was " + issueID
 						_ = h.Q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: parentID, Agent: agent, Note: trackerNote})
 						h.Broker.PublishIssue(in.Body.Slug, parentID, "issue.closed", map[string]any{"id": parentID, "reason": "tracker-cascade"})
+						traceEvent(ctx, h.Q, p.ID, "issue.closed", "issue_id", parentID, "reason", "tracker-cascade", "trigger_issue_id", issueID)
 					}
 				}
 			}
@@ -813,6 +817,7 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			_ = h.Q.ReopenIssue(ctx, db.ReopenIssueParams{ID: issueID, ProjectID: 0})
 			if projectID != 0 {
 				h.recordRevision(ctx, projectID, "issue", issueID, "status", prevStatus, "open")
+				traceEvent(ctx, h.Q, projectID, "issue.reopened", "issue_id", issueID, "prev_status", prevStatus)
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})

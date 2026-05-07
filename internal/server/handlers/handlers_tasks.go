@@ -449,6 +449,7 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 			}
 			h.publishTaskByID(ctx, id, "task.done", map[string]any{"id": id})
 			if haveOld && oldTask.ProjectID != 0 {
+				traceEvent(ctx, h.Q, oldTask.ProjectID, "task.done", "task_id", id, "issue_id", oldTask.Issue)
 				h.refreshQueueAsync(oldTask.ProjectID)
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil

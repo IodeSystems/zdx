@@ -122,6 +122,7 @@ func (h *Handler) registerCommentRoutes(api huma.API) {
 			}
 			h.Broker.Publish(fmt.Sprintf("project:%s:comments", in.Body.Slug), "comment.added", item)
 			h.Broker.Publish(fmt.Sprintf("%s:%s", in.Body.TargetType, in.Body.TargetID), "comment.added", item)
+			traceEvent(ctx, h.Q, p.ID, "comment.added", "comment_id", c.ID, "target_type", c.TargetType, "target_id", c.TargetID)
 			return &struct{ Body CommentItem }{Body: item}, nil
 		})
 
