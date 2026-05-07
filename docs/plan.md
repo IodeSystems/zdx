@@ -505,11 +505,16 @@ blocks the GAPD stream from being considered done.
   `STATIC_DIR=… TEST_DRIVER=ui dx test --layer demo --filter TestDemoBrowser_`.
   Not blocking — demos are individually reliable and demo runs are
   rarely batched.
-- **Vitest preexisting failures** — 6 environment-card tests fail
-  with `useNavigate is not a function` at `EnvironmentCard`
-  (`ui/src/routes/project/$slug/environments/index.test.tsx`).
-  Surfaces on every `dx test --layer demo` run. Predates this stream
-  entirely.
+- ✅ **Jest environment-card failures fixed (2026-05-06).**
+  6 tests in `ui/src/routes/project/$slug/environments/index.test.tsx`
+  were failing with `useNavigate is not a function`. Cause: the
+  `jest.mock('@tanstack/react-router', …)` factory only stubbed
+  `createFileRoute` + `Link`. `EnvironmentCard` calls `useNavigate()`
+  (added to drive a "View branches" navigation), so the mock fell
+  through to `undefined` at runtime. Fix: add
+  `useNavigate: () => jest.fn()` to the mock. Full ui suite now
+  84/84 passing (was 78/84). The plan note called this "vitest"
+  but the project uses jest — corrected.
 
 ## Reference
 

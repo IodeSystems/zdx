@@ -25,6 +25,7 @@ jest.mock('@tanstack/react-router', () => ({
     return fn
   },
   Link: (props: any) => <a href={props.to}>{props.children}</a>,
+  useNavigate: () => jest.fn(),
 }))
 
 import {
