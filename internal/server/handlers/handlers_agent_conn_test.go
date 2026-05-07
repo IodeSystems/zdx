@@ -130,33 +130,28 @@ func TestDispatchAgentMessage_MalformedDropped(t *testing.T) {
 
 func TestAuthorizeAgentRegister(t *testing.T) {
 	tests := []struct {
-		name           string
-		role           string
-		scope          []string
-		projectSlug    string
-		wantReject     bool
-		wantDeprecated bool
+		name        string
+		role        string
+		scope       []string
+		projectSlug string
+		wantReject  bool
 	}{
-		{name: "global with admin unscoped — allowed", role: "admin", scope: nil, projectSlug: "", wantReject: false, wantDeprecated: false},
-		{name: "global with admin scoped — deprecated", role: "admin", scope: []string{"foo"}, projectSlug: "", wantReject: false, wantDeprecated: true},
-		{name: "global with non-admin unscoped — deprecated", role: "user", scope: nil, projectSlug: "", wantReject: false, wantDeprecated: true},
-		{name: "global with non-admin scoped — deprecated", role: "user", scope: []string{"foo"}, projectSlug: "", wantReject: false, wantDeprecated: true},
-		{name: "project-scoped registering matching slug — allowed", role: "user", scope: []string{"foo"}, projectSlug: "foo", wantReject: false, wantDeprecated: false},
-		{name: "project-scoped registering different slug — rejected", role: "user", scope: []string{"foo"}, projectSlug: "bar", wantReject: true, wantDeprecated: false},
-		{name: "unscoped admin registering project — allowed", role: "admin", scope: nil, projectSlug: "foo", wantReject: false, wantDeprecated: false},
-		{name: "unscoped non-admin registering project — allowed", role: "user", scope: nil, projectSlug: "foo", wantReject: false, wantDeprecated: false},
-		{name: "multi-scope key registering an in-scope slug — allowed", role: "user", scope: []string{"foo", "bar"}, projectSlug: "bar", wantReject: false, wantDeprecated: false},
+		{name: "global with admin unscoped — allowed", role: "admin", scope: nil, projectSlug: "", wantReject: false},
+		{name: "global with admin scoped — rejected", role: "admin", scope: []string{"foo"}, projectSlug: "", wantReject: true},
+		{name: "global with non-admin unscoped — rejected", role: "user", scope: nil, projectSlug: "", wantReject: true},
+		{name: "global with non-admin scoped — rejected", role: "user", scope: []string{"foo"}, projectSlug: "", wantReject: true},
+		{name: "project-scoped registering matching slug — allowed", role: "user", scope: []string{"foo"}, projectSlug: "foo", wantReject: false},
+		{name: "project-scoped registering different slug — rejected", role: "user", scope: []string{"foo"}, projectSlug: "bar", wantReject: true},
+		{name: "unscoped admin registering project — allowed", role: "admin", scope: nil, projectSlug: "foo", wantReject: false},
+		{name: "unscoped non-admin registering project — allowed", role: "user", scope: nil, projectSlug: "foo", wantReject: false},
+		{name: "multi-scope key registering an in-scope slug — allowed", role: "user", scope: []string{"foo", "bar"}, projectSlug: "bar", wantReject: false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			reason, deprecation := authorizeAgentRegister(tc.role, tc.scope, tc.projectSlug, "agent-x")
+			reason := authorizeAgentRegister(tc.role, tc.scope, tc.projectSlug)
 			rejected := reason != ""
-			deprecated := deprecation != ""
 			if rejected != tc.wantReject {
 				t.Errorf("reject: want %v got %v (reason=%q)", tc.wantReject, rejected, reason)
-			}
-			if deprecated != tc.wantDeprecated {
-				t.Errorf("deprecation: want %v got %v (msg=%q)", tc.wantDeprecated, deprecated, deprecation)
 			}
 		})
 	}

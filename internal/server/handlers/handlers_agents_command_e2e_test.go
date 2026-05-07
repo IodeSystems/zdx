@@ -26,7 +26,10 @@ func (h *e2eHolder) CurrentTask() *agentdaemon.RunningTask     { return h.task }
 func (h *e2eHolder) WaitForCompletion(_ context.Context) error { return nil }
 
 // buildE2EServer creates a real httptest.Server with both huma routes and the
-// WS connect handler wired to the same chi mux — identical to prod wiring.
+// WS connect handler wired to the same chi mux — identical to prod wiring,
+// minus the apiKeyMiddleware. The test stamps role=admin on ctx for the WS
+// connect path so authorizeAgentRegister allows the global handshake; in
+// prod this happens via apiKeyMiddleware against a real admin token.
 func buildE2EServer(t *testing.T, registry *agentconn.Registry) (*httptest.Server, *Handler) {
 	t.Helper()
 	mux := chi.NewMux()
@@ -35,7 +38,11 @@ func buildE2EServer(t *testing.T, registry *agentconn.Registry) (*httptest.Serve
 		AgentCommander: registry,
 	}}
 	h.registerAgentRoutes(api)
-	mux.Get("/api/agents/connect", h.HandleAgentConnect(registry))
+	connectHandler := h.HandleAgentConnect(registry)
+	mux.Get("/api/agents/connect", func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), CtxUserRole, "admin")
+		connectHandler(w, r.WithContext(ctx))
+	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	return srv, h

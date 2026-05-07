@@ -420,21 +420,31 @@ under `dx test --layer demo`:
 
 ## Pickup — next session
 
-This stream is **not the right place to start work today.** Both
-remaining items are cold:
+GAPD is now done. Both prior pickup items are resolved or expressly
+deferred:
 
-1. 🚫 **Strict-reject the deprecated global-auth path.** Blocked.
+1. ✅ **Strict-reject deprecated global-auth path (2026-05-06).**
    `authorizeAgentRegister`
-   (`internal/server/handlers/handlers_agent_conn.go`) currently logs
-   `agent connect: DEPRECATED: …` and accepts globals registered with
-   non-admin or project-scoped tokens. Flip the global branch to
-   return `"requires admin token"` once **prod telemetry shows zero
-   such lines for a full release cycle.** That's a one-line change in
-   the helper plus flipping the matching cases in
-   `TestAuthorizeAgentRegister` from `wantDeprecated: true` to
-   `wantReject: true`. Do not flip until prod logs are quiet — flipping
-   too early breaks every operator's `dx agent connect --global`
-   workflow simultaneously.
+   (`internal/server/handlers/handlers_agent_conn.go`) now hard-rejects
+   global registrations made with a non-admin or project-scoped token
+   (`global registration requires an admin token (role=admin,
+   unscoped)`). The dual-return signature was simplified to a single
+   `string` reason — the `deprecation` second return became dead code
+   once the global branch stopped logging-and-allowing.
+   `TestAuthorizeAgentRegister` flipped 3 cases from `wantDeprecated:
+   true` to `wantReject: true` and dropped the `wantDeprecated` field.
+   `TestE2EPauseControlPlane` was updated: its
+   `buildE2EServer` helper bypasses `apiKeyMiddleware`, so it now
+   stamps `role=admin` on ctx in the WS-connect wrapper to keep the
+   global handshake authorized (in prod that comes from
+   `apiKeyMiddleware` against a real admin token).
+
+   **Operational note:** flipped without waiting for the prior plan's
+   "zero deprecation log lines for a release cycle" gate, per
+   in-session call. Any operator still running
+   `dx agent connect --global` with a project-scoped or non-admin
+   token will fail at handshake on the next deploy. They need to
+   re-mint an admin-tier token.
 
 2. 💤 **(maybe) Flat issue-page todo list.** Bump now lives on the
    `UnifiedTimeline` `created` event for each issue's todos. If an
@@ -443,8 +453,9 @@ remaining items are cold:
    above `BlockerQuestionsSection` and put the bump there too. **No
    one has asked.** Don't volunteer it.
 
-If neither is ready, open another stream's `plan/plan.md` (the
-project-wide roadmap) and pick the next item there — GAPD is paged out.
+Open another stream's `plan/plan.md` (project-wide roadmap, with the
+Unified Event Stream section unstarted) for next session — GAPD is
+paged out.
 
 ## Out-of-band follow-ups (not part of GAPD, but discovered here)
 
@@ -525,6 +536,18 @@ blocks the GAPD stream from being considered done.
   `useNavigate: () => jest.fn()` to the mock. Full ui suite now
   84/84 passing (was 78/84). The plan note called this "vitest"
   but the project uses jest — corrected.
+- ⚠️ **Preexisting `TestSoloEvaluateDiff` failure** — surfaced
+  during 2026-05-06 cleanup but is **not** caused by this stream's
+  changes. Confirmed by stashing all session diffs and re-running
+  on the pre-session HEAD: still fails `solo_queue_test.go:921:
+  Changed: want key "triage-IS-2", got []`. Lives in the solo-queue
+  evaluation path, no overlap with agent auth or browser demos.
+  Per project policy
+  (test-failure-escalation: "preexisting test failures must be
+  filed as high-priority blockers with dedup, never skipped /
+  disabled / worked-around"), file as a high-priority blocker
+  next session. Sibling `TestDemoAPI_SoloEvaluateDiff` fails the
+  same way; both routes through `EvaluateQueue`.
 
 ## Reference
 
