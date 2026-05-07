@@ -4,7 +4,7 @@ import { Box, Button, Chip, Tooltip, Typography } from '@mui/material'
 import { ArrowBack as ArrowBackIcon, CheckCircle as CheckCircleIcon, LockOpen as LockOpenIcon, PlayArrow as PlayArrowIcon, RadioButtonUnchecked as RadioButtonUncheckedIcon } from '@mui/icons-material'
 import { useTask, useTasks, useUpdateTaskStatus, useReleaseTask, useReadyTask, useTaskCodeRefs, useReservationsByTask } from '../api'
 import { BlockerQuestionsSection } from './BlockerQuestionsSection'
-import { CommentsAndRevisions } from './CommentsAndRevisions'
+import { EventStream } from './EventStream'
 import { TaskReviewSection } from './TaskReviewSection'
 import { CodeRefs } from './CodeRefs'
 import { MarkdownContent } from './MarkdownContent'
@@ -292,7 +292,7 @@ export function TaskDetail({
 
       <EditHistory slug={slug} targetType="task" targetId={taskId} />
 
-      <CommentsAndRevisions slug={slug} targetType="task" targetId={taskId} />
+      <EventStream slug={slug} targetType="task" targetId={taskId} />
     </Box>
   )
 }
