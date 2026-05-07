@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/iodesystems/zdx-go/internal/config"
 )
@@ -216,20 +217,43 @@ type provisionedSlot struct {
 // On failure, partial state is rolled back before returning the error —
 // callers don't need to clean up after a failed provisionSlot call.
 func provisionSlot(ctx context.Context, providerName, imageTag, cwd string, opts ProviderOpts, slotIdx int, agentCfg config.AgentConfig, envPairs []string) (*provisionedSlot, error) {
+	wtStart := time.Now()
 	wtPath, branch, err := slotWorktree(cwd, opts.RC.slug, opts.Alias, slotIdx)
 	if err != nil {
 		return nil, fmt.Errorf("slot %d worktree: %w", slotIdx, err)
+	}
+	if opts.TraceLog != nil {
+		opts.TraceLog.Info("worktree.create",
+			"sid", opts.SID,
+			"slot_idx", slotIdx,
+			"path", wtPath,
+			"branch", branch,
+			"took_ms", time.Since(wtStart).Milliseconds())
 	}
 	cleanWT := func() { cleanupSlotWorktree(cwd, wtPath, branch) }
 
 	slotName := fmt.Sprintf("zdx-agent-mcp-%s-%s-%d", providerName, opts.Alias, slotIdx)
 	runArgs := buildMCPSlotArgs(slotName, imageTag, cwd, wtPath, agentCfg, opts.KeepContainer, envPairs)
+	containerStart := time.Now()
 	startCmd := exec.CommandContext(ctx, "docker", runArgs...)
 	startCmd.Stdout = os.Stderr // docker run -d prints the container ID
 	startCmd.Stderr = os.Stderr
 	if err := startCmd.Run(); err != nil {
 		cleanWT()
 		return nil, fmt.Errorf("start slot %d (%s): %w", slotIdx, slotName, err)
+	}
+	if opts.TraceLog != nil {
+		opts.TraceLog.Info("container.start",
+			"sid", opts.SID,
+			"slot_idx", slotIdx,
+			"name", slotName,
+			"image", imageTag,
+			"worktree", wtPath,
+			"env_count", len(envPairs),
+			"keep_container", opts.KeepContainer,
+			"memory", agentCfg.ContainerMemory,
+			"cpus", agentCfg.ContainerCPUs,
+			"took_ms", time.Since(containerStart).Milliseconds())
 	}
 
 	cleanup := func() {

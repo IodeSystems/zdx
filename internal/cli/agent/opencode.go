@@ -15,6 +15,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/cli/agent/tracelog"
 	"github.com/iodesystems/zdx-go/internal/cli/mcpcmd"
 	"github.com/iodesystems/zdx-go/internal/config"
 	"github.com/iodesystems/zdx-go/internal/llm"
@@ -49,6 +50,8 @@ func init() {
 			maxTurns:   opts.MaxTurns, // 0 = unlimited; matches opencode CLI default
 			seedPrompt: opts.SeedPrompt,
 			mcpCommand: opts.MCPCommand,
+			complexity: opts.Complexity,
+			tlog:       opts.TraceLog,
 		}, nil
 	})
 }
@@ -63,6 +66,8 @@ type opencodeAdapter struct {
 	maxTurns   int
 	seedPrompt string
 	mcpCommand []string // when non-empty, dispatch tools via newRemoteDispatcher (dev-container mode)
+	complexity string   // canonical tier — surfaced in setup events for review/escalation telemetry
+	tlog       *tracelog.Logger
 
 	doneCh chan struct{}
 	runErr error
@@ -85,6 +90,19 @@ func (a *opencodeAdapter) ResolveModel(ctx context.Context, complexity string) (
 }
 
 func (a *opencodeAdapter) Start(ctx context.Context, sid, issueID, alias string) (string, error) {
+	setupStart := time.Now()
+	if a.tlog != nil {
+		a.tlog.Info("setup.start",
+			"provider", "opencode",
+			"sid", sid,
+			"alias", alias,
+			"issue_id", issueID,
+			"model", a.llmCfg.Model,
+			"complexity", a.complexity,
+			"transport", a.dispatcherTransport(),
+			"endpoint", a.llmCfg.BaseURL)
+	}
+
 	if alias != "" {
 		os.Setenv("DX_AUTHOR_ALIAS", alias)
 	}
@@ -98,6 +116,13 @@ func (a *opencodeAdapter) Start(ctx context.Context, sid, issueID, alias string)
 	if err != nil {
 		dispCancel()
 		return "", err
+	}
+	if a.tlog != nil {
+		a.tlog.Info("mcp.attach",
+			"sid", sid,
+			"transport", a.dispatcherTransport(),
+			"tools_count", len(disp.tools),
+			"tools", disp.toolNames())
 	}
 
 	sessLog, err := newOpenCodeSessionLog(sid, issueID, root)
@@ -121,6 +146,12 @@ func (a *opencodeAdapter) Start(ctx context.Context, sid, issueID, alias string)
 
 	fmt.Printf("── session %s  issue=%s  model=%s ──\n", sid, issueID, a.llmCfg.Model)
 
+	if a.tlog != nil {
+		a.tlog.Info("setup.done",
+			"sid", sid,
+			"took_ms", time.Since(setupStart).Milliseconds())
+	}
+
 	a.doneCh = make(chan struct{})
 	go func() {
 		defer close(a.doneCh)
@@ -133,6 +164,17 @@ func (a *opencodeAdapter) Start(ctx context.Context, sid, issueID, alias string)
 	}()
 
 	return sessLog.path, nil
+}
+
+// dispatcherTransport returns the human-readable transport label used in
+// setup events. "stdio" when an external MCP subprocess is configured (dev
+// container mode); "in-process" when tools are registered directly into the
+// host process's MCP server.
+func (a *opencodeAdapter) dispatcherTransport() string {
+	if len(a.mcpCommand) > 0 {
+		return "stdio"
+	}
+	return "in-process"
 }
 
 // buildDispatcher returns the MCP dispatcher Start should use. Default is

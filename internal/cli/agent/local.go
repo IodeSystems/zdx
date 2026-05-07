@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/cli/agent/tracelog"
 	"github.com/iodesystems/zdx-go/internal/cli/mcpcmd"
 	"github.com/iodesystems/zdx-go/internal/config"
 )
@@ -56,6 +58,8 @@ type localAdapter struct {
 	maxTurns   int
 	seedPrompt string
 	mcpCommand []string // when non-empty, dispatch tools via newRemoteDispatcher (dev-container mode)
+	complexity string
+	tlog       *tracelog.Logger
 
 	doneCh chan struct{}
 	runErr error
@@ -92,11 +96,23 @@ func init() {
 			maxTurns:   maxTurns,
 			seedPrompt: opts.SeedPrompt,
 			mcpCommand: opts.MCPCommand,
+			complexity: opts.Complexity,
+			tlog:       opts.TraceLog,
 		}, nil
 	})
 }
 
 func (a *localAdapter) Provider() string { return "local" }
+
+// dispatcherTransport returns the human-readable transport label used in
+// setup events ("stdio" for external MCP subprocess, "in-process" for
+// in-host tool registration).
+func (a *localAdapter) dispatcherTransport() string {
+	if len(a.mcpCommand) > 0 {
+		return "stdio"
+	}
+	return "in-process"
+}
 
 // buildDispatcher mirrors opencode.buildDispatcher: in-process MCP server
 // rooted at the repo (default) or a remote subprocess when mcpCommand is
@@ -128,6 +144,18 @@ func (a *localAdapter) ResolveModel(ctx context.Context, complexity string) (str
 }
 
 func (a *localAdapter) Start(ctx context.Context, sid, issueID, alias string) (string, error) {
+	setupStart := time.Now()
+	if a.tlog != nil {
+		a.tlog.Info("setup.start",
+			"provider", "local",
+			"sid", sid,
+			"alias", alias,
+			"issue_id", issueID,
+			"model", a.llmCfg.Model,
+			"complexity", a.complexity,
+			"transport", a.dispatcherTransport(),
+			"endpoint", a.llmCfg.BaseURL)
+	}
 	// Set author alias so agent-posted comments are tagged and excluded
 	// from unread-comment queries (prevents self-review loops).
 	if alias != "" {
@@ -148,12 +176,24 @@ func (a *localAdapter) Start(ctx context.Context, sid, issueID, alias string) (s
 		dispCancel()
 		return "", err
 	}
+	if a.tlog != nil {
+		a.tlog.Info("mcp.attach",
+			"sid", sid,
+			"transport", a.dispatcherTransport(),
+			"tools_count", len(disp.tools),
+			"tools", disp.toolNames())
+	}
 
 	sessLog, err := newSessionLog(sid, issueID, root)
 	if err != nil {
 		disp.Close()
 		dispCancel()
 		return "", err
+	}
+	if a.tlog != nil {
+		a.tlog.Info("setup.done",
+			"sid", sid,
+			"took_ms", time.Since(setupStart).Milliseconds())
 	}
 
 	system := localSystemPrompt(alias, issueID)

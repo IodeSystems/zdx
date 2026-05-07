@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/iodesystems/zdx-go/internal/cli/agent/tracelog"
 	"github.com/iodesystems/zdx-go/internal/config"
 )
 
@@ -91,6 +92,14 @@ type ProviderOpts struct {
 	// agents that are waiting for assignment, and for project-scoped
 	// agents an operator wants to "have ready" before dispatching work.
 	Idle bool
+
+	// TraceLog is the session-scoped structured logger (initialized in
+	// DispatchSingle / managed wrappers). When non-nil, providers and the
+	// shared lifecycle code emit setup events (worktree.create,
+	// container.start, mcp.attach, setup.start, setup.done) through it so
+	// `.zdx/logs/agent.log` and the server log stream surface the
+	// pre-first-turn phase. Nil-safe: callers must check before use.
+	TraceLog *tracelog.Logger
 }
 
 // ProviderConstructor builds an AgentProvider ready to be passed to

@@ -93,6 +93,17 @@ func (d *localDispatcher) Close() {
 	}
 }
 
+// toolNames returns the names of every tool visible to the dispatcher. Used
+// by setup-event instrumentation so operators can see the agent's tool
+// surface at session start without trawling the JSONL.
+func (d *localDispatcher) toolNames() []string {
+	names := make([]string, 0, len(d.tools))
+	for _, t := range d.tools {
+		names = append(names, t.Name)
+	}
+	return names
+}
+
 // OpenAIFunctions returns the registered tools in OpenAI function-calling format.
 func (d *localDispatcher) OpenAIFunctions() []llm.ToolDef {
 	out := make([]llm.ToolDef, 0, len(d.tools))
