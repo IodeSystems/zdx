@@ -318,7 +318,13 @@ func runMCPContainerLoop(parentCtx context.Context, providerName string, opts Pr
 		agentCfg.ContainerCPUs = "2"
 	}
 
-	maxSlots := agentCfg.MaxWorktrees
+	// Slot count is the explicit --concurrency opt-in (default 1). The
+	// agent.max_worktrees config field is NOT consulted here — that's
+	// the project-wide concurrent-agents ceiling for `dx agent start`,
+	// not a fan-out knob for the loop. For normal parallel work, run
+	// multiple `dx agent loop` processes (each is its own visible
+	// alias / claim stream), not one process with N slots inside.
+	maxSlots := opts.Concurrency
 	if maxSlots <= 0 {
 		maxSlots = 1
 	}

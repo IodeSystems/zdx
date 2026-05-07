@@ -118,7 +118,7 @@ For the long-running work loop, use ` + "`dx agent loop --provider=X`" + `.`,
 // connect --idle."
 func agentConnectCmd() *cobra.Command {
 	var idle bool
-	var maxTurns, maxWorktrees int
+	var maxTurns, concurrency int
 	var keepContainer, chrome bool
 	var mcpContainer string
 	cmd := &cobra.Command{
@@ -169,9 +169,7 @@ open so the UI can pause/resume/drain or eventually push work.`,
 				opts.Chrome = chrome
 			}
 			opts.KeepContainer = keepContainer
-			if cmd.Flags().Changed("max-worktrees") && maxWorktrees > 0 {
-				opts.AgentCfg.MaxWorktrees = maxWorktrees
-			}
+			opts.Concurrency = concurrency
 			opts.Global = global
 			opts.Idle = idle
 
@@ -198,7 +196,7 @@ open so the UI can pause/resume/drain or eventually push work.`,
 	cmd.Flags().IntVar(&maxTurns, "max-turns", 0, "cap on assistant turns per session (0 = unlimited; opencode/local only)")
 	cmd.Flags().BoolVar(&keepContainer, "keep-container", false, "keep slot containers after exit (skip --rm; useful for debugging)")
 	cmd.Flags().BoolVar(&chrome, "chrome", true, "pass --chrome to claude CLI (claude only; ignored otherwise)")
-	cmd.Flags().IntVar(&maxWorktrees, "max-worktrees", 0, "override agent.max_worktrees from config (container slot count)")
+	cmd.Flags().IntVar(&concurrency, "concurrency", 1, "in-process slot fan-out for --container=docker (default 1; for parallel work prefer running multiple `dx agent connect` processes)")
 	cmd.Flags().StringVar(&mcpContainer, "mcp-container", "", "dispatch tool calls through dx-agent --mcp-stdio running inside this container (opencode/local only)")
 	return cmd
 }
@@ -238,10 +236,10 @@ func rejectUnimplementedExplicit(flag, value string) error {
 // Identity/role/environment flags (--provider, --alias, --model,
 // --complexity, --container, --worktree, --branch) are inherited from
 // the parent. Loop-only flags (--max-turns, --keep-container,
-// --max-worktrees, --chrome, --mcp-container) live here.
+// --concurrency, --chrome, --mcp-container) live here.
 func agentLoopCmd() *cobra.Command {
 	var mcpContainer string
-	var maxTurns, maxWorktrees int
+	var maxTurns, concurrency int
 	var keepContainer, chrome bool
 	cmd := &cobra.Command{
 		Use:   "loop",
@@ -250,11 +248,18 @@ func agentLoopCmd() *cobra.Command {
 agent session per pick. Atomic claim/lease/release, churn backoff,
 self-update re-exec, and crash-recovery release work for all providers.
 
-Default --container=docker runs N parallel slot containers (sleep infinity,
-/workspace mounted, sandboxed) with one host-side loop per slot — LLM loops
-on the host, tool calls dispatch into the slot via docker exec dx-agent
---mcp-stdio. Pass --container=local to run claude directly on the host
-against the operator's working tree (debug / no-docker fallback).`,
+Single agent, sequential task claims by default. With --container=docker
+the loop's session runs inside a slot container (sleep infinity, /workspace
+mounted, sandboxed); LLM lives on the host, tool calls dispatch into the
+slot via docker exec dx-agent --mcp-stdio. Pass --container=local to run
+claude directly on the host (debug / no-docker fallback).
+
+For parallel work, run multiple `+"`dx agent loop`"+` processes — each is its
+own visible alias and claim stream. The `+"`--concurrency=N`"+` flag is an
+explicit opt-in to in-process fan-out (N slot containers under one parent
+process); most operators should not need it. The agent.max_worktrees
+config field is NOT consulted here — that's the project-wide
+concurrent-agents ceiling read by `+"`dx agent start`"+`.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			provider := cmd.Flag("provider").Value.String()
 			alias := cmd.Flag("alias").Value.String()
@@ -287,9 +292,7 @@ against the operator's working tree (debug / no-docker fallback).`,
 				opts.Chrome = chrome
 			}
 			opts.KeepContainer = keepContainer
-			if cmd.Flags().Changed("max-worktrees") && maxWorktrees > 0 {
-				opts.AgentCfg.MaxWorktrees = maxWorktrees
-			}
+			opts.Concurrency = concurrency
 			if mode == ContainerDocker {
 				return DispatchContainerLoop(cmd.Context(), provider, opts)
 			}
@@ -305,7 +308,7 @@ against the operator's working tree (debug / no-docker fallback).`,
 	cmd.Flags().IntVar(&maxTurns, "max-turns", 0, "cap on assistant turns per session (0 = unlimited; opencode/local only)")
 	cmd.Flags().BoolVar(&keepContainer, "keep-container", false, "keep slot containers after exit (skip --rm; useful for debugging)")
 	cmd.Flags().BoolVar(&chrome, "chrome", true, "pass --chrome to claude CLI (claude only; ignored otherwise)")
-	cmd.Flags().IntVar(&maxWorktrees, "max-worktrees", 0, "override agent.max_worktrees from config (container slot count in --container=docker mode)")
+	cmd.Flags().IntVar(&concurrency, "concurrency", 1, "in-process slot fan-out for --container=docker (default 1; for parallel work prefer running multiple `dx agent loop` processes)")
 	cmd.Flags().StringVar(&mcpContainer, "mcp-container", "", "dispatch tool calls through dx-agent --mcp-stdio running inside this container (opencode/local only)")
 	return cmd
 }

@@ -49,6 +49,17 @@ type ProviderOpts struct {
 	// the shared cluster_id makes the whole cluster filterable as one chain.
 	ClusterID string
 
+	// Concurrency controls how many slot containers `dx agent loop
+	// --container=docker` spins up within this single process. Default 1
+	// (sequential, single agent — what most operators want). Setting >1 is
+	// an explicit opt-in to in-process fan-out; for normal parallel work,
+	// run multiple `dx agent loop` processes instead so each agent is its
+	// own visible OS process / alias / claim stream. NOT read from
+	// agent.max_worktrees in config — that field is the project-wide
+	// concurrent-agents ceiling consulted by `dx agent start`, not a slot
+	// count for the loop.
+	Concurrency int
+
 	// Global=true registers the agent in the server-wide pool (no project
 	// binding) instead of under opts.RC.slug. Surfaced in /api/agents and
 	// the top-level /agents UI; assignment to a specific project happens
