@@ -446,12 +446,16 @@ deferred:
    token will fail at handshake on the next deploy. They need to
    re-mint an admin-tier token.
 
-2. 💤 **(maybe) Flat issue-page todo list.** Bump now lives on the
-   `UnifiedTimeline` `created` event for each issue's todos. If an
-   operator asks for a flat actionable list (parallel to the existing
-   "Tasks" section in `IssueDetail`), add a small "Open todos" section
-   above `BlockerQuestionsSection` and put the bump there too. **No
-   one has asked.** Don't volunteer it.
+2. ✅ **Flat issue-page todo list (2026-05-06).** Built. New "Open
+   todos (N)" section in `IssueDetail.tsx`, sits above
+   `BlockerQuestionsSection`, parallel to the Tasks section. Pulls
+   from `useTodosByIssue(slug, issueId)`, filters `status === 'open'`,
+   renders each entry via the existing `TodoRow` component (now
+   exported from `QueueView.tsx`). Bump dialog comes free with
+   `TodoRow` — no UX duplication, identical copy ("the bump
+   sticks"). Section auto-hides when the issue has zero open
+   todos. Operators can now bump without scrolling the timeline
+   for the right `created` event.
 
 Open another stream's `plan/plan.md` (project-wide roadmap, with the
 Unified Event Stream section unstarted) for next session — GAPD is
@@ -536,18 +540,23 @@ blocks the GAPD stream from being considered done.
   `useNavigate: () => jest.fn()` to the mock. Full ui suite now
   84/84 passing (was 78/84). The plan note called this "vitest"
   but the project uses jest — corrected.
-- ⚠️ **Preexisting `TestSoloEvaluateDiff` failure** — surfaced
-  during 2026-05-06 cleanup but is **not** caused by this stream's
-  changes. Confirmed by stashing all session diffs and re-running
-  on the pre-session HEAD: still fails `solo_queue_test.go:921:
-  Changed: want key "triage-IS-2", got []`. Lives in the solo-queue
-  evaluation path, no overlap with agent auth or browser demos.
-  Per project policy
-  (test-failure-escalation: "preexisting test failures must be
-  filed as high-priority blockers with dedup, never skipped /
-  disabled / worked-around"), file as a high-priority blocker
-  next session. Sibling `TestDemoAPI_SoloEvaluateDiff` fails the
-  same way; both routes through `EvaluateQueue`.
+- ✅ **`TestSoloEvaluateDiff` + `TestDemoAPI_SoloEvaluateDiff`
+  fixed (2026-05-06).** Surfaced as preexisting failures during
+  the strict-reject session. Root cause: GAPD phase 3 commit
+  `2625eb18` made `UpsertTodo` use
+  `priority = LEAST(zdx_todos.priority, EXCLUDED.priority)` so
+  operator bumps survive re-evaluate. Both tests had set the
+  apply payload's stale priority to **99** (a higher number =
+  less urgent than the natural triage priority of 20). Under
+  the new clause, `LEAST(20, 99) = 20`: the apply silently
+  no-ops, persisted equals proposed, the diff is empty, and
+  the test fails on the Changed bucket. Fix: lower the test
+  bump to **5** (more urgent than 20). `LEAST(20, 5) = 5`;
+  persisted differs from proposed; diff correctly flags
+  Changed. Both tests pass; full e2e suite green. Scenario
+  shifts from "stale higher value" (impossible under the new
+  preservation rule) to "operator-bumped lower value" (the
+  actual production case the LEAST clause was added for).
 
 ## Reference
 

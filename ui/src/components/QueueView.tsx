@@ -54,7 +54,7 @@ function targetLink(slug: string, targetType: string, targetId: string): { to: s
   return null
 }
 
-function TodoRow({ slug, item }: { slug: string; item: SoloItem }) {
+export function TodoRow({ slug, item }: { slug: string; item: SoloItem }) {
   const link = targetLink(slug, item.target_type, item.target_id)
   const todoHref = `/project/${slug}/todos/${encodeURIComponent(item.key)}`
   const hasFooter = (item.issue_ref && item.issue_ref !== item.target_id) || item.blocked || item.persona

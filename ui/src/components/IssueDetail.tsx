@@ -29,6 +29,7 @@ import {
   useRemoveFocusBlocker,
   useAddComment,
   useReservationsByIssueID,
+  useTodosByIssue,
   type IssueItem,
   type IssueWorkItem,
   type TaskItem,
@@ -38,6 +39,7 @@ import { useChannel } from '../hooks/useChannel'
 import { BlockerQuestionsSection } from './BlockerQuestionsSection'
 import { CodeRefs } from './CodeRefs'
 import { MarkdownContent } from './MarkdownContent'
+import { TodoRow } from './QueueView'
 import { UnifiedTimeline } from './UnifiedTimeline'
 
 function priorityLabel(p: string): string {
@@ -76,6 +78,7 @@ export function IssueDetail({
   const { data, isLoading, refetch } = useIssue(slug, issueId)
   const { data: allTasks, refetch: refetchTasks } = useTasks(slug, { issue: issueId })
   const { data: reservationsData } = useReservationsByIssueID(slug, issueId)
+  const { data: todosData } = useTodosByIssue(slug, issueId)
   const { data: codeRefs } = useIssueCodeRefs(slug, issueId)
   const closeIssue = useCloseIssue()
   const reopenIssue = useReopenIssue()
@@ -513,6 +516,23 @@ export function IssueDetail({
           </Box>
         </Box>
       )}
+
+      {(() => {
+        const openTodos = (todosData?.todos ?? []).filter(t => t.status === 'open')
+        if (openTodos.length === 0) return null
+        return (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+              Open todos ({openTodos.length})
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+              {openTodos.map(t => (
+                <TodoRow key={t.key} slug={slug} item={t} />
+              ))}
+            </Box>
+          </Box>
+        )
+      })()}
 
       <BlockerQuestionsSection slug={slug} targetType="issue" targetId={issueId} />
 
