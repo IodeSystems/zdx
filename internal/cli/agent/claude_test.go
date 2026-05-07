@@ -166,7 +166,7 @@ func TestColorize(t *testing.T) {
 func TestBuildClaudeEnv(t *testing.T) {
 	base := []string{"PATH=/usr/bin", "HOME=/h"}
 
-	got := buildClaudeEnv(base, "sid-1", "agent-A", "", false, "")
+	got := buildClaudeEnv(base, "sid-1", "agent-A", "", false, "", "")
 	wantContains := []string{"PATH=/usr/bin", "HOME=/h", "ZDX_SESSION_ID=sid-1", "ZDX_AGENT_ID=agent-A", "DX_AUTHOR_ALIAS=agent-A"}
 	for _, kv := range wantContains {
 		if !contains(got, kv) {
@@ -182,7 +182,7 @@ func TestBuildClaudeEnv(t *testing.T) {
 		}
 	}
 
-	got = buildClaudeEnv(base, "sid-2", "agent-B", "trace-xyz", true, "")
+	got = buildClaudeEnv(base, "sid-2", "agent-B", "trace-xyz", true, "", "")
 	if !contains(got, "DX_GLOBAL=1") {
 		t.Errorf("srcless env missing DX_GLOBAL=1: %v", got)
 	}
@@ -197,7 +197,7 @@ func TestBuildClaudeEnv(t *testing.T) {
 
 	// Admin token in base must be replaced by the scoped token (never two DX_REMOTE_API_KEY entries).
 	baseWithAdmin := []string{"DX_REMOTE_API_KEY=admin-token-xxx", "PATH=/usr/bin"}
-	got = buildClaudeEnv(baseWithAdmin, "sid-3", "agent-C", "", false, "scoped-token-yyy")
+	got = buildClaudeEnv(baseWithAdmin, "sid-3", "agent-C", "", false, "scoped-token-yyy", "")
 	if !contains(got, "DX_REMOTE_API_KEY=scoped-token-yyy") {
 		t.Errorf("scoped token not injected: %v", got)
 	}
@@ -212,6 +212,20 @@ func TestBuildClaudeEnv(t *testing.T) {
 	}
 	if count != 1 {
 		t.Errorf("expected exactly 1 DX_REMOTE_API_KEY entry, got %d: %v", count, got)
+	}
+
+	// DX_AGENT_ISSUE injection.
+	got = buildClaudeEnv(base, "sid-4", "agent-D", "", false, "", "IS-123")
+	if !contains(got, "DX_AGENT_ISSUE=IS-123") {
+		t.Errorf("DX_AGENT_ISSUE not injected: %v", got)
+	}
+
+	// Empty issueID should not inject DX_AGENT_ISSUE.
+	got = buildClaudeEnv(base, "sid-5", "agent-E", "", false, "", "")
+	for _, kv := range got {
+		if strings.HasPrefix(kv, "DX_AGENT_ISSUE=") {
+			t.Errorf("empty issueID should not produce DX_AGENT_ISSUE env: %q", kv)
+		}
 	}
 }
 

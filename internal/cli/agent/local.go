@@ -132,6 +132,10 @@ func (a *localAdapter) Start(ctx context.Context, sid, issueID, alias string) (s
 	if alias != "" {
 		os.Setenv("DX_AUTHOR_ALIAS", alias)
 	}
+	// Inject agent issue ID so dx test --escalate can auto-file blockers.
+	if issueID != "" {
+		os.Setenv("DX_AGENT_ISSUE", issueID)
+	}
 	root, err := cli.GitRepoRoot()
 	if err != nil {
 		return "", fmt.Errorf("dx agent local must run inside a git repo: %w", err)
@@ -221,7 +225,12 @@ func localSystemPrompt(alias, issueID string) string {
 		b.WriteString("Your agent alias is: " + alias + ".\n")
 	}
 	if issueID != "" {
-		b.WriteString("Current issue: " + issueID + ".\n")
+		b.WriteString("Current issue: " + issueID + ".\n\n")
+		b.WriteString("TEST-FAILURE PROTOCOL:\n")
+		b.WriteString("  Before committing, run: dx test --classify-preexisting --escalate\n")
+		b.WriteString("  If preexisting failures are detected, the --escalate flag will auto-file\n")
+		b.WriteString("  a deduplicated blocker issue. Do NOT attempt to fix preexisting failures.\n")
+		b.WriteString("  If REGRESSION FAILURES are shown (caused by your diff), fix them first.\n\n")
 	}
 	return b.String()
 }

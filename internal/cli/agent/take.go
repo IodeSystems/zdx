@@ -2,11 +2,13 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,8 +16,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/iodesystems/zdx-go/internal/agentdaemon"
+	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/cli/agent/tracelog"
 	"github.com/iodesystems/zdx-go/internal/config"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 // wipSyncMu serializes wip→dev fast-forwards across slots in the same
@@ -347,6 +351,14 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 		emitFallbackIncompleteReport(cfg.RC, slug, activeTodo.Key, cfg.AgentID, log)
 	}
 
+	// ── Post-session escalation: block on filed test-fix issues ───────
+	// If the agent ran dx test --escalate (or it was run automatically),
+	// check for escalation results and block the claimed issue on any
+	// filed test-fix issues.
+	if activeTodo != nil && issueID != "" {
+		processPostSessionEscalation(ctx, cfg.RC, activeTodo, issueID, sid, log)
+	}
+
 	// ── Release / resolve ──────────────────────────────────────────────
 	result := TakeResult{Success: sessionErr == nil}
 	if activeTodo != nil {
@@ -506,4 +518,98 @@ func worktreePathFor(branch string) (string, error) {
 		}
 	}
 	return "", nil
+}
+
+// processPostSessionEscalation checks for escalation results written by
+// dx test --escalate (or by the agent running it) and, if any filed
+// test-fix issues are found, blocks the claimed issue on them so the
+// agent's parent work stays gated until the test failure is fixed.
+func processPostSessionEscalation(ctx context.Context, rc remoteConfig, todo *claimedTodo, issueID, sessionID string, log func(string, ...any)) {
+	// Look for escalation results in the session's agent directory.
+	escPath := filepath.Join(".zdx", "agent", sessionID, "escalation.json")
+	if _, err := os.Stat(escPath); os.IsNotExist(err) {
+		// Also check the flat .zdx directory.
+		escPath = filepath.Join(".zdx", "escalation-results.json")
+		if _, err := os.Stat(escPath); os.IsNotExist(err) {
+			return
+		}
+	}
+
+	data, err := os.ReadFile(escPath)
+	if err != nil {
+		log("escalation: read %s: %v", escPath, err)
+		return
+	}
+
+	var escResults []struct {
+		TestName string `json:"test_name"`
+		Action   string `json:"action"`
+		IssueID  string `json:"issue_id"`
+	}
+	if err := json.Unmarshal(data, &escResults); err != nil {
+		log("escalation: parse: %v", err)
+		return
+	}
+
+	// Collect unique blocker issue IDs.
+	seen := make(map[string]bool)
+	var blockerIDs []string
+	for _, r := range escResults {
+		if r.IssueID != "" && !seen[r.IssueID] {
+			seen[r.IssueID] = true
+			blockerIDs = append(blockerIDs, r.IssueID)
+		}
+	}
+	if len(blockerIDs) == 0 {
+		return
+	}
+
+	// Block the claimed issue on each test-fix issue.
+	for _, blockerID := range blockerIDs {
+		if err := blockIssueOn(ctx, rc, issueID, blockerID); err != nil {
+			log("escalation: block %s on %s: %v", issueID, blockerID, err)
+			continue
+		}
+		log("escalation: blocked %s on %s (preexisting test failure)", issueID, blockerID)
+	}
+}
+
+// blockIssueOn adds a block edge: issueID is blocked by blockerID.
+func blockIssueOn(ctx context.Context, rc remoteConfig, issueID, blockerID string) error {
+	c, err := cli.DefaultClient()
+	if err != nil {
+		return fmt.Errorf("client: %w", err)
+	}
+	slug := c.Slug()
+	if slug == "" {
+		return fmt.Errorf("no project slug")
+	}
+
+	resp, err := c.IssueAddBlockWithResponse(ctx, dxclient.IssueAddBlockJSONRequestBody{
+		Slug:      slug,
+		Id:        extractIssueNumber(issueID),
+		BlockedBy: blockerID,
+		Kind:      ptrString("sequencing"),
+	})
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode() >= 400 {
+		return fmt.Errorf("block: HTTP %d", resp.StatusCode())
+	}
+	return nil
+}
+
+func extractIssueNumber(id string) int32 {
+	// Parse "IS-123" → 123.
+	if strings.HasPrefix(id, "IS-") {
+		n, _ := strconv.Atoi(strings.TrimPrefix(id, "IS-"))
+		return int32(n)
+	}
+	n, _ := strconv.Atoi(id)
+	return int32(n)
+}
+
+func ptrString(s string) *string {
+	return &s
 }

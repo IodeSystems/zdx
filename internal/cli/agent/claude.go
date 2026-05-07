@@ -454,8 +454,25 @@ func buildSessionPrompt(vision, issueID string, todo *claimedTodo) string {
 		prompt += fmt.Sprintf("Claimed todo %d [%s] target=%s:%s\n\n%s",
 			todo.ID, todo.Kind, todo.TargetType, todo.TargetID, todo.Text)
 		prompt += "\n\nCOMMIT RULE: Only commit intent files (migrations, queries/*.sql, handler source). Do not commit internal/db/*.sql.go, internal/dxclient/models.gen.go, ui/src/api.gen.ts, schema/shipped.sql. Use dx commit --intent."
-		prompt += fmt.Sprintf(`
+		prompt += `
 
+---
+TEST-FAILURE PROTOCOL
+
+Before committing, always run:
+
+  dx test --classify-preexisting --escalate
+
+If this detects preexisting test failures (tests already failing on the base
+branch), the --escalate flag will auto-file a deduplicated blocker issue.
+Do NOT attempt to fix preexisting failures — they are not your problem.
+The escalation system handles filing and dedup automatically.
+
+If the test run shows REGRESSION FAILURES (caused by your diff), you must
+fix them before resolving the todo.
+---
+`
+		prompt += fmt.Sprintf(`
 ---
 INCOMPLETE-REPORT PROTOCOL
 
@@ -508,6 +525,7 @@ func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string
 		model:   model,
 		prompt:  prompt,
 		srcless: srcless,
+		issueID: issueID,
 		exited:  make(chan struct{}),
 	}
 
@@ -576,6 +594,7 @@ func runSessionWithSummary(ctx context.Context, rc remoteConfig, sid, issueID, a
 		model:   model,
 		prompt:  prompt,
 		srcless: srcless,
+		issueID: issueID,
 		exited:  make(chan struct{}),
 	}
 
@@ -666,6 +685,7 @@ type claudeAdapter struct {
 	model      string
 	prompt     string   // custom prompt; empty = "/work"
 	srcless    bool     // when true, inject DX_GLOBAL=1 into the subprocess env
+	issueID    string   // claimed issue ID; exported as DX_AGENT_ISSUE for escalation
 	mcpCommand []string // when non-empty, claude is launched with --mcp-config dispatching tools through this argv (dev-container mode)
 	traceID    string   // session trace_id; exported as ZDX_TRACE_ID and injected into docker exec env so server-side mutations correlate
 
@@ -719,7 +739,7 @@ func buildClaudeMCPConfig(argv []string) (string, error) {
 // scopedToken replaces any DX_REMOTE_API_KEY in base; pass "" to skip injection.
 // traceID, when non-empty, is exported as ZDX_TRACE_ID so dx CLI calls
 // from claude (or its tools) stamp X-ZDX-Trace-Id on outbound requests.
-func buildClaudeEnv(base []string, sid, alias, traceID string, srcless bool, scopedToken string) []string {
+func buildClaudeEnv(base []string, sid, alias, traceID string, srcless bool, scopedToken string, issueID string) []string {
 	filtered := make([]string, 0, len(base))
 	for _, kv := range base {
 		if strings.HasPrefix(kv, "DX_REMOTE_API_KEY=") {
@@ -735,6 +755,9 @@ func buildClaudeEnv(base []string, sid, alias, traceID string, srcless bool, sco
 		"ZDX_AGENT_ID="+alias,
 		"DX_AUTHOR_ALIAS="+alias,
 	)
+	if issueID != "" {
+		env = append(env, "DX_AGENT_ISSUE="+issueID)
+	}
 	if traceID != "" {
 		env = append(env, "ZDX_TRACE_ID="+traceID)
 	}
@@ -863,7 +886,7 @@ func (a *claudeAdapter) Start(ctx context.Context, sid, _, _ string) (string, er
 	a.proc.Stdin = os.Stdin
 	a.proc.Stdout = os.Stdout
 	a.proc.Stderr = os.Stderr
-	a.proc.Env = buildClaudeEnv(os.Environ(), sid, a.alias, a.traceID, a.srcless, scopedToken)
+	a.proc.Env = buildClaudeEnv(os.Environ(), sid, a.alias, a.traceID, a.srcless, scopedToken, a.issueID)
 
 	if err := a.proc.Start(); err != nil {
 		return "", err
