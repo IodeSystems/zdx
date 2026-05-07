@@ -13,6 +13,7 @@ import {
   Typography,
 } from '@mui/material'
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material'
+import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import {
   useGoals,
@@ -42,18 +43,40 @@ const STATUS_COLORS: Record<string, 'success' | 'warning' | 'default'> = {
 
 function EntityCard({
   item,
+  slug,
   onEdit,
   onDelete,
 }: {
   item: Entity
+  slug?: string
   onEdit: () => void
   onDelete: () => void
 }) {
+  const titleContent = (
+    <Typography
+      variant="body2"
+      sx={{ fontWeight: 600, flex: 1 }}
+    >
+      {item.title}
+    </Typography>
+  )
+
   return (
     <Card variant="outlined">
       <CardContent sx={{ py: 1.25, '&:last-child': { pb: 1.25 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>{item.title}</Typography>
+          {slug ? (
+            <Link
+              to="/project/$slug/goals/$id"
+              params={{ slug, id: String(item.id) }}
+              onClick={(e) => e.stopPropagation()}
+              style={{ flex: 1, textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}
+            >
+              {titleContent}
+            </Link>
+          ) : (
+            titleContent
+          )}
           <Chip
             label={item.status}
             size="small"
@@ -194,6 +217,7 @@ function Section({
           <EntityCard
             key={item.id}
             item={item}
+            slug={label === 'Goals' ? slug : undefined}
             onEdit={() => openEdit(item)}
             onDelete={() => del.mutateAsync(item.id)}
           />
