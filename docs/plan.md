@@ -1,44 +1,43 @@
-# GAPD — Global Agent Pool Design
+# GAPD — Global Agent Pool Design — CLOSED 2026-05-06
 
-Phases 1–3 shipped. **One open item remains** before the stream
-closes: workspace relocation (see [Open](#open) below). Until that
-lands, a "global" agent isn't really global — it inherits the
-operator's project tree the moment it pins.
+This stream shipped. Phases 1–3 plus the workspace-relocation
+followup are in main. **Do not start work in this file.** If you
+need to find something that lived here, `git log` is the source
+of truth.
 
-## Open
+## Workspace relocation — done
 
-### Workspace relocation — global-only workspace path
+**The directive:** every agent workspace, global AND
+project-scoped, lives under the operator's home directory
+(`~/.zdx/projects/<slug>/...`), not inside the operator's
+project tree. Pinning a global to a project is metadata, not
+a filesystem move.
 
-**Why it's GAPD, not a deferred cleanup:** today every agent
-workspace lives under `./.zdx/agent/slots/<alias>/` inside the
-operator's project root. That's tolerable for a project-scoped
-agent that never moves, but it breaks the global-pool model: when
-a global agent pins to project A, its workspace materializes
-*inside* A's tree. Unpin and repin to B → either the workspace
-follows (now inside B's tree, identity confused) or it stays in A
-(stale). Either way, "global" is a lie at the filesystem layer.
+**What was already correct:** the srcless / global-pool flow
+(`internal/cli/agent/srcless.go`) already used
+`~/.zdx/projects/<slug>/main` for the clone and
+`~/.zdx/projects/<slug>/worktrees/<sid>` for per-session
+worktrees. Default `WorkDir` for `GlobalAgentConfig` is
+`~/.zdx/projects/`. No change needed there.
 
-**Design directive (locked-in this session):** all agent
-workspaces — global AND project-scoped — live under
-`~/.zdx/workspaces/<project>/...`. The operator's project tree
-stops being an agent-workspace host entirely. There is no
-per-project-tree path; pinning is a metadata flip, not a
-filesystem move.
+**What was wrong:** the container-slot path
+(`internal/cli/agent/mcp_container.go`, used by
+`dx agent <provider> --babysit` for parallel docker-isolated
+slots) put per-slot worktrees at `cwd/.zdx/agent/slots/<alias>-<i>`
+inside the operator's project root. Fixed: `slotWorktree` now
+gains a `slug` parameter and computes
+`~/.zdx/projects/<slug>/slots/<alias>-<i>`. Same git-worktree
+mechanics — `git worktree add` rooted at `cwd` (operator's repo,
+where babysit is launched from), absolute path output, the
+`-v /proj/.git:/proj/.git` bind-mount still resolves the
+gitdir-pointer file inside the slot.
 
-**Touches:**
-- agent provisioning (`internal/cli/agent/manager.go`,
-  `internal/cli/agent/take.go`'s clone+init path)
-- `mcp_container.go` bind-mount layout
-- dx-agent's `--mcp-root` resolution
-- `bin/ship`'s view of where the workspace is rooted
-- dx-config lookup chain (when `dx` runs from inside an agent
-  workspace, how it finds the project's `.zdx/config.yaml`)
-- migration story for any operator already running the current
-  layout — probably "stop the daemon, blow away `.zdx/agent/`,
-  restart": stateless workspaces are a feature
+**Operator migration:** if you've run `dx agent <p> --babysit` on
+this repo before, you may have a stale `.zdx/agent/` directory in
+your project root. Delete it — the daemon will recreate slots
+under `~/.zdx/projects/<slug>/slots/` on next run.
 
-Sized days, not hours. Worth a fresh design pass — write
-`plan/spike-gapd-workspace-relocation.md` before touching code.
+## What shipped
 
 ## What shipped
 

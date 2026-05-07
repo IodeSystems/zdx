@@ -72,9 +72,10 @@ func buildMCPSlotArgs(name, imageTag, projectRoot, worktreePath string, agentCfg
 }
 
 // slotWorktree provisions a per-slot git worktree under
-// .zdx/agent/slots/<alias>-<i>/ on a fresh branch wip/<alias>-<i> rooted
-// at the operator's current HEAD. Each slot's container then bind-mounts
-// its OWN worktree (not the shared project root), so:
+// ~/.zdx/projects/<slug>/slots/<alias>-<i>/ on a fresh branch
+// wip/<alias>-<i> rooted at the operator's current HEAD. Each slot's
+// container then bind-mounts its OWN worktree (not the shared project
+// root), so:
 //
 //   - operator can edit/commit in the host tree without racing the slots
 //   - slots can edit/commit in isolation; their work lands on their own
@@ -82,6 +83,13 @@ func buildMCPSlotArgs(name, imageTag, projectRoot, worktreePath string, agentCfg
 //   - if two slots touch the same files, conflict resolution is just
 //     normal git merge between two branches, not last-writer-wins on
 //     a shared working tree
+//
+// **Workspace location is global** — the slot worktree lives under the
+// operator's home directory, NOT inside the operator's project tree.
+// This matches the srcless flow (~/.zdx/projects/<slug>/main +
+// /worktrees/<sid>) so global-pool agents and project-scoped agents
+// share a single workspace root. Pinning a global to a project is
+// metadata, not a filesystem move. (GAPD: workspace relocation.)
 //
 // Branches are intentionally namespaced under wip/* (not agent/*) — the
 // agent/* namespace is reserved for the planned per-issue lifecycle
@@ -96,9 +104,16 @@ func buildMCPSlotArgs(name, imageTag, projectRoot, worktreePath string, agentCfg
 // bin/dx-agent (the in-slot MCP server) is gitignored, so a fresh
 // worktree won't have it. Copy it from the host's bin/ so docker exec
 // /workspace/bin/dx-agent --mcp-stdio resolves inside the slot.
-func slotWorktree(cwd, alias string, slotIdx int) (path, branch string, err error) {
+func slotWorktree(cwd, slug, alias string, slotIdx int) (path, branch string, err error) {
+	if slug == "" {
+		return "", "", fmt.Errorf("slotWorktree: empty slug — workspace path is rooted at ~/.zdx/projects/<slug>/")
+	}
+	home, herr := os.UserHomeDir()
+	if herr != nil {
+		return "", "", fmt.Errorf("resolve home dir: %w", herr)
+	}
 	branch = fmt.Sprintf("wip/%s-%d", alias, slotIdx)
-	path = filepath.Join(cwd, ".zdx", "agent", "slots", fmt.Sprintf("%s-%d", alias, slotIdx))
+	path = filepath.Join(home, ".zdx", "projects", slug, "slots", fmt.Sprintf("%s-%d", alias, slotIdx))
 
 	// Idempotent: if the worktree already exists from a prior crashed run,
 	// remove it before re-adding so `git worktree add -b` doesn't fail with
@@ -395,7 +410,8 @@ func runMCPContainerLoop(parentCtx context.Context, providerName string, opts Pr
 	// pointer that's swapped in once they're created). os.Exit(130) bypasses
 	// deferred functions, so the signal handler must invoke cleanup itself
 	// before exiting — otherwise SIGTERM leaves orphan worktrees + branches
-	// in .zdx/agent/slots/ that the next run has to forcibly remove.
+	// under ~/.zdx/projects/<slug>/slots/ that the next run has to forcibly
+	// remove.
 	cleanupOnSignal := func() {}
 	sigCh := make(chan os.Signal, 2)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -422,10 +438,12 @@ func runMCPContainerLoop(parentCtx context.Context, providerName string, opts Pr
 
 	envPairs := collectContainerEnv([]string{"ANTHROPIC_API_KEY", "DATABASE_URL", "NO_COLOR"})
 
-	// Per-slot worktrees: each slot gets its own .zdx/agent/slots/<alias>-<i>/
-	// checkout on a fresh agent/<alias>-<i> branch. Without this, every slot
-	// (and the operator) shared the same working tree and stomped each
-	// other's edits silently.
+	// Per-slot worktrees: each slot gets its own
+	// ~/.zdx/projects/<slug>/slots/<alias>-<i>/ checkout on a fresh
+	// wip/<alias>-<i> branch. Without this, every slot (and the operator)
+	// shared the same working tree and stomped each other's edits silently.
+	// Path is rooted under the operator's home, not the project tree, so
+	// the layout is identical for project-scoped and global-pool agents.
 	type slotPaths struct {
 		path   string
 		branch string
@@ -437,7 +455,7 @@ func runMCPContainerLoop(parentCtx context.Context, providerName string, opts Pr
 		}
 	}
 	for i := 0; i < maxSlots; i++ {
-		path, branch, err := slotWorktree(cwd, opts.Alias, i)
+		path, branch, err := slotWorktree(cwd, opts.RC.slug, opts.Alias, i)
 		if err != nil {
 			emit("slot.worktree_failed", "slot_index", i, "err", err.Error())
 			// Roll back any worktrees created so far before bailing.
