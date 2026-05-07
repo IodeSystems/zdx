@@ -22,20 +22,22 @@ worktrees. Default `WorkDir` for `GlobalAgentConfig` is
 
 **What was wrong:** the container-slot path
 (`internal/cli/agent/mcp_container.go`, used by
-`dx agent <provider> --babysit` for parallel docker-isolated
-slots) put per-slot worktrees at `cwd/.zdx/agent/slots/<alias>-<i>`
-inside the operator's project root. Fixed: `slotWorktree` now
-gains a `slug` parameter and computes
-`~/.zdx/projects/<slug>/slots/<alias>-<i>`. Same git-worktree
-mechanics — `git worktree add` rooted at `cwd` (operator's repo,
-where babysit is launched from), absolute path output, the
-`-v /proj/.git:/proj/.git` bind-mount still resolves the
-gitdir-pointer file inside the slot.
+`dx agent loop --container=docker` for parallel
+docker-isolated slots) put per-slot worktrees at
+`cwd/.zdx/agent/slots/<alias>-<i>` inside the operator's
+project root. Fixed: `slotWorktree` now gains a `slug` parameter
+and computes `~/.zdx/projects/<slug>/slots/<alias>-<i>`. Same
+git-worktree mechanics — `git worktree add` rooted at `cwd`
+(operator's repo, where the parent loop process is launched
+from), absolute path output, the `-v /proj/.git:/proj/.git`
+bind-mount still resolves the gitdir-pointer file inside the
+slot.
 
-**Operator migration:** if you've run `dx agent <p> --babysit` on
-this repo before, you may have a stale `.zdx/agent/` directory in
-your project root. Delete it — the daemon will recreate slots
-under `~/.zdx/projects/<slug>/slots/` on next run.
+**Operator migration:** if you've run
+`dx agent loop --container=docker` on this repo before, you may
+have a stale `.zdx/agent/` directory in your project root. Delete
+it — the daemon will recreate slots under
+`~/.zdx/projects/<slug>/slots/` on next run.
 
 ## What shipped
 
