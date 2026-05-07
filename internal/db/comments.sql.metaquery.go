@@ -508,18 +508,29 @@ var MetaListTargetsWithUnreadComments = metaquery.Query{
 	Name:   "ListTargetsWithUnreadComments",
 	Cmd:    ":many",
 	Source: "comments.sql",
-	SQL: `SELECT DISTINCT c.target_type, c.target_id
-FROM zdx_comments c
-LEFT JOIN zdx_target_comments_seen s
-       ON s.project_id  = c.project_id
-      AND s.target_type = c.target_type
-      AND s.target_id   = c.target_id
-WHERE c.project_id = $1
-  AND c.id > COALESCE(s.last_comment_id, 0)
-ORDER BY c.target_type, c.target_id`,
+	SQL: `WITH unread AS (
+    SELECT c.target_type, c.target_id, c.created_at, c.author_alias
+    FROM zdx_comments c
+    LEFT JOIN zdx_target_comments_seen s
+           ON s.project_id  = c.project_id
+          AND s.target_type = c.target_type
+          AND s.target_id   = c.target_id
+    WHERE c.project_id = $1
+      AND c.id > COALESCE(s.last_comment_id, 0)
+),
+latest_unread AS (
+    SELECT DISTINCT ON (target_type, target_id)
+        target_type, target_id, author_alias
+    FROM unread
+    ORDER BY target_type, target_id, created_at DESC
+)
+SELECT target_type, target_id
+FROM latest_unread
+WHERE author_alias = ''
+ORDER BY target_type, target_id`,
 	Columns: []metaquery.Column{
-		{Name: "target_type", OriginalName: "target_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_comments"},
-		{Name: "target_id", OriginalName: "target_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_comments"},
+		{Name: "target_type", OriginalName: "target_type", GoType: "string", DBType: "text", NotNull: true, Table: "latest_unread"},
+		{Name: "target_id", OriginalName: "target_id", GoType: "string", DBType: "text", NotNull: true, Table: "latest_unread"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},

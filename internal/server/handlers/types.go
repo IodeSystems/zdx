@@ -414,6 +414,7 @@ type QuestionItem struct {
 	CreatedAt        string `json:"created_at"`
 	UpdatedAt        string `json:"updated_at"`
 	ParentQuestionID *int32 `json:"parent_question_id"`
+	OwnerUserID      *int32 `json:"owner_user_id,omitempty"`
 }
 
 type BlockerQuestionItem struct {

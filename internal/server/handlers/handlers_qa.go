@@ -22,6 +22,7 @@ func (h *Handler) registerQARoutes(api huma.API) {
 				Category         string `json:"category"`
 				Question         string `json:"question"`
 				ParentQuestionID *int32 `json:"parent_question_id,omitempty"`
+				OwnerUserID      *int32 `json:"owner_user_id,omitempty"`
 			}
 		}) (*struct{ Body QuestionItem }, error) {
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
@@ -35,6 +36,9 @@ func (h *Handler) registerQARoutes(api huma.API) {
 			}
 			if in.Body.ParentQuestionID != nil {
 				params.ParentQuestionID = pgtype.Int4{Int32: *in.Body.ParentQuestionID, Valid: true}
+			}
+			if in.Body.OwnerUserID != nil {
+				params.OwnerUserID = pgtype.Int4{Int32: *in.Body.OwnerUserID, Valid: true}
 			}
 			row, err := h.Q.InsertQuestion(ctx, params)
 			if err != nil {
@@ -218,6 +222,29 @@ func (h *Handler) registerQARoutes(api huma.API) {
 		})
 
 	// ── Blocker questions ──────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "update-question-owner", Method: http.MethodPatch, Path: "/api/dx/qa/owner"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug        string `json:"slug"`
+				ID          int32  `json:"id"`
+				OwnerUserID int32  `json:"owner_user_id"`
+			}
+		}) (*struct{ Body QuestionItem }, error) {
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			row, err := h.Q.UpdateQuestionOwner(ctx, db.UpdateQuestionOwnerParams{
+				ProjectID:   p.ID,
+				ID:          in.Body.ID,
+				OwnerUserID: pgtype.Int4{Int32: in.Body.OwnerUserID, Valid: true},
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body QuestionItem }{Body: toQuestionItem(row)}, nil
+		})
 
 	huma.Register(api, huma.Operation{OperationID: "add-blocker-question", Method: http.MethodPost, Path: "/api/dx/blocker-questions/add"},
 		func(ctx context.Context, in *struct {
@@ -542,6 +569,10 @@ func toQuestionItem(r db.ZdxQuestion) QuestionItem {
 	if r.ParentQuestionID.Valid {
 		v := r.ParentQuestionID.Int32
 		item.ParentQuestionID = &v
+	}
+	if r.OwnerUserID.Valid {
+		v := r.OwnerUserID.Int32
+		item.OwnerUserID = &v
 	}
 	return item
 }

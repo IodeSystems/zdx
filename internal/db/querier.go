@@ -506,6 +506,7 @@ type Querier interface {
 	ListProposals(ctx context.Context, arg ListProposalsParams) ([]ZdxProposal, error)
 	ListQuestionProposalsByQuestion(ctx context.Context, arg ListQuestionProposalsByQuestionParams) ([]ZdxQuestionProposal, error)
 	ListQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error)
+	ListQuestionsByOwner(ctx context.Context, arg ListQuestionsByOwnerParams) ([]ZdxQuestion, error)
 	// Ready tasks linked to an issue that have no test_refs. CancelOrphanedTasks
 	// skips these; surface them at close time so agents know to adopt rather than
 	// re-file.
@@ -562,6 +563,11 @@ type Querier interface {
 	// there is actually unread content to surface — otherwise the todo would
 	// regenerate every loop iteration even after the agent claims and "reads"
 	// it, producing the cycle observed in IS-1040.
+	//
+	// IS-687 / TK-1455: only surface a target when the LATEST unread comment
+	// is from a non-agent author (author_alias = ''). If the agent replied last,
+	// the target is not surfaced — the agent has already done its job and should
+	// not be asked to read its own reply.
 	ListTargetsWithUnreadComments(ctx context.Context, projectID int32) ([]ListTargetsWithUnreadCommentsRow, error)
 	ListTaskReviews(ctx context.Context, arg ListTaskReviewsParams) ([]ListTaskReviewsRow, error)
 	ListTasks(ctx context.Context, arg ListTasksParams) ([]ListTasksRow, error)
@@ -793,6 +799,7 @@ type Querier interface {
 	UpdateProjectGoal(ctx context.Context, arg UpdateProjectGoalParams) error
 	UpdateProposal(ctx context.Context, arg UpdateProposalParams) (ZdxProposal, error)
 	UpdateProposalStatus(ctx context.Context, arg UpdateProposalStatusParams) (ZdxProposal, error)
+	UpdateQuestionOwner(ctx context.Context, arg UpdateQuestionOwnerParams) (ZdxQuestion, error)
 	UpdateSpecFeature(ctx context.Context, arg UpdateSpecFeatureParams) error
 	UpdateTaskFields(ctx context.Context, arg UpdateTaskFieldsParams) error
 	UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) error

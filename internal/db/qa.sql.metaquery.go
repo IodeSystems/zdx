@@ -19,7 +19,7 @@ var MetaAnswerQuestion = metaquery.Query{
 SET answer     = $3,
     updated_at = NOW()
 WHERE project_id = $1 AND id = $2
-RETURNING id, project_id, category, question, answer, created_at, updated_at, parent_question_id`,
+RETURNING id, project_id, category, question, answer, created_at, updated_at, parent_question_id, owner_user_id`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_questions"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_questions"},
@@ -29,6 +29,7 @@ RETURNING id, project_id, category, question, answer, created_at, updated_at, pa
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_questions"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_questions"},
 		{Name: "parent_question_id", OriginalName: "parent_question_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_questions"},
+		{Name: "owner_user_id", OriginalName: "owner_user_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_questions"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -52,6 +53,7 @@ var AnswerQuestionCols = struct {
 	CreatedAt        metaquery.TimeCol
 	UpdatedAt        metaquery.TimeCol
 	ParentQuestionID metaquery.IntCol
+	OwnerUserID      metaquery.IntCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	ProjectID:        metaquery.NewIntCol("project_id"),
@@ -61,13 +63,14 @@ var AnswerQuestionCols = struct {
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
 	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
 	ParentQuestionID: metaquery.NewIntCol("parent_question_id"),
+	OwnerUserID:      metaquery.NewIntCol("owner_user_id"),
 }
 
 var MetaGetQuestion = metaquery.Query{
 	Name:   "GetQuestion",
 	Cmd:    ":one",
 	Source: "qa.sql",
-	SQL: `SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id
+	SQL: `SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id, owner_user_id
 FROM zdx_questions
 WHERE project_id = $1 AND id = $2`,
 	Columns: []metaquery.Column{
@@ -79,6 +82,7 @@ WHERE project_id = $1 AND id = $2`,
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_questions"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_questions"},
 		{Name: "parent_question_id", OriginalName: "parent_question_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_questions"},
+		{Name: "owner_user_id", OriginalName: "owner_user_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_questions"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -101,6 +105,7 @@ var GetQuestionCols = struct {
 	CreatedAt        metaquery.TimeCol
 	UpdatedAt        metaquery.TimeCol
 	ParentQuestionID metaquery.IntCol
+	OwnerUserID      metaquery.IntCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	ProjectID:        metaquery.NewIntCol("project_id"),
@@ -110,15 +115,16 @@ var GetQuestionCols = struct {
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
 	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
 	ParentQuestionID: metaquery.NewIntCol("parent_question_id"),
+	OwnerUserID:      metaquery.NewIntCol("owner_user_id"),
 }
 
 var MetaInsertQuestion = metaquery.Query{
 	Name:   "InsertQuestion",
 	Cmd:    ":one",
 	Source: "qa.sql",
-	SQL: `INSERT INTO zdx_questions (project_id, category, question, parent_question_id)
-VALUES ($1, $2, $3, $4)
-RETURNING id, project_id, category, question, answer, created_at, updated_at, parent_question_id`,
+	SQL: `INSERT INTO zdx_questions (project_id, category, question, parent_question_id, owner_user_id)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, project_id, category, question, answer, created_at, updated_at, parent_question_id, owner_user_id`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_questions"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_questions"},
@@ -128,19 +134,21 @@ RETURNING id, project_id, category, question, answer, created_at, updated_at, pa
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_questions"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_questions"},
 		{Name: "parent_question_id", OriginalName: "parent_question_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_questions"},
+		{Name: "owner_user_id", OriginalName: "owner_user_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_questions"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
 		{Position: 2, Name: "category", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 3, Name: "question", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 4, Name: "parent_question_id", GoType: "pgtype.Int4", DBType: "pg_catalog.int4"},
+		{Position: 5, Name: "owner_user_id", GoType: "pgtype.Int4", DBType: "pg_catalog.int4"},
 	},
 	Table: &metaquery.Table{Name: "zdx_questions"},
 }
 
 // WrapInsertQuestion returns a metaquery.Builder over MetaInsertQuestion, pre-bound with typed arguments.
 func WrapInsertQuestion(arg InsertQuestionParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaInsertQuestion, arg.ProjectID, arg.Category, arg.Question, arg.ParentQuestionID)
+	return metaquery.Wrap(&MetaInsertQuestion, arg.ProjectID, arg.Category, arg.Question, arg.ParentQuestionID, arg.OwnerUserID)
 }
 
 // InsertQuestionCols gives typed, name-safe access to InsertQuestion's output columns.
@@ -153,6 +161,7 @@ var InsertQuestionCols = struct {
 	CreatedAt        metaquery.TimeCol
 	UpdatedAt        metaquery.TimeCol
 	ParentQuestionID metaquery.IntCol
+	OwnerUserID      metaquery.IntCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	ProjectID:        metaquery.NewIntCol("project_id"),
@@ -162,13 +171,14 @@ var InsertQuestionCols = struct {
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
 	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
 	ParentQuestionID: metaquery.NewIntCol("parent_question_id"),
+	OwnerUserID:      metaquery.NewIntCol("owner_user_id"),
 }
 
 var MetaListChildQuestions = metaquery.Query{
 	Name:   "ListChildQuestions",
 	Cmd:    ":many",
 	Source: "qa.sql",
-	SQL: `SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id
+	SQL: `SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id, owner_user_id
 FROM zdx_questions
 WHERE project_id = $1 AND parent_question_id = $2
 ORDER BY created_at`,
@@ -181,6 +191,7 @@ ORDER BY created_at`,
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_questions"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_questions"},
 		{Name: "parent_question_id", OriginalName: "parent_question_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_questions"},
+		{Name: "owner_user_id", OriginalName: "owner_user_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_questions"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -203,6 +214,7 @@ var ListChildQuestionsCols = struct {
 	CreatedAt        metaquery.TimeCol
 	UpdatedAt        metaquery.TimeCol
 	ParentQuestionID metaquery.IntCol
+	OwnerUserID      metaquery.IntCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	ProjectID:        metaquery.NewIntCol("project_id"),
@@ -212,13 +224,14 @@ var ListChildQuestionsCols = struct {
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
 	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
 	ParentQuestionID: metaquery.NewIntCol("parent_question_id"),
+	OwnerUserID:      metaquery.NewIntCol("owner_user_id"),
 }
 
 var MetaListQuestions = metaquery.Query{
 	Name:   "ListQuestions",
 	Cmd:    ":many",
 	Source: "qa.sql",
-	SQL: `SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id
+	SQL: `SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id, owner_user_id
 FROM zdx_questions
 WHERE project_id = $1
 ORDER BY created_at`,
@@ -231,6 +244,7 @@ ORDER BY created_at`,
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_questions"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_questions"},
 		{Name: "parent_question_id", OriginalName: "parent_question_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_questions"},
+		{Name: "owner_user_id", OriginalName: "owner_user_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_questions"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -252,6 +266,7 @@ var ListQuestionsCols = struct {
 	CreatedAt        metaquery.TimeCol
 	UpdatedAt        metaquery.TimeCol
 	ParentQuestionID metaquery.IntCol
+	OwnerUserID      metaquery.IntCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	ProjectID:        metaquery.NewIntCol("project_id"),
@@ -261,13 +276,67 @@ var ListQuestionsCols = struct {
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
 	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
 	ParentQuestionID: metaquery.NewIntCol("parent_question_id"),
+	OwnerUserID:      metaquery.NewIntCol("owner_user_id"),
+}
+
+var MetaListQuestionsByOwner = metaquery.Query{
+	Name:   "ListQuestionsByOwner",
+	Cmd:    ":many",
+	Source: "qa.sql",
+	SQL: `SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id, owner_user_id
+FROM zdx_questions
+WHERE project_id = $1 AND owner_user_id = $2 AND answer IS NULL
+ORDER BY created_at`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_questions"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_questions"},
+		{Name: "category", OriginalName: "category", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_questions"},
+		{Name: "question", OriginalName: "question", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_questions"},
+		{Name: "answer", OriginalName: "answer", GoType: "pgtype.Text", DBType: "text", Table: "zdx_questions"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_questions"},
+		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_questions"},
+		{Name: "parent_question_id", OriginalName: "parent_question_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_questions"},
+		{Name: "owner_user_id", OriginalName: "owner_user_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_questions"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "owner_user_id", GoType: "pgtype.Int4", DBType: "pg_catalog.int4"},
+	},
+}
+
+// WrapListQuestionsByOwner returns a metaquery.Builder over MetaListQuestionsByOwner, pre-bound with typed arguments.
+func WrapListQuestionsByOwner(arg ListQuestionsByOwnerParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListQuestionsByOwner, arg.ProjectID, arg.OwnerUserID)
+}
+
+// ListQuestionsByOwnerCols gives typed, name-safe access to ListQuestionsByOwner's output columns.
+var ListQuestionsByOwnerCols = struct {
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Category         metaquery.TextCol
+	Question         metaquery.TextCol
+	Answer           metaquery.TextCol
+	CreatedAt        metaquery.TimeCol
+	UpdatedAt        metaquery.TimeCol
+	ParentQuestionID metaquery.IntCol
+	OwnerUserID      metaquery.IntCol
+}{
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Category:         metaquery.NewTextCol("category"),
+	Question:         metaquery.NewTextCol("question"),
+	Answer:           metaquery.NewTextCol("answer"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
+	ParentQuestionID: metaquery.NewIntCol("parent_question_id"),
+	OwnerUserID:      metaquery.NewIntCol("owner_user_id"),
 }
 
 var MetaListUnansweredQuestions = metaquery.Query{
 	Name:   "ListUnansweredQuestions",
 	Cmd:    ":many",
 	Source: "qa.sql",
-	SQL: `SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id
+	SQL: `SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id, owner_user_id
 FROM zdx_questions
 WHERE project_id = $1 AND answer IS NULL
 ORDER BY created_at`,
@@ -280,6 +349,7 @@ ORDER BY created_at`,
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_questions"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_questions"},
 		{Name: "parent_question_id", OriginalName: "parent_question_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_questions"},
+		{Name: "owner_user_id", OriginalName: "owner_user_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_questions"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -301,6 +371,7 @@ var ListUnansweredQuestionsCols = struct {
 	CreatedAt        metaquery.TimeCol
 	UpdatedAt        metaquery.TimeCol
 	ParentQuestionID metaquery.IntCol
+	OwnerUserID      metaquery.IntCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	ProjectID:        metaquery.NewIntCol("project_id"),
@@ -310,4 +381,60 @@ var ListUnansweredQuestionsCols = struct {
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
 	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
 	ParentQuestionID: metaquery.NewIntCol("parent_question_id"),
+	OwnerUserID:      metaquery.NewIntCol("owner_user_id"),
+}
+
+var MetaUpdateQuestionOwner = metaquery.Query{
+	Name:   "UpdateQuestionOwner",
+	Cmd:    ":one",
+	Source: "qa.sql",
+	SQL: `UPDATE zdx_questions
+SET owner_user_id = $3,
+    updated_at    = NOW()
+WHERE project_id = $1 AND id = $2
+RETURNING id, project_id, category, question, answer, created_at, updated_at, parent_question_id, owner_user_id`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_questions"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_questions"},
+		{Name: "category", OriginalName: "category", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_questions"},
+		{Name: "question", OriginalName: "question", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_questions"},
+		{Name: "answer", OriginalName: "answer", GoType: "pgtype.Text", DBType: "text", Table: "zdx_questions"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_questions"},
+		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_questions"},
+		{Name: "parent_question_id", OriginalName: "parent_question_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_questions"},
+		{Name: "owner_user_id", OriginalName: "owner_user_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_questions"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 3, Name: "owner_user_id", GoType: "pgtype.Int4", DBType: "pg_catalog.int4"},
+	},
+}
+
+// WrapUpdateQuestionOwner returns a metaquery.Builder over MetaUpdateQuestionOwner, pre-bound with typed arguments.
+func WrapUpdateQuestionOwner(arg UpdateQuestionOwnerParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaUpdateQuestionOwner, arg.ProjectID, arg.ID, arg.OwnerUserID)
+}
+
+// UpdateQuestionOwnerCols gives typed, name-safe access to UpdateQuestionOwner's output columns.
+var UpdateQuestionOwnerCols = struct {
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Category         metaquery.TextCol
+	Question         metaquery.TextCol
+	Answer           metaquery.TextCol
+	CreatedAt        metaquery.TimeCol
+	UpdatedAt        metaquery.TimeCol
+	ParentQuestionID metaquery.IntCol
+	OwnerUserID      metaquery.IntCol
+}{
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Category:         metaquery.NewTextCol("category"),
+	Question:         metaquery.NewTextCol("question"),
+	Answer:           metaquery.NewTextCol("answer"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
+	ParentQuestionID: metaquery.NewIntCol("parent_question_id"),
+	OwnerUserID:      metaquery.NewIntCol("owner_user_id"),
 }

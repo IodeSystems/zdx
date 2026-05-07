@@ -2105,7 +2105,8 @@ CREATE TABLE public.zdx_questions (
     answer text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    parent_question_id integer
+    parent_question_id integer,
+    owner_user_id integer
 );
 
 

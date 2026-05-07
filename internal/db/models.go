@@ -742,6 +742,7 @@ type ZdxQuestion struct {
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 	ParentQuestionID pgtype.Int4        `db:"parent_question_id" json:"parent_question_id"`
+	OwnerUserID      pgtype.Int4        `db:"owner_user_id" json:"owner_user_id"`
 }
 
 type ZdxQuestionProposal struct {
