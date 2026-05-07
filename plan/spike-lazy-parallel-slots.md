@@ -26,6 +26,13 @@ who explicitly want a single-process N-fan-out keep the
 capability; everyone else gets the predictable "one process =
 one agent" model.
 
+`dx agent connect` does **NOT** get `--concurrency`. Connect's
+identity is "register THIS one agent in the pool" — one WS
+handshake, one row in `/agents`. For N concurrent registered
+agents, run N `dx agent connect` processes. Splitting under the
+hood would mean pause/resume/drain target the wrong scope and
+the UI would show N rows from one OS process.
+
 The existing `agent.max_worktrees` config field is a **project-wide
 ceiling on concurrent agents** (used by `dx agent start` to refuse
 over-provisioning, see `agent.go:515`). It is *not* a slot count

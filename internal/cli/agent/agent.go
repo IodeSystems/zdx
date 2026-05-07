@@ -118,7 +118,7 @@ For the long-running work loop, use ` + "`dx agent loop --provider=X`" + `.`,
 // connect --idle."
 func agentConnectCmd() *cobra.Command {
 	var idle bool
-	var maxTurns, concurrency int
+	var maxTurns int
 	var keepContainer, chrome bool
 	var mcpContainer string
 	cmd := &cobra.Command{
@@ -169,7 +169,11 @@ open so the UI can pause/resume/drain or eventually push work.`,
 				opts.Chrome = chrome
 			}
 			opts.KeepContainer = keepContainer
-			opts.Concurrency = concurrency
+			// connect is one-agent-per-process by design: one WS handshake,
+			// one row in /agents. Concurrency lives on `dx agent loop` for
+			// the explicit fan-out opt-in; for N agents in the pool, run N
+			// `dx agent connect` processes.
+			opts.Concurrency = 1
 			opts.Global = global
 			opts.Idle = idle
 
@@ -196,7 +200,6 @@ open so the UI can pause/resume/drain or eventually push work.`,
 	cmd.Flags().IntVar(&maxTurns, "max-turns", 0, "cap on assistant turns per session (0 = unlimited; opencode/local only)")
 	cmd.Flags().BoolVar(&keepContainer, "keep-container", false, "keep slot containers after exit (skip --rm; useful for debugging)")
 	cmd.Flags().BoolVar(&chrome, "chrome", true, "pass --chrome to claude CLI (claude only; ignored otherwise)")
-	cmd.Flags().IntVar(&concurrency, "concurrency", 1, "in-process slot fan-out for --container=docker (default 1; for parallel work prefer running multiple `dx agent connect` processes)")
 	cmd.Flags().StringVar(&mcpContainer, "mcp-container", "", "dispatch tool calls through dx-agent --mcp-stdio running inside this container (opencode/local only)")
 	return cmd
 }
