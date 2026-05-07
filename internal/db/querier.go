@@ -33,6 +33,13 @@ type Querier interface {
 	AnswerBlockerQuestion(ctx context.Context, arg AnswerBlockerQuestionParams) error
 	AnswerQuestion(ctx context.Context, arg AnswerQuestionParams) (ZdxQuestion, error)
 	AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams) error
+	// Pin an originally-global agent to a project. Refuses to operate on
+	// project-scoped agents (originally_global=false) — those are
+	// scope-immutable per design. Returns the updated row; the caller can
+	// check whether RowsAffected==0 to distinguish "not found" from "scope
+	// mismatch", but the WHERE-clause guard makes the simpler "fail closed"
+	// pattern safe.
+	AssignAgentToProject(ctx context.Context, arg AssignAgentToProjectParams) (ZdxAgent, error)
 	AttachCodeRefToIssue(ctx context.Context, arg AttachCodeRefToIssueParams) error
 	AttachCodeRefToSpec(ctx context.Context, arg AttachCodeRefToSpecParams) error
 	AttachCodeRefToTask(ctx context.Context, arg AttachCodeRefToTaskParams) error
@@ -48,6 +55,17 @@ type Querier interface {
 	// Skips locked rows (concurrent agents get different items).
 	// target_branch is resolved from the referenced issue (default 'dev').
 	ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (ClaimNextTodoRow, error)
+	// Cross-project atomic claim for unpinned global agents. Picks the
+	// single best todo across every project, ordered by project.priority
+	// (lower=earlier, default 5), then todo.priority, then created_at.
+	// The composite ordering means a low-priority project can still
+	// starve out a high-priority project's stale low-priority work, and
+	// operator priority bumps (LEAST-preserved on UpsertTodo) cut through
+	// the same way they do per-project. Same FOR UPDATE SKIP LOCKED
+	// semantics as ClaimNextTodo so concurrent global agents don't
+	// collide. Returns project_slug so the caller can route follow-up
+	// API calls to the right project namespace.
+	ClaimNextTodoAny(ctx context.Context, arg ClaimNextTodoAnyParams) (ClaimNextTodoAnyRow, error)
 	// Atomically mark a ready, unclaimed task as active. The caller must
 	// separately INSERT a zdx_reservations row to record who claimed it.
 	ClaimTask(ctx context.Context, arg ClaimTaskParams) (ClaimTaskRow, error)
@@ -480,6 +498,10 @@ type Querier interface {
 	ListPlansByIssue(ctx context.Context, issueID pgtype.Text) ([]ListPlansByIssueRow, error)
 	ListProjectGoals(ctx context.Context, projectID int32) ([]ListProjectGoalsRow, error)
 	ListProjects(ctx context.Context) ([]ZdxProject, error)
+	// Used by the cross-project claim path so generateSoloQueue runs first
+	// against the highest-priority project and the persisted queue is
+	// freshest where it matters most. Tie-break by name for stable order.
+	ListProjectsByPriority(ctx context.Context) ([]ZdxProject, error)
 	ListProposalVersions(ctx context.Context, proposalID int32) ([]ZdxProposalVersion, error)
 	ListProposals(ctx context.Context, arg ListProposalsParams) ([]ZdxProposal, error)
 	ListQuestionProposalsByQuestion(ctx context.Context, arg ListQuestionProposalsByQuestionParams) ([]ZdxQuestionProposal, error)
@@ -634,7 +656,14 @@ type Querier interface {
 	// Clear claims on todos whose leases have expired. Returns affected rows for reservation release.
 	ReclaimExpiredTodos(ctx context.Context, projectID int32) ([]ReclaimExpiredTodosRow, error)
 	RecordBudgetPause(ctx context.Context, arg RecordBudgetPauseParams) (ZdxBudgetPause, error)
+	// Project-scoped agent registration. Sets originally_global=false on first
+	// insert; never updates it (immutable after first registration).
 	RegisterAgent(ctx context.Context, arg RegisterAgentParams) (ZdxAgent, error)
+	// Global-pool agent registration (no project binding). Used by the WS
+	// handshake when ProjectSlug is empty. Sets originally_global=true on
+	// first insert; never updates it. Used to persist globals so the
+	// /api/agents listing + assign/unassign endpoints can operate on them.
+	RegisterGlobalAgent(ctx context.Context, arg RegisterGlobalAgentParams) (ZdxAgent, error)
 	// Batch release every reservation whose lease has expired and is not yet released.
 	// Covers todo, task, and issue target types in a single pass.
 	ReleaseExpiredReservations(ctx context.Context) ([]ReleaseExpiredReservationsRow, error)
@@ -679,17 +708,26 @@ type Querier interface {
 	// metaquery: off
 	SearchTasks(ctx context.Context, arg SearchTasksParams) ([]SearchTasksRow, error)
 	SearchUsers(ctx context.Context, q_ string) ([]SearchUsersRow, error)
+	// Toggle the idle flag for an agent. Used when the WS handshake reports
+	// a new idle state for an existing project-scoped row (RegisterGlobalAgent
+	// writes it directly, but project-scoped RegisterAgent doesn't).
+	SetAgentIdle(ctx context.Context, arg SetAgentIdleParams) error
 	SetEventVerdict(ctx context.Context, arg SetEventVerdictParams) (ZdxEvent, error)
 	SetIssueField(ctx context.Context, arg SetIssueFieldParams) error
 	SetIssueInteractiveOnly(ctx context.Context, arg SetIssueInteractiveOnlyParams) error
 	SetIssuePriority(ctx context.Context, arg SetIssuePriorityParams) error
 	SetProjectClassification(ctx context.Context, arg SetProjectClassificationParams) error
 	SetProjectGitConfig(ctx context.Context, arg SetProjectGitConfigParams) error
+	SetProjectPriority(ctx context.Context, arg SetProjectPriorityParams) error
 	SetProjectProxyConfig(ctx context.Context, arg SetProjectProxyConfigParams) error
 	SetProjectStage(ctx context.Context, arg SetProjectStageParams) error
 	SetProjectVision(ctx context.Context, arg SetProjectVisionParams) error
 	SetState(ctx context.Context, arg SetStateParams) error
 	SetThreadTitle(ctx context.Context, arg SetThreadTitleParams) (ZdxEventThread, error)
+	// Operator-driven push: set the todo's priority directly. UpsertTodo's
+	// LEAST() clause preserves the value across re-evaluate, so a push sticks
+	// until another operator write or until natural priority drops below it.
+	SetTodoPriority(ctx context.Context, arg SetTodoPriorityParams) error
 	// Store the auto-filed issue ID on a blocked todo so the UI can link to it.
 	SetTodoReferenceIssue(ctx context.Context, arg SetTodoReferenceIssueParams) error
 	StandupOwnerYield(ctx context.Context, projectID int32) (StandupOwnerYieldRow, error)
@@ -709,6 +747,9 @@ type Querier interface {
 	TopPriorityOpenIssues(ctx context.Context, projectID int32) ([]TopPriorityOpenIssuesRow, error)
 	TouchApiKey(ctx context.Context, id int32) error
 	TouchClaudeSession(ctx context.Context, id int64) error
+	// Clear an originally-global agent's project pin (back to global pool).
+	// Refuses to operate on project-scoped agents.
+	UnassignAgent(ctx context.Context, id string) (ZdxAgent, error)
 	// Clear blocked flag and reopen_count on all blocked todos for a project.
 	// reopen_count is reset because the upsert re-block guard (queries/todos.sql:56-65)
 	// fires on reopen_count >= 3 and would otherwise immediately re-block every row on

@@ -36,6 +36,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/doctor/token-hygiene": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["doctor-token-hygiene"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/integration-tokens": {
         parameters: {
             query?: never;
@@ -228,6 +244,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/project-priority": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["set-project-priority"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/project-stage": {
         parameters: {
             query?: never;
@@ -358,6 +390,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-all-agents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agents/budget": {
         parameters: {
             query?: never;
@@ -406,22 +454,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/agents/reap": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["reap-agents"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/agents/register": {
         parameters: {
             query?: never;
@@ -449,6 +481,22 @@ export interface paths {
         put?: never;
         post?: never;
         delete: operations["delete-agent"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents/{id}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["assign-agent"];
+        delete: operations["unassign-agent"];
         options?: never;
         head?: never;
         patch?: never;
@@ -574,38 +622,6 @@ export interface paths {
             cookie?: never;
         };
         get: operations["get-config"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/constraint": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put: operations["update-constraint"];
-        post: operations["create-constraint"];
-        delete: operations["delete-constraint"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/constraints": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["list-constraints"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2576,10 +2592,10 @@ export interface paths {
         get: operations["show-version-branch"];
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["delete-version-branch"];
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["update-version-branch"];
         trace?: never;
     };
     "/api/dx/projects/{slug}/branches/{name}/eol": {
@@ -2596,6 +2612,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["mark-version-branch-eol"];
+        trace?: never;
+    };
+    "/api/dx/projects/{slug}/branches/{name}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["update-version-branch-settings"];
         trace?: never;
     };
     "/api/dx/projects/{slug}/branches/{name}/source": {
@@ -2800,6 +2832,22 @@ export interface paths {
         get: operations["list-todo-incomplete-reports"];
         put?: never;
         post: operations["post-todo-incomplete-report"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/projects/{slug}/todos/{key}/priority": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["set-todo-priority"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3200,6 +3248,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["solo-claim"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/solo/claim-any": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["solo-claim-any"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5717,11 +5781,15 @@ export interface components {
             created_at: string;
             database_url: string;
             id: string;
+            idle: boolean;
             last_heartbeat: string;
+            originally_global: boolean;
             /** Format: int32 */
             pid: number;
             /** Format: int32 */
-            project_id: number;
+            project_id: number | null;
+            project_name?: string;
+            project_slug?: string;
             /** Format: int32 */
             server_port: number;
             session_id: string;
@@ -5854,6 +5922,15 @@ export interface components {
             readonly $schema?: string;
             issue_id: string;
             proposal: components["schemas"]["ProposalItem"];
+        };
+        "Assign-agentRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Assign-agentRequest.json
+             */
+            readonly $schema?: string;
+            project_slug: string;
         };
         AtlasChunkItem: {
             /**
@@ -6369,23 +6446,6 @@ export interface components {
             id: number;
             importance: string;
         };
-        ConstraintItem: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ConstraintItem.json
-             */
-            readonly $schema?: string;
-            created_at: string;
-            description: string;
-            /** Format: int32 */
-            id: number;
-            /** Format: int32 */
-            priority: number;
-            status: string;
-            title: string;
-            updated_at: string;
-        };
         "Convert-task-to-blockerRequest": {
             /**
              * Format: uri
@@ -6578,20 +6638,6 @@ export interface components {
             name: string;
             slug: string;
         };
-        "Create-constraintRequest": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Create-constraintRequest.json
-             */
-            readonly $schema?: string;
-            description: string;
-            /** Format: int32 */
-            priority: number;
-            slug: string;
-            status: string;
-            title: string;
-        };
         "Create-discussionRequest": {
             /**
              * Format: uri
@@ -6653,9 +6699,10 @@ export interface components {
              * @example https://example.com/schemas/Create-integration-tokenRequest.json
              */
             readonly $schema?: string;
+            capabilities?: string[] | null;
             component?: string;
             name: string;
-            slug: string;
+            slug?: string;
         };
         "Create-integration-tokenResponse": {
             /**
@@ -6664,13 +6711,14 @@ export interface components {
              * @example https://example.com/schemas/Create-integration-tokenResponse.json
              */
             readonly $schema?: string;
+            capabilities: string[] | null;
             component?: string;
             created_at: string;
             /** Format: int32 */
             id: number;
             name: string;
             /** Format: int32 */
-            project_id: number;
+            project_id?: number;
             revoked_at?: string;
             token: string;
             token_prefix: string;
@@ -6761,7 +6809,9 @@ export interface components {
             created_at: string;
             /** Format: int64 */
             id: number;
+            merge_style?: string;
             name: string;
+            required_checks?: string;
             role?: string;
             semver?: string;
             source_branch_name?: string;
@@ -6826,16 +6876,6 @@ export interface components {
             /** Format: int32 */
             code_ref_id: number;
             slug: string;
-        };
-        "Delete-constraintRequest": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Delete-constraintRequest.json
-             */
-            readonly $schema?: string;
-            /** Format: int32 */
-            id: number;
         };
         "Delete-draft-taskRequest": {
             /**
@@ -7039,6 +7079,16 @@ export interface components {
             /** Format: int32 */
             id: number;
             role: string;
+        };
+        "Doctor-token-hygieneResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Doctor-token-hygieneResponse.json
+             */
+            readonly $schema?: string;
+            legacy_agent_tokens: string[] | null;
+            recent_admin_tokens: string[] | null;
         };
         "Edit-issueRequest": {
             /**
@@ -7640,6 +7690,7 @@ export interface components {
             environment?: string;
             events: components["schemas"]["IngestLogEvent"][] | null;
             host?: string;
+            project_slug?: string;
         };
         IngestLogEvent: {
             level?: string;
@@ -7650,13 +7701,14 @@ export interface components {
             };
         };
         IntegrationTokenItem: {
+            capabilities: string[] | null;
             component?: string;
             created_at: string;
             /** Format: int32 */
             id: number;
             name: string;
             /** Format: int32 */
-            project_id: number;
+            project_id?: number;
             revoked_at?: string;
             token_prefix: string;
         };
@@ -8046,6 +8098,15 @@ export interface components {
             readonly $schema?: string;
             agents: components["schemas"]["AgentItem"][] | null;
         };
+        "List-all-agentsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-all-agentsResponse.json
+             */
+            readonly $schema?: string;
+            agents: components["schemas"]["AgentItem"][] | null;
+        };
         "List-atlas-chunksResponse": {
             /**
              * Format: uri
@@ -8197,15 +8258,6 @@ export interface components {
              */
             readonly $schema?: string;
             concerns: components["schemas"]["ConcernItem"][] | null;
-        };
-        "List-constraintsResponse": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/List-constraintsResponse.json
-             */
-            readonly $schema?: string;
-            constraints: components["schemas"]["ConstraintItem"][] | null;
         };
         "List-counted-groupedResponse": {
             /**
@@ -9333,6 +9385,8 @@ export interface components {
             /** Format: int32 */
             id: number;
             name: string;
+            /** Format: int32 */
+            priority: number;
             slug: string;
             stage: string;
             title?: string;
@@ -9440,25 +9494,6 @@ export interface components {
             readonly $schema?: string;
             /** Format: int32 */
             id: number;
-        };
-        "Reap-agentsRequest": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Reap-agentsRequest.json
-             */
-            readonly $schema?: string;
-            /** Format: int32 */
-            threshold_minutes: number;
-        };
-        "Reap-agentsResponse": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Reap-agentsResponse.json
-             */
-            readonly $schema?: string;
-            reaped: components["schemas"]["AgentItem"][] | null;
         };
         "Reclaim-expired-tasksResponse": {
             /**
@@ -9995,6 +10030,27 @@ export interface components {
             git_url: string;
             slug: string;
         };
+        "Set-project-priorityRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Set-project-priorityRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            priority: number;
+            slug: string;
+        };
+        "Set-project-priorityResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Set-project-priorityResponse.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            priority: number;
+        };
         "Set-project-stageRequest": {
             /**
              * Format: uri
@@ -10045,6 +10101,26 @@ export interface components {
             key: string;
             slug: string;
             value: string;
+        };
+        "Set-todo-priorityRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Set-todo-priorityRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            priority: number;
+        };
+        "Set-todo-priorityResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Set-todo-priorityResponse.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            priority: number;
         };
         "Set-version-branch-sourceRequest": {
             /**
@@ -10347,6 +10423,18 @@ export interface components {
             items: components["schemas"]["SoloQueueItem"][] | null;
             slug: string;
         };
+        "Solo-claim-anyRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Solo-claim-anyRequest.json
+             */
+            readonly $schema?: string;
+            agent_id: string;
+            /** Format: int32 */
+            lease_minutes?: number;
+            mode?: string;
+        };
         "Solo-claimRequest": {
             /**
              * Format: uri
@@ -10379,8 +10467,6 @@ export interface components {
             readonly $schema?: string;
             /** Format: int64 */
             closed_task_count: number;
-            /** Format: int64 */
-            constraint_count: number;
             /** Format: int64 */
             goal_count: number;
             owner_journal_date: string;
@@ -11052,21 +11138,6 @@ export interface components {
             readonly $schema?: string;
             ok: boolean;
         };
-        "Update-constraintRequest": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Update-constraintRequest.json
-             */
-            readonly $schema?: string;
-            description: string;
-            /** Format: int32 */
-            id: number;
-            /** Format: int32 */
-            priority: number;
-            status: string;
-            title: string;
-        };
         "Update-discussion-statusRequest": {
             /**
              * Format: uri
@@ -11238,6 +11309,27 @@ export interface components {
             readonly $schema?: string;
             role: string;
         };
+        "Update-version-branch-settingsRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Update-version-branch-settingsRequest.json
+             */
+            readonly $schema?: string;
+            merge_style?: string;
+            required_checks?: string;
+        };
+        "Update-version-branchRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Update-version-branchRequest.json
+             */
+            readonly $schema?: string;
+            auto_seed?: boolean;
+            role?: string;
+            source_branch_name?: string;
+        };
         "Upsert-featureRequest": {
             /**
              * Format: uri
@@ -11271,9 +11363,11 @@ export interface components {
             created_at: string;
             /** Format: int64 */
             id: number;
+            merge_style?: string;
             name: string;
             /** Format: int64 */
             open_count: number;
+            required_checks?: string;
             /** Format: int64 */
             resolved_count: number;
             role?: string;
@@ -11283,10 +11377,18 @@ export interface components {
             type: string;
         };
         VersionBranchItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/VersionBranchItem.json
+             */
+            readonly $schema?: string;
             created_at: string;
             /** Format: int64 */
             id: number;
+            merge_style?: string;
             name: string;
+            required_checks?: string;
             role?: string;
             semver?: string;
             source_branch_name?: string;
@@ -11420,6 +11522,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-activity-worklogResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "doctor-token-hygiene": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Doctor-token-hygieneResponse"];
                 };
             };
             /** @description Error */
@@ -12001,6 +12132,39 @@ export interface operations {
             };
         };
     };
+    "set-project-priority": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Set-project-priorityRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Set-project-priorityResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "set-project-stage": {
         parameters: {
             query?: never;
@@ -12280,6 +12444,35 @@ export interface operations {
             };
         };
     };
+    "list-all-agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-all-agentsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "get-agent-budget": {
         parameters: {
             query?: {
@@ -12405,39 +12598,6 @@ export interface operations {
             };
         };
     };
-    "reap-agents": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Reap-agentsRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Reap-agentsResponse"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
     "register-agent": {
         parameters: {
             query?: never;
@@ -12519,6 +12679,72 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "assign-agent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Assign-agentRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "unassign-agent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentItem"];
+                };
             };
             /** @description Error */
             default: {
@@ -12770,136 +12996,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Get-configResponse"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "update-constraint": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Update-constraintRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OKBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "create-constraint": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Create-constraintRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConstraintItem"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "delete-constraint": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Delete-constraintRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OKBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "list-constraints": {
-        parameters: {
-            query: {
-                slug: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["List-constraintsResponse"];
                 };
             };
             /** @description Error */
@@ -17219,6 +17315,72 @@ export interface operations {
             };
         };
     };
+    "delete-version-branch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-version-branch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Update-version-branchRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionBranchItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "mark-version-branch-eol": {
         parameters: {
             query?: never;
@@ -17230,6 +17392,42 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-version-branch-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Update-version-branch-settingsRequest"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -17847,6 +18045,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IncompleteReportItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "set-todo-priority": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Set-todo-priorityRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Set-todo-priorityResponse"];
                 };
             };
             /** @description Error */
@@ -18749,6 +18983,43 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Solo-claimRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SoloClaimBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "solo-claim-any": {
+        parameters: {
+            query?: {
+                debug?: string;
+            };
+            header?: {
+                "X-Atlas-Debug"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Solo-claim-anyRequest"];
             };
         };
         responses: {
@@ -22208,6 +22479,7 @@ export interface operations {
             query?: never;
             header?: {
                 Authorization?: string;
+                "X-Api-Key"?: string;
             };
             path?: never;
             cookie?: never;

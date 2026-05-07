@@ -41,7 +41,7 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (C
 }
 
 const getProjectByID = `-- name: GetProjectByID :one
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description FROM zdx_projects WHERE id = $1
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects WHERE id = $1
 `
 
 func (q *Queries) GetProjectByID(ctx context.Context, id int32) (ZdxProject, error) {
@@ -62,12 +62,13 @@ func (q *Queries) GetProjectByID(ctx context.Context, id int32) (ZdxProject, err
 		&i.GitEnabled,
 		&i.Title,
 		&i.Description,
+		&i.Priority,
 	)
 	return i, err
 }
 
 const getProjectBySlug = `-- name: GetProjectBySlug :one
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description FROM zdx_projects WHERE slug = $1
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects WHERE slug = $1
 `
 
 func (q *Queries) GetProjectBySlug(ctx context.Context, slug string) (ZdxProject, error) {
@@ -88,6 +89,7 @@ func (q *Queries) GetProjectBySlug(ctx context.Context, slug string) (ZdxProject
 		&i.GitEnabled,
 		&i.Title,
 		&i.Description,
+		&i.Priority,
 	)
 	return i, err
 }
@@ -139,7 +141,7 @@ func (q *Queries) GetProjectProxyConfig(ctx context.Context, slug string) (GetPr
 }
 
 const listProjects = `-- name: ListProjects :many
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description FROM zdx_projects ORDER BY name
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects ORDER BY name
 `
 
 func (q *Queries) ListProjects(ctx context.Context) ([]ZdxProject, error) {
@@ -166,6 +168,50 @@ func (q *Queries) ListProjects(ctx context.Context) ([]ZdxProject, error) {
 			&i.GitEnabled,
 			&i.Title,
 			&i.Description,
+			&i.Priority,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProjectsByPriority = `-- name: ListProjectsByPriority :many
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects ORDER BY priority, name
+`
+
+// Used by the cross-project claim path so generateSoloQueue runs first
+// against the highest-priority project and the persisted queue is
+// freshest where it matters most. Tie-break by name for stable order.
+func (q *Queries) ListProjectsByPriority(ctx context.Context) ([]ZdxProject, error) {
+	rows, err := q.db.Query(ctx, listProjectsByPriority)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxProject
+	for rows.Next() {
+		var i ZdxProject
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Name,
+			&i.CreatedAt,
+			&i.GitUrl,
+			&i.GitBranch,
+			&i.GitToken,
+			&i.Stage,
+			&i.Classification,
+			&i.UpstreamUrl,
+			&i.UpstreamCredentials,
+			&i.GitEnabled,
+			&i.Title,
+			&i.Description,
+			&i.Priority,
 		); err != nil {
 			return nil, err
 		}
@@ -208,6 +254,20 @@ func (q *Queries) SetProjectGitConfig(ctx context.Context, arg SetProjectGitConf
 		arg.GitToken,
 		arg.Slug,
 	)
+	return err
+}
+
+const setProjectPriority = `-- name: SetProjectPriority :exec
+UPDATE zdx_projects SET priority = $1 WHERE slug = $2
+`
+
+type SetProjectPriorityParams struct {
+	Priority int32  `db:"priority" json:"priority"`
+	Slug     string `db:"slug" json:"slug"`
+}
+
+func (q *Queries) SetProjectPriority(ctx context.Context, arg SetProjectPriorityParams) error {
+	_, err := q.db.Exec(ctx, setProjectPriority, arg.Priority, arg.Slug)
 	return err
 }
 

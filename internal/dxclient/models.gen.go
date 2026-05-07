@@ -364,23 +364,27 @@ type AdoptTaskRequest struct {
 // AgentItem defines model for AgentItem.
 type AgentItem struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema          *string `json:"$schema,omitempty"`
-	ComposeProject  string  `json:"compose_project"`
-	ConnectedAt     string  `json:"connected_at"`
-	ConnectionState string  `json:"connection_state"`
-	CreatedAt       string  `json:"created_at"`
-	DatabaseUrl     string  `json:"database_url"`
-	Id              string  `json:"id"`
-	LastHeartbeat   string  `json:"last_heartbeat"`
-	Pid             int32   `json:"pid"`
-	ProjectId       int32   `json:"project_id"`
-	ServerPort      int32   `json:"server_port"`
-	SessionId       string  `json:"session_id"`
-	Status          string  `json:"status"`
-	TaskGroup       string  `json:"task_group"`
-	ValkeyUrl       string  `json:"valkey_url"`
-	WorktreeBranch  string  `json:"worktree_branch"`
-	WorktreePath    string  `json:"worktree_path"`
+	Schema           *string `json:"$schema,omitempty"`
+	ComposeProject   string  `json:"compose_project"`
+	ConnectedAt      string  `json:"connected_at"`
+	ConnectionState  string  `json:"connection_state"`
+	CreatedAt        string  `json:"created_at"`
+	DatabaseUrl      string  `json:"database_url"`
+	Id               string  `json:"id"`
+	Idle             bool    `json:"idle"`
+	LastHeartbeat    string  `json:"last_heartbeat"`
+	OriginallyGlobal bool    `json:"originally_global"`
+	Pid              int32   `json:"pid"`
+	ProjectId        *int32  `json:"project_id"`
+	ProjectName      *string `json:"project_name,omitempty"`
+	ProjectSlug      *string `json:"project_slug,omitempty"`
+	ServerPort       int32   `json:"server_port"`
+	SessionId        string  `json:"session_id"`
+	Status           string  `json:"status"`
+	TaskGroup        string  `json:"task_group"`
+	ValkeyUrl        string  `json:"valkey_url"`
+	WorktreeBranch   string  `json:"worktree_branch"`
+	WorktreePath     string  `json:"worktree_path"`
 }
 
 // AgentTaskItem defines model for AgentTaskItem.
@@ -485,6 +489,13 @@ type ApproveProposalResponse struct {
 	Schema   *string      `json:"$schema,omitempty"`
 	IssueId  string       `json:"issue_id"`
 	Proposal ProposalItem `json:"proposal"`
+}
+
+// AssignAgentRequest defines model for Assign-agentRequest.
+type AssignAgentRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema      *string `json:"$schema,omitempty"`
+	ProjectSlug string  `json:"project_slug"`
 }
 
 // AtlasChunkItem defines model for AtlasChunkItem.
@@ -902,19 +913,6 @@ type ConcernLinkedSpecItem struct {
 	Importance  string `json:"importance"`
 }
 
-// ConstraintItem defines model for ConstraintItem.
-type ConstraintItem struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema      *string `json:"$schema,omitempty"`
-	CreatedAt   string  `json:"created_at"`
-	Description string  `json:"description"`
-	Id          int32   `json:"id"`
-	Priority    int32   `json:"priority"`
-	Status      string  `json:"status"`
-	Title       string  `json:"title"`
-	UpdatedAt   string  `json:"updated_at"`
-}
-
 // ConvertTaskToBlockerRequest defines model for Convert-task-to-blockerRequest.
 type ConvertTaskToBlockerRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -1068,17 +1066,6 @@ type CreateConcernRequest struct {
 	Slug        string  `json:"slug"`
 }
 
-// CreateConstraintRequest defines model for Create-constraintRequest.
-type CreateConstraintRequest struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema      *string `json:"$schema,omitempty"`
-	Description string  `json:"description"`
-	Priority    int32   `json:"priority"`
-	Slug        string  `json:"slug"`
-	Status      string  `json:"status"`
-	Title       string  `json:"title"`
-}
-
 // CreateDiscussionRequest defines model for Create-discussionRequest.
 type CreateDiscussionRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -1126,24 +1113,26 @@ type CreateGoalRequest struct {
 // CreateIntegrationTokenRequest defines model for Create-integration-tokenRequest.
 type CreateIntegrationTokenRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema    *string `json:"$schema,omitempty"`
-	Component *string `json:"component,omitempty"`
-	Name      string  `json:"name"`
-	Slug      string  `json:"slug"`
+	Schema       *string   `json:"$schema,omitempty"`
+	Capabilities *[]string `json:"capabilities,omitempty"`
+	Component    *string   `json:"component,omitempty"`
+	Name         string    `json:"name"`
+	Slug         *string   `json:"slug,omitempty"`
 }
 
 // CreateIntegrationTokenResponse defines model for Create-integration-tokenResponse.
 type CreateIntegrationTokenResponse struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema      *string `json:"$schema,omitempty"`
-	Component   *string `json:"component,omitempty"`
-	CreatedAt   string  `json:"created_at"`
-	Id          int32   `json:"id"`
-	Name        string  `json:"name"`
-	ProjectId   int32   `json:"project_id"`
-	RevokedAt   *string `json:"revoked_at,omitempty"`
-	Token       string  `json:"token"`
-	TokenPrefix string  `json:"token_prefix"`
+	Schema       *string   `json:"$schema,omitempty"`
+	Capabilities *[]string `json:"capabilities"`
+	Component    *string   `json:"component,omitempty"`
+	CreatedAt    string    `json:"created_at"`
+	Id           int32     `json:"id"`
+	Name         string    `json:"name"`
+	ProjectId    *int32    `json:"project_id,omitempty"`
+	RevokedAt    *string   `json:"revoked_at,omitempty"`
+	Token        string    `json:"token"`
+	TokenPrefix  string    `json:"token_prefix"`
 }
 
 // CreateInviteRequest defines model for Create-inviteRequest.
@@ -1277,13 +1266,6 @@ type DeleteCodeRefRequest struct {
 	Schema    *string `json:"$schema,omitempty"`
 	CodeRefId int32   `json:"code_ref_id"`
 	Slug      string  `json:"slug"`
-}
-
-// DeleteConstraintRequest defines model for Delete-constraintRequest.
-type DeleteConstraintRequest struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema *string `json:"$schema,omitempty"`
-	Id     int32   `json:"id"`
 }
 
 // DeleteDraftTaskRequest defines model for Delete-draft-taskRequest.
@@ -1946,6 +1928,7 @@ type IngestLogBatch struct {
 	Environment *string           `json:"environment,omitempty"`
 	Events      *[]IngestLogEvent `json:"events"`
 	Host        *string           `json:"host,omitempty"`
+	ProjectSlug *string           `json:"project_slug,omitempty"`
 }
 
 // IngestLogEvent defines model for IngestLogEvent.
@@ -1958,13 +1941,14 @@ type IngestLogEvent struct {
 
 // IntegrationTokenItem defines model for IntegrationTokenItem.
 type IntegrationTokenItem struct {
-	Component   *string `json:"component,omitempty"`
-	CreatedAt   string  `json:"created_at"`
-	Id          int32   `json:"id"`
-	Name        string  `json:"name"`
-	ProjectId   int32   `json:"project_id"`
-	RevokedAt   *string `json:"revoked_at,omitempty"`
-	TokenPrefix string  `json:"token_prefix"`
+	Capabilities *[]string `json:"capabilities"`
+	Component    *string   `json:"component,omitempty"`
+	CreatedAt    string    `json:"created_at"`
+	Id           int32     `json:"id"`
+	Name         string    `json:"name"`
+	ProjectId    *int32    `json:"project_id,omitempty"`
+	RevokedAt    *string   `json:"revoked_at,omitempty"`
+	TokenPrefix  string    `json:"token_prefix"`
 }
 
 // InviteItem defines model for InviteItem.
@@ -2291,6 +2275,13 @@ type ListAgentsResponse struct {
 	Agents *[]AgentItem `json:"agents"`
 }
 
+// ListAllAgentsResponse defines model for List-all-agentsResponse.
+type ListAllAgentsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string      `json:"$schema,omitempty"`
+	Agents *[]AgentItem `json:"agents"`
+}
+
 // ListAtlasChunksResponse defines model for List-atlas-chunksResponse.
 type ListAtlasChunksResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2405,13 +2396,6 @@ type ListConcernsResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema   *string        `json:"$schema,omitempty"`
 	Concerns *[]ConcernItem `json:"concerns"`
-}
-
-// ListConstraintsResponse defines model for List-constraintsResponse.
-type ListConstraintsResponse struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema      *string           `json:"$schema,omitempty"`
-	Constraints *[]ConstraintItem `json:"constraints"`
 }
 
 // ListCountedGroupedResponse defines model for List-counted-groupedResponse.
@@ -3283,6 +3267,7 @@ type ProjectItem struct {
 	GitEnabled     *bool   `json:"git_enabled,omitempty"`
 	Id             int32   `json:"id"`
 	Name           string  `json:"name"`
+	Priority       int32   `json:"priority"`
 	Slug           string  `json:"slug"`
 	Stage          string  `json:"stage"`
 	Title          *string `json:"title,omitempty"`
@@ -3372,20 +3357,6 @@ type ReadyTaskRequest struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema *string `json:"$schema,omitempty"`
 	Id     int32   `json:"id"`
-}
-
-// ReapAgentsRequest defines model for Reap-agentsRequest.
-type ReapAgentsRequest struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema           *string `json:"$schema,omitempty"`
-	ThresholdMinutes int32   `json:"threshold_minutes"`
-}
-
-// ReapAgentsResponse defines model for Reap-agentsResponse.
-type ReapAgentsResponse struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema *string      `json:"$schema,omitempty"`
-	Reaped *[]AgentItem `json:"reaped"`
 }
 
 // ReclaimExpiredTasksResponse defines model for Reclaim-expired-tasksResponse.
@@ -3826,6 +3797,21 @@ type SetProjectGitConfigRequest struct {
 	Slug      string  `json:"slug"`
 }
 
+// SetProjectPriorityRequest defines model for Set-project-priorityRequest.
+type SetProjectPriorityRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string `json:"$schema,omitempty"`
+	Priority int32   `json:"priority"`
+	Slug     string  `json:"slug"`
+}
+
+// SetProjectPriorityResponse defines model for Set-project-priorityResponse.
+type SetProjectPriorityResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string `json:"$schema,omitempty"`
+	Priority int32   `json:"priority"`
+}
+
 // SetProjectStageRequest defines model for Set-project-stageRequest.
 type SetProjectStageRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -3865,6 +3851,20 @@ type SetStateRequest struct {
 	Key    string  `json:"key"`
 	Slug   string  `json:"slug"`
 	Value  string  `json:"value"`
+}
+
+// SetTodoPriorityRequest defines model for Set-todo-priorityRequest.
+type SetTodoPriorityRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string `json:"$schema,omitempty"`
+	Priority int32   `json:"priority"`
+}
+
+// SetTodoPriorityResponse defines model for Set-todo-priorityResponse.
+type SetTodoPriorityResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string `json:"$schema,omitempty"`
+	Priority int32   `json:"priority"`
 }
 
 // SetVersionBranchSourceRequest defines model for Set-version-branch-sourceRequest.
@@ -4117,6 +4117,15 @@ type SoloApplyRequest struct {
 	Slug   string           `json:"slug"`
 }
 
+// SoloClaimAnyRequest defines model for Solo-claim-anyRequest.
+type SoloClaimAnyRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema       *string `json:"$schema,omitempty"`
+	AgentId      string  `json:"agent_id"`
+	LeaseMinutes *int32  `json:"lease_minutes,omitempty"`
+	Mode         *string `json:"mode,omitempty"`
+}
+
 // SoloClaimRequest defines model for Solo-claimRequest.
 type SoloClaimRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -4140,7 +4149,6 @@ type SoloHealthResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema           *string `json:"$schema,omitempty"`
 	ClosedTaskCount  int64   `json:"closed_task_count"`
-	ConstraintCount  int64   `json:"constraint_count"`
 	GoalCount        int64   `json:"goal_count"`
 	OwnerJournalDate string  `json:"owner_journal_date"`
 	TechJournalDate  string  `json:"tech_journal_date"`
@@ -4726,17 +4734,6 @@ type UpdateClaudeSessionSummaryResponse struct {
 	Ok     bool    `json:"ok"`
 }
 
-// UpdateConstraintRequest defines model for Update-constraintRequest.
-type UpdateConstraintRequest struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema      *string `json:"$schema,omitempty"`
-	Description string  `json:"description"`
-	Id          int32   `json:"id"`
-	Priority    int32   `json:"priority"`
-	Status      string  `json:"status"`
-	Title       string  `json:"title"`
-}
-
 // UpdateDiscussionStatusRequest defines model for Update-discussion-statusRequest.
 type UpdateDiscussionStatusRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -5041,11 +5038,6 @@ type GetAgentBudgetParams struct {
 
 // ListAgentsParams defines parameters for ListAgents.
 type ListAgentsParams struct {
-	Slug string `form:"slug" json:"slug"`
-}
-
-// ListConstraintsParams defines parameters for ListConstraints.
-type ListConstraintsParams struct {
 	Slug string `form:"slug" json:"slug"`
 }
 
@@ -5604,6 +5596,12 @@ type SoloClaimParams struct {
 	XAtlasDebug *string `json:"X-Atlas-Debug,omitempty"`
 }
 
+// SoloClaimAnyParams defines parameters for SoloClaimAny.
+type SoloClaimAnyParams struct {
+	Debug       *string `form:"debug,omitempty" json:"debug,omitempty"`
+	XAtlasDebug *string `json:"X-Atlas-Debug,omitempty"`
+}
+
 // SoloListClaimsParams defines parameters for SoloListClaims.
 type SoloListClaimsParams struct {
 	Slug string `form:"slug" json:"slug"`
@@ -5898,6 +5896,7 @@ type IngestErrorsParams struct {
 // IngestLogsParams defines parameters for IngestLogs.
 type IngestLogsParams struct {
 	Authorization *string `json:"Authorization,omitempty"`
+	XApiKey       *string `json:"X-Api-Key,omitempty"`
 }
 
 // IngestPromParams defines parameters for IngestProm.
@@ -5976,6 +5975,9 @@ type SetProjectGitConfigJSONRequestBody = SetProjectGitConfigRequest
 // TestProjectGitConfigJSONRequestBody defines body for TestProjectGitConfig for application/json ContentType.
 type TestProjectGitConfigJSONRequestBody = TestProjectGitConfigRequest
 
+// SetProjectPriorityJSONRequestBody defines body for SetProjectPriority for application/json ContentType.
+type SetProjectPriorityJSONRequestBody = SetProjectPriorityRequest
+
 // SetProjectStageJSONRequestBody defines body for SetProjectStage for application/json ContentType.
 type SetProjectStageJSONRequestBody = SetProjectStageRequest
 
@@ -5991,11 +5993,11 @@ type WsEchoJSONRequestBody = WsEchoRequest
 // SetAgentBudgetJSONRequestBody defines body for SetAgentBudget for application/json ContentType.
 type SetAgentBudgetJSONRequestBody = SetAgentBudgetRequest
 
-// ReapAgentsJSONRequestBody defines body for ReapAgents for application/json ContentType.
-type ReapAgentsJSONRequestBody = ReapAgentsRequest
-
 // RegisterAgentJSONRequestBody defines body for RegisterAgent for application/json ContentType.
 type RegisterAgentJSONRequestBody = RegisterAgentRequest
+
+// AssignAgentJSONRequestBody defines body for AssignAgent for application/json ContentType.
+type AssignAgentJSONRequestBody = AssignAgentRequest
 
 // LiftAgentBudgetPauseJSONRequestBody defines body for LiftAgentBudgetPause for application/json ContentType.
 type LiftAgentBudgetPauseJSONRequestBody = LiftAgentBudgetPauseRequest
@@ -6008,15 +6010,6 @@ type AuthLoginJSONRequestBody = AuthLoginRequest
 
 // AuthRegisterJSONRequestBody defines body for AuthRegister for application/json ContentType.
 type AuthRegisterJSONRequestBody = AuthRegisterRequest
-
-// DeleteConstraintJSONRequestBody defines body for DeleteConstraint for application/json ContentType.
-type DeleteConstraintJSONRequestBody = DeleteConstraintRequest
-
-// CreateConstraintJSONRequestBody defines body for CreateConstraint for application/json ContentType.
-type CreateConstraintJSONRequestBody = CreateConstraintRequest
-
-// UpdateConstraintJSONRequestBody defines body for UpdateConstraint for application/json ContentType.
-type UpdateConstraintJSONRequestBody = UpdateConstraintRequest
 
 // CloseAgentSessionJSONRequestBody defines body for CloseAgentSession for application/json ContentType.
 type CloseAgentSessionJSONRequestBody = CloseAgentSessionRequest
@@ -6219,6 +6212,9 @@ type RenewIssueLeaseJSONRequestBody = RenewIssueLeaseRequest
 // PostTodoIncompleteReportJSONRequestBody defines body for PostTodoIncompleteReport for application/json ContentType.
 type PostTodoIncompleteReportJSONRequestBody = PostIncompleteReportInputBody
 
+// SetTodoPriorityJSONRequestBody defines body for SetTodoPriority for application/json ContentType.
+type SetTodoPriorityJSONRequestBody = SetTodoPriorityRequest
+
 // CreateProposalJSONRequestBody defines body for CreateProposal for application/json ContentType.
 type CreateProposalJSONRequestBody = CreateProposalRequest
 
@@ -6266,6 +6262,9 @@ type SoloApplyJSONRequestBody = SoloApplyRequest
 
 // SoloClaimJSONRequestBody defines body for SoloClaim for application/json ContentType.
 type SoloClaimJSONRequestBody = SoloClaimRequest
+
+// SoloClaimAnyJSONRequestBody defines body for SoloClaimAny for application/json ContentType.
+type SoloClaimAnyJSONRequestBody = SoloClaimAnyRequest
 
 // SoloEvaluateJSONRequestBody defines body for SoloEvaluate for application/json ContentType.
 type SoloEvaluateJSONRequestBody = SoloEvaluateRequest
@@ -6650,6 +6649,11 @@ type ClientInterface interface {
 
 	TestProjectGitConfig(ctx context.Context, body TestProjectGitConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// SetProjectPriorityWithBody request with any body
+	SetProjectPriorityWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetProjectPriority(ctx context.Context, body SetProjectPriorityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// SetProjectStageWithBody request with any body
 	SetProjectStageWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -6685,6 +6689,9 @@ type ClientInterface interface {
 
 	WsEcho(ctx context.Context, body WsEchoJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListAllAgents request
+	ListAllAgents(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetAgentBudget request
 	GetAgentBudget(ctx context.Context, params *GetAgentBudgetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -6699,11 +6706,6 @@ type ClientInterface interface {
 	// ListAgents request
 	ListAgents(ctx context.Context, params *ListAgentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ReapAgentsWithBody request with any body
-	ReapAgentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	ReapAgents(ctx context.Context, body ReapAgentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// RegisterAgentWithBody request with any body
 	RegisterAgentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -6714,6 +6716,14 @@ type ClientInterface interface {
 
 	// GetAgent request
 	GetAgent(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UnassignAgent request
+	UnassignAgent(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AssignAgentWithBody request with any body
+	AssignAgentWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AssignAgent(ctx context.Context, id string, body AssignAgentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// LiftAgentBudgetPauseWithBody request with any body
 	LiftAgentBudgetPauseWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -6746,24 +6756,6 @@ type ClientInterface interface {
 
 	// GetConfig request
 	GetConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// DeleteConstraintWithBody request with any body
-	DeleteConstraintWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	DeleteConstraint(ctx context.Context, body DeleteConstraintJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// CreateConstraintWithBody request with any body
-	CreateConstraintWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateConstraint(ctx context.Context, body CreateConstraintJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// UpdateConstraintWithBody request with any body
-	UpdateConstraintWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	UpdateConstraint(ctx context.Context, body UpdateConstraintJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ListConstraints request
-	ListConstraints(ctx context.Context, params *ListConstraintsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CloseAgentSessionWithBody request with any body
 	CloseAgentSessionWithBody(ctx context.Context, sid string, params *CloseAgentSessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -7358,6 +7350,11 @@ type ClientInterface interface {
 
 	PostTodoIncompleteReport(ctx context.Context, slug string, key string, body PostTodoIncompleteReportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// SetTodoPriorityWithBody request with any body
+	SetTodoPriorityWithBody(ctx context.Context, slug string, key string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetTodoPriority(ctx context.Context, slug string, key string, body SetTodoPriorityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListProposals request
 	ListProposals(ctx context.Context, params *ListProposalsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -7470,6 +7467,11 @@ type ClientInterface interface {
 	SoloClaimWithBody(ctx context.Context, params *SoloClaimParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	SoloClaim(ctx context.Context, params *SoloClaimParams, body SoloClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SoloClaimAnyWithBody request with any body
+	SoloClaimAnyWithBody(ctx context.Context, params *SoloClaimAnyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SoloClaimAny(ctx context.Context, params *SoloClaimAnyParams, body SoloClaimAnyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SoloListClaims request
 	SoloListClaims(ctx context.Context, params *SoloListClaimsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8391,6 +8393,30 @@ func (c *APIClient) TestProjectGitConfig(ctx context.Context, body TestProjectGi
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) SetProjectPriorityWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectPriorityRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SetProjectPriority(ctx context.Context, body SetProjectPriorityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectPriorityRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) SetProjectStageWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetProjectStageRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -8547,6 +8573,18 @@ func (c *APIClient) WsEcho(ctx context.Context, body WsEchoJSONRequestBody, reqE
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) ListAllAgents(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAllAgentsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) GetAgentBudget(ctx context.Context, params *GetAgentBudgetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAgentBudgetRequest(c.Server, params)
 	if err != nil {
@@ -8607,30 +8645,6 @@ func (c *APIClient) ListAgents(ctx context.Context, params *ListAgentsParams, re
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) ReapAgentsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewReapAgentsRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) ReapAgents(ctx context.Context, body ReapAgentsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewReapAgentsRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *APIClient) RegisterAgentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRegisterAgentRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -8669,6 +8683,42 @@ func (c *APIClient) DeleteAgent(ctx context.Context, id string, reqEditors ...Re
 
 func (c *APIClient) GetAgent(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAgentRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) UnassignAgent(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUnassignAgentRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AssignAgentWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAssignAgentRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AssignAgent(ctx context.Context, id string, body AssignAgentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAssignAgentRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -8813,90 +8863,6 @@ func (c *APIClient) AuthRegister(ctx context.Context, body AuthRegisterJSONReque
 
 func (c *APIClient) GetConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetConfigRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) DeleteConstraintWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteConstraintRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) DeleteConstraint(ctx context.Context, body DeleteConstraintJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteConstraintRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) CreateConstraintWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateConstraintRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) CreateConstraint(ctx context.Context, body CreateConstraintJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateConstraintRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) UpdateConstraintWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateConstraintRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) UpdateConstraint(ctx context.Context, body UpdateConstraintJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateConstraintRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) ListConstraints(ctx context.Context, params *ListConstraintsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListConstraintsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -11547,6 +11513,30 @@ func (c *APIClient) PostTodoIncompleteReport(ctx context.Context, slug string, k
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) SetTodoPriorityWithBody(ctx context.Context, slug string, key string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetTodoPriorityRequestWithBody(c.Server, slug, key, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SetTodoPriority(ctx context.Context, slug string, key string, body SetTodoPriorityJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetTodoPriorityRequest(c.Server, slug, key, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) ListProposals(ctx context.Context, params *ListProposalsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListProposalsRequest(c.Server, params)
 	if err != nil {
@@ -12053,6 +12043,30 @@ func (c *APIClient) SoloClaimWithBody(ctx context.Context, params *SoloClaimPara
 
 func (c *APIClient) SoloClaim(ctx context.Context, params *SoloClaimParams, body SoloClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSoloClaimRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SoloClaimAnyWithBody(ctx context.Context, params *SoloClaimAnyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSoloClaimAnyRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SoloClaimAny(ctx context.Context, params *SoloClaimAnyParams, body SoloClaimAnyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSoloClaimAnyRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -15520,6 +15534,46 @@ func NewTestProjectGitConfigRequestWithBody(server string, contentType string, b
 	return req, nil
 }
 
+// NewSetProjectPriorityRequest calls the generic SetProjectPriority builder with application/json body
+func NewSetProjectPriorityRequest(server string, body SetProjectPriorityJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetProjectPriorityRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSetProjectPriorityRequestWithBody generates requests for SetProjectPriority with any type of body
+func NewSetProjectPriorityRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/project-priority")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewSetProjectStageRequest calls the generic SetProjectStage builder with application/json body
 func NewSetProjectStageRequest(server string, body SetProjectStageJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -15851,6 +15905,33 @@ func NewWsEchoRequestWithBody(server string, contentType string, body io.Reader)
 	return req, nil
 }
 
+// NewListAllAgentsRequest generates requests for ListAllAgents
+func NewListAllAgentsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/agents")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetAgentBudgetRequest generates requests for GetAgentBudget
 func NewGetAgentBudgetRequest(server string, params *GetAgentBudgetParams) (*http.Request, error) {
 	var err error
@@ -16028,46 +16109,6 @@ func NewListAgentsRequest(server string, params *ListAgentsParams) (*http.Reques
 	return req, nil
 }
 
-// NewReapAgentsRequest calls the generic ReapAgents builder with application/json body
-func NewReapAgentsRequest(server string, body ReapAgentsJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewReapAgentsRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewReapAgentsRequestWithBody generates requests for ReapAgents with any type of body
-func NewReapAgentsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/agents/reap")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewRegisterAgentRequest calls the generic RegisterAgent builder with application/json body
 func NewRegisterAgentRequest(server string, body RegisterAgentJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -16172,6 +16213,87 @@ func NewGetAgentRequest(server string, id string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewUnassignAgentRequest generates requests for UnassignAgent
+func NewUnassignAgentRequest(server string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/agents/%s/assign", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAssignAgentRequest calls the generic AssignAgent builder with application/json body
+func NewAssignAgentRequest(server string, id string, body AssignAgentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAssignAgentRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewAssignAgentRequestWithBody generates requests for AssignAgent with any type of body
+func NewAssignAgentRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/agents/%s/assign", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -16462,171 +16584,6 @@ func NewGetConfigRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewDeleteConstraintRequest calls the generic DeleteConstraint builder with application/json body
-func NewDeleteConstraintRequest(server string, body DeleteConstraintJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewDeleteConstraintRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewDeleteConstraintRequestWithBody generates requests for DeleteConstraint with any type of body
-func NewDeleteConstraintRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/constraint")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("DELETE", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewCreateConstraintRequest calls the generic CreateConstraint builder with application/json body
-func NewCreateConstraintRequest(server string, body CreateConstraintJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateConstraintRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewCreateConstraintRequestWithBody generates requests for CreateConstraint with any type of body
-func NewCreateConstraintRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/constraint")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewUpdateConstraintRequest calls the generic UpdateConstraint builder with application/json body
-func NewUpdateConstraintRequest(server string, body UpdateConstraintJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUpdateConstraintRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewUpdateConstraintRequestWithBody generates requests for UpdateConstraint with any type of body
-func NewUpdateConstraintRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/constraint")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("PUT", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewListConstraintsRequest generates requests for ListConstraints
-func NewListConstraintsRequest(server string, params *ListConstraintsParams) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/constraints")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -24972,6 +24929,60 @@ func NewPostTodoIncompleteReportRequestWithBody(server string, slug string, key 
 	return req, nil
 }
 
+// NewSetTodoPriorityRequest calls the generic SetTodoPriority builder with application/json body
+func NewSetTodoPriorityRequest(server string, slug string, key string, body SetTodoPriorityJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetTodoPriorityRequestWithBody(server, slug, key, "application/json", bodyReader)
+}
+
+// NewSetTodoPriorityRequestWithBody generates requests for SetTodoPriority with any type of body
+func NewSetTodoPriorityRequestWithBody(server string, slug string, key string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "key", key, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/todos/%s/priority", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListProposalsRequest generates requests for ListProposals
 func NewListProposalsRequest(server string, params *ListProposalsParams) (*http.Request, error) {
 	var err error
@@ -26506,6 +26517,83 @@ func NewSoloClaimRequestWithBody(server string, params *SoloClaimParams, content
 	}
 
 	operationPath := fmt.Sprintf("/api/dx/solo/claim")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Debug != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "debug", *params.Debug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XAtlasDebug != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Atlas-Debug", *params.XAtlasDebug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Atlas-Debug", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewSoloClaimAnyRequest calls the generic SoloClaimAny builder with application/json body
+func NewSoloClaimAnyRequest(server string, params *SoloClaimAnyParams, body SoloClaimAnyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSoloClaimAnyRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewSoloClaimAnyRequestWithBody generates requests for SoloClaimAny with any type of body
+func NewSoloClaimAnyRequestWithBody(server string, params *SoloClaimAnyParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/solo/claim-any")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -31926,6 +32014,17 @@ func NewIngestLogsRequestWithBody(server string, params *IngestLogsParams, conte
 			req.Header.Set("Authorization", headerParam0)
 		}
 
+		if params.XApiKey != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "X-Api-Key", *params.XApiKey, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Api-Key", headerParam1)
+		}
+
 	}
 
 	return req, nil
@@ -33638,6 +33737,11 @@ type ClientWithResponsesInterface interface {
 
 	TestProjectGitConfigWithResponse(ctx context.Context, body TestProjectGitConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedTestProjectGitConfigResponse, error)
 
+	// SetProjectPriorityWithBodyWithResponse request with any body
+	SetProjectPriorityWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSetProjectPriorityResponse, error)
+
+	SetProjectPriorityWithResponse(ctx context.Context, body SetProjectPriorityJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSetProjectPriorityResponse, error)
+
 	// SetProjectStageWithBodyWithResponse request with any body
 	SetProjectStageWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSetProjectStageResponse, error)
 
@@ -33673,6 +33777,9 @@ type ClientWithResponsesInterface interface {
 
 	WsEchoWithResponse(ctx context.Context, body WsEchoJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedWsEchoResponse, error)
 
+	// ListAllAgentsWithResponse request
+	ListAllAgentsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedListAllAgentsResponse, error)
+
 	// GetAgentBudgetWithResponse request
 	GetAgentBudgetWithResponse(ctx context.Context, params *GetAgentBudgetParams, reqEditors ...RequestEditorFn) (*GetAgentBudgetResponse, error)
 
@@ -33687,11 +33794,6 @@ type ClientWithResponsesInterface interface {
 	// ListAgentsWithResponse request
 	ListAgentsWithResponse(ctx context.Context, params *ListAgentsParams, reqEditors ...RequestEditorFn) (*ParsedListAgentsResponse, error)
 
-	// ReapAgentsWithBodyWithResponse request with any body
-	ReapAgentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedReapAgentsResponse, error)
-
-	ReapAgentsWithResponse(ctx context.Context, body ReapAgentsJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedReapAgentsResponse, error)
-
 	// RegisterAgentWithBodyWithResponse request with any body
 	RegisterAgentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterAgentResponse, error)
 
@@ -33702,6 +33804,14 @@ type ClientWithResponsesInterface interface {
 
 	// GetAgentWithResponse request
 	GetAgentWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetAgentResponse, error)
+
+	// UnassignAgentWithResponse request
+	UnassignAgentWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*UnassignAgentResponse, error)
+
+	// AssignAgentWithBodyWithResponse request with any body
+	AssignAgentWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AssignAgentResponse, error)
+
+	AssignAgentWithResponse(ctx context.Context, id string, body AssignAgentJSONRequestBody, reqEditors ...RequestEditorFn) (*AssignAgentResponse, error)
 
 	// LiftAgentBudgetPauseWithBodyWithResponse request with any body
 	LiftAgentBudgetPauseWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedLiftAgentBudgetPauseResponse, error)
@@ -33734,24 +33844,6 @@ type ClientWithResponsesInterface interface {
 
 	// GetConfigWithResponse request
 	GetConfigWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedGetConfigResponse, error)
-
-	// DeleteConstraintWithBodyWithResponse request with any body
-	DeleteConstraintWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteConstraintResponse, error)
-
-	DeleteConstraintWithResponse(ctx context.Context, body DeleteConstraintJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteConstraintResponse, error)
-
-	// CreateConstraintWithBodyWithResponse request with any body
-	CreateConstraintWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateConstraintResponse, error)
-
-	CreateConstraintWithResponse(ctx context.Context, body CreateConstraintJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateConstraintResponse, error)
-
-	// UpdateConstraintWithBodyWithResponse request with any body
-	UpdateConstraintWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateConstraintResponse, error)
-
-	UpdateConstraintWithResponse(ctx context.Context, body UpdateConstraintJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateConstraintResponse, error)
-
-	// ListConstraintsWithResponse request
-	ListConstraintsWithResponse(ctx context.Context, params *ListConstraintsParams, reqEditors ...RequestEditorFn) (*ParsedListConstraintsResponse, error)
 
 	// CloseAgentSessionWithBodyWithResponse request with any body
 	CloseAgentSessionWithBodyWithResponse(ctx context.Context, sid string, params *CloseAgentSessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedCloseAgentSessionResponse, error)
@@ -34346,6 +34438,11 @@ type ClientWithResponsesInterface interface {
 
 	PostTodoIncompleteReportWithResponse(ctx context.Context, slug string, key string, body PostTodoIncompleteReportJSONRequestBody, reqEditors ...RequestEditorFn) (*PostTodoIncompleteReportResponse, error)
 
+	// SetTodoPriorityWithBodyWithResponse request with any body
+	SetTodoPriorityWithBodyWithResponse(ctx context.Context, slug string, key string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSetTodoPriorityResponse, error)
+
+	SetTodoPriorityWithResponse(ctx context.Context, slug string, key string, body SetTodoPriorityJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSetTodoPriorityResponse, error)
+
 	// ListProposalsWithResponse request
 	ListProposalsWithResponse(ctx context.Context, params *ListProposalsParams, reqEditors ...RequestEditorFn) (*ParsedListProposalsResponse, error)
 
@@ -34458,6 +34555,11 @@ type ClientWithResponsesInterface interface {
 	SoloClaimWithBodyWithResponse(ctx context.Context, params *SoloClaimParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloClaimResponse, error)
 
 	SoloClaimWithResponse(ctx context.Context, params *SoloClaimParams, body SoloClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloClaimResponse, error)
+
+	// SoloClaimAnyWithBodyWithResponse request with any body
+	SoloClaimAnyWithBodyWithResponse(ctx context.Context, params *SoloClaimAnyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloClaimAnyResponse, error)
+
+	SoloClaimAnyWithResponse(ctx context.Context, params *SoloClaimAnyParams, body SoloClaimAnyJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloClaimAnyResponse, error)
 
 	// SoloListClaimsWithResponse request
 	SoloListClaimsWithResponse(ctx context.Context, params *SoloListClaimsParams, reqEditors ...RequestEditorFn) (*ParsedSoloListClaimsResponse, error)
@@ -35510,6 +35612,29 @@ func (r ParsedTestProjectGitConfigResponse) StatusCode() int {
 	return 0
 }
 
+type ParsedSetProjectPriorityResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *SetProjectPriorityResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedSetProjectPriorityResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedSetProjectPriorityResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedSetProjectStageResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -35715,6 +35840,29 @@ func (r ParsedWsEchoResponse) StatusCode() int {
 	return 0
 }
 
+type ParsedListAllAgentsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListAllAgentsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListAllAgentsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListAllAgentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetAgentBudgetResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -35807,29 +35955,6 @@ func (r ParsedListAgentsResponse) StatusCode() int {
 	return 0
 }
 
-type ParsedReapAgentsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ReapAgentsResponse
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r ParsedReapAgentsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ParsedReapAgentsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type RegisterAgentResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -35892,6 +36017,52 @@ func (r GetAgentResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetAgentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UnassignAgentResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *AgentItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r UnassignAgentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UnassignAgentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AssignAgentResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *AgentItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r AssignAgentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AssignAgentResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -36074,98 +36245,6 @@ func (r ParsedGetConfigResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedGetConfigResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type DeleteConstraintResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKBody
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r DeleteConstraintResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeleteConstraintResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type CreateConstraintResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ConstraintItem
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r CreateConstraintResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CreateConstraintResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type UpdateConstraintResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKBody
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r UpdateConstraintResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r UpdateConstraintResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ParsedListConstraintsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *ListConstraintsResponse
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r ParsedListConstraintsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ParsedListConstraintsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -39685,6 +39764,29 @@ func (r PostTodoIncompleteReportResponse) StatusCode() int {
 	return 0
 }
 
+type ParsedSetTodoPriorityResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *SetTodoPriorityResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedSetTodoPriorityResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedSetTodoPriorityResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedListProposalsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -40300,6 +40402,29 @@ func (r SoloClaimResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r SoloClaimResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SoloClaimAnyResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *SoloClaimBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r SoloClaimAnyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SoloClaimAnyResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -43750,6 +43875,23 @@ func (c *ClientWithResponses) TestProjectGitConfigWithResponse(ctx context.Conte
 	return ParseParsedTestProjectGitConfigResponse(rsp)
 }
 
+// SetProjectPriorityWithBodyWithResponse request with arbitrary body returning *ParsedSetProjectPriorityResponse
+func (c *ClientWithResponses) SetProjectPriorityWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSetProjectPriorityResponse, error) {
+	rsp, err := c.SetProjectPriorityWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSetProjectPriorityResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetProjectPriorityWithResponse(ctx context.Context, body SetProjectPriorityJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSetProjectPriorityResponse, error) {
+	rsp, err := c.SetProjectPriority(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSetProjectPriorityResponse(rsp)
+}
+
 // SetProjectStageWithBodyWithResponse request with arbitrary body returning *ParsedSetProjectStageResponse
 func (c *ClientWithResponses) SetProjectStageWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSetProjectStageResponse, error) {
 	rsp, err := c.SetProjectStageWithBody(ctx, contentType, body, reqEditors...)
@@ -43863,6 +44005,15 @@ func (c *ClientWithResponses) WsEchoWithResponse(ctx context.Context, body WsEch
 	return ParseParsedWsEchoResponse(rsp)
 }
 
+// ListAllAgentsWithResponse request returning *ParsedListAllAgentsResponse
+func (c *ClientWithResponses) ListAllAgentsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedListAllAgentsResponse, error) {
+	rsp, err := c.ListAllAgents(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListAllAgentsResponse(rsp)
+}
+
 // GetAgentBudgetWithResponse request returning *GetAgentBudgetResponse
 func (c *ClientWithResponses) GetAgentBudgetWithResponse(ctx context.Context, params *GetAgentBudgetParams, reqEditors ...RequestEditorFn) (*GetAgentBudgetResponse, error) {
 	rsp, err := c.GetAgentBudget(ctx, params, reqEditors...)
@@ -43907,23 +44058,6 @@ func (c *ClientWithResponses) ListAgentsWithResponse(ctx context.Context, params
 	return ParseParsedListAgentsResponse(rsp)
 }
 
-// ReapAgentsWithBodyWithResponse request with arbitrary body returning *ParsedReapAgentsResponse
-func (c *ClientWithResponses) ReapAgentsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedReapAgentsResponse, error) {
-	rsp, err := c.ReapAgentsWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseParsedReapAgentsResponse(rsp)
-}
-
-func (c *ClientWithResponses) ReapAgentsWithResponse(ctx context.Context, body ReapAgentsJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedReapAgentsResponse, error) {
-	rsp, err := c.ReapAgents(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseParsedReapAgentsResponse(rsp)
-}
-
 // RegisterAgentWithBodyWithResponse request with arbitrary body returning *RegisterAgentResponse
 func (c *ClientWithResponses) RegisterAgentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterAgentResponse, error) {
 	rsp, err := c.RegisterAgentWithBody(ctx, contentType, body, reqEditors...)
@@ -43957,6 +44091,32 @@ func (c *ClientWithResponses) GetAgentWithResponse(ctx context.Context, id strin
 		return nil, err
 	}
 	return ParseGetAgentResponse(rsp)
+}
+
+// UnassignAgentWithResponse request returning *UnassignAgentResponse
+func (c *ClientWithResponses) UnassignAgentWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*UnassignAgentResponse, error) {
+	rsp, err := c.UnassignAgent(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUnassignAgentResponse(rsp)
+}
+
+// AssignAgentWithBodyWithResponse request with arbitrary body returning *AssignAgentResponse
+func (c *ClientWithResponses) AssignAgentWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AssignAgentResponse, error) {
+	rsp, err := c.AssignAgentWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAssignAgentResponse(rsp)
+}
+
+func (c *ClientWithResponses) AssignAgentWithResponse(ctx context.Context, id string, body AssignAgentJSONRequestBody, reqEditors ...RequestEditorFn) (*AssignAgentResponse, error) {
+	rsp, err := c.AssignAgent(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAssignAgentResponse(rsp)
 }
 
 // LiftAgentBudgetPauseWithBodyWithResponse request with arbitrary body returning *ParsedLiftAgentBudgetPauseResponse
@@ -44061,66 +44221,6 @@ func (c *ClientWithResponses) GetConfigWithResponse(ctx context.Context, reqEdit
 		return nil, err
 	}
 	return ParseParsedGetConfigResponse(rsp)
-}
-
-// DeleteConstraintWithBodyWithResponse request with arbitrary body returning *DeleteConstraintResponse
-func (c *ClientWithResponses) DeleteConstraintWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteConstraintResponse, error) {
-	rsp, err := c.DeleteConstraintWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteConstraintResponse(rsp)
-}
-
-func (c *ClientWithResponses) DeleteConstraintWithResponse(ctx context.Context, body DeleteConstraintJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteConstraintResponse, error) {
-	rsp, err := c.DeleteConstraint(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeleteConstraintResponse(rsp)
-}
-
-// CreateConstraintWithBodyWithResponse request with arbitrary body returning *CreateConstraintResponse
-func (c *ClientWithResponses) CreateConstraintWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateConstraintResponse, error) {
-	rsp, err := c.CreateConstraintWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateConstraintResponse(rsp)
-}
-
-func (c *ClientWithResponses) CreateConstraintWithResponse(ctx context.Context, body CreateConstraintJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateConstraintResponse, error) {
-	rsp, err := c.CreateConstraint(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateConstraintResponse(rsp)
-}
-
-// UpdateConstraintWithBodyWithResponse request with arbitrary body returning *UpdateConstraintResponse
-func (c *ClientWithResponses) UpdateConstraintWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateConstraintResponse, error) {
-	rsp, err := c.UpdateConstraintWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateConstraintResponse(rsp)
-}
-
-func (c *ClientWithResponses) UpdateConstraintWithResponse(ctx context.Context, body UpdateConstraintJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateConstraintResponse, error) {
-	rsp, err := c.UpdateConstraint(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUpdateConstraintResponse(rsp)
-}
-
-// ListConstraintsWithResponse request returning *ParsedListConstraintsResponse
-func (c *ClientWithResponses) ListConstraintsWithResponse(ctx context.Context, params *ListConstraintsParams, reqEditors ...RequestEditorFn) (*ParsedListConstraintsResponse, error) {
-	rsp, err := c.ListConstraints(ctx, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseParsedListConstraintsResponse(rsp)
 }
 
 // CloseAgentSessionWithBodyWithResponse request with arbitrary body returning *ParsedCloseAgentSessionResponse
@@ -46036,6 +46136,23 @@ func (c *ClientWithResponses) PostTodoIncompleteReportWithResponse(ctx context.C
 	return ParsePostTodoIncompleteReportResponse(rsp)
 }
 
+// SetTodoPriorityWithBodyWithResponse request with arbitrary body returning *ParsedSetTodoPriorityResponse
+func (c *ClientWithResponses) SetTodoPriorityWithBodyWithResponse(ctx context.Context, slug string, key string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSetTodoPriorityResponse, error) {
+	rsp, err := c.SetTodoPriorityWithBody(ctx, slug, key, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSetTodoPriorityResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetTodoPriorityWithResponse(ctx context.Context, slug string, key string, body SetTodoPriorityJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSetTodoPriorityResponse, error) {
+	rsp, err := c.SetTodoPriority(ctx, slug, key, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSetTodoPriorityResponse(rsp)
+}
+
 // ListProposalsWithResponse request returning *ParsedListProposalsResponse
 func (c *ClientWithResponses) ListProposalsWithResponse(ctx context.Context, params *ListProposalsParams, reqEditors ...RequestEditorFn) (*ParsedListProposalsResponse, error) {
 	rsp, err := c.ListProposals(ctx, params, reqEditors...)
@@ -46405,6 +46522,23 @@ func (c *ClientWithResponses) SoloClaimWithResponse(ctx context.Context, params 
 		return nil, err
 	}
 	return ParseSoloClaimResponse(rsp)
+}
+
+// SoloClaimAnyWithBodyWithResponse request with arbitrary body returning *SoloClaimAnyResponse
+func (c *ClientWithResponses) SoloClaimAnyWithBodyWithResponse(ctx context.Context, params *SoloClaimAnyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloClaimAnyResponse, error) {
+	rsp, err := c.SoloClaimAnyWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSoloClaimAnyResponse(rsp)
+}
+
+func (c *ClientWithResponses) SoloClaimAnyWithResponse(ctx context.Context, params *SoloClaimAnyParams, body SoloClaimAnyJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloClaimAnyResponse, error) {
+	rsp, err := c.SoloClaimAny(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSoloClaimAnyResponse(rsp)
 }
 
 // SoloListClaimsWithResponse request returning *ParsedSoloListClaimsResponse
@@ -48939,6 +49073,39 @@ func ParseParsedTestProjectGitConfigResponse(rsp *http.Response) (*ParsedTestPro
 	return response, nil
 }
 
+// ParseParsedSetProjectPriorityResponse parses an HTTP response from a SetProjectPriorityWithResponse call
+func ParseParsedSetProjectPriorityResponse(rsp *http.Response) (*ParsedSetProjectPriorityResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedSetProjectPriorityResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SetProjectPriorityResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedSetProjectStageResponse parses an HTTP response from a SetProjectStageWithResponse call
 func ParseParsedSetProjectStageResponse(rsp *http.Response) (*ParsedSetProjectStageResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -49222,6 +49389,39 @@ func ParseParsedWsEchoResponse(rsp *http.Response) (*ParsedWsEchoResponse, error
 	return response, nil
 }
 
+// ParseParsedListAllAgentsResponse parses an HTTP response from a ListAllAgentsWithResponse call
+func ParseParsedListAllAgentsResponse(rsp *http.Response) (*ParsedListAllAgentsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListAllAgentsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListAllAgentsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetAgentBudgetResponse parses an HTTP response from a GetAgentBudgetWithResponse call
 func ParseGetAgentBudgetResponse(rsp *http.Response) (*GetAgentBudgetResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -49354,39 +49554,6 @@ func ParseParsedListAgentsResponse(rsp *http.Response) (*ParsedListAgentsRespons
 	return response, nil
 }
 
-// ParseParsedReapAgentsResponse parses an HTTP response from a ReapAgentsWithResponse call
-func ParseParsedReapAgentsResponse(rsp *http.Response) (*ParsedReapAgentsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ParsedReapAgentsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ReapAgentsResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseRegisterAgentResponse parses an HTTP response from a RegisterAgentWithResponse call
 func ParseRegisterAgentResponse(rsp *http.Response) (*RegisterAgentResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -49455,6 +49622,72 @@ func ParseGetAgentResponse(rsp *http.Response) (*GetAgentResponse, error) {
 	}
 
 	response := &GetAgentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AgentItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUnassignAgentResponse parses an HTTP response from a UnassignAgentWithResponse call
+func ParseUnassignAgentResponse(rsp *http.Response) (*UnassignAgentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UnassignAgentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AgentItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAssignAgentResponse parses an HTTP response from a AssignAgentWithResponse call
+func ParseAssignAgentResponse(rsp *http.Response) (*AssignAgentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AssignAgentResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -49712,138 +49945,6 @@ func ParseParsedGetConfigResponse(rsp *http.Response) (*ParsedGetConfigResponse,
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest GetConfigResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseDeleteConstraintResponse parses an HTTP response from a DeleteConstraintWithResponse call
-func ParseDeleteConstraintResponse(rsp *http.Response) (*DeleteConstraintResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeleteConstraintResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest OKBody
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseCreateConstraintResponse parses an HTTP response from a CreateConstraintWithResponse call
-func ParseCreateConstraintResponse(rsp *http.Response) (*CreateConstraintResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CreateConstraintResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ConstraintItem
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseUpdateConstraintResponse parses an HTTP response from a UpdateConstraintWithResponse call
-func ParseUpdateConstraintResponse(rsp *http.Response) (*UpdateConstraintResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &UpdateConstraintResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest OKBody
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseParsedListConstraintsResponse parses an HTTP response from a ListConstraintsWithResponse call
-func ParseParsedListConstraintsResponse(rsp *http.Response) (*ParsedListConstraintsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ParsedListConstraintsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ListConstraintsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -54868,6 +54969,39 @@ func ParsePostTodoIncompleteReportResponse(rsp *http.Response) (*PostTodoIncompl
 	return response, nil
 }
 
+// ParseParsedSetTodoPriorityResponse parses an HTTP response from a SetTodoPriorityWithResponse call
+func ParseParsedSetTodoPriorityResponse(rsp *http.Response) (*ParsedSetTodoPriorityResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedSetTodoPriorityResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SetTodoPriorityResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedListProposalsResponse parses an HTTP response from a ListProposalsWithResponse call
 func ParseParsedListProposalsResponse(rsp *http.Response) (*ParsedListProposalsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -55735,6 +55869,39 @@ func ParseSoloClaimResponse(rsp *http.Response) (*SoloClaimResponse, error) {
 	}
 
 	response := &SoloClaimResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SoloClaimBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSoloClaimAnyResponse parses an HTTP response from a SoloClaimAnyWithResponse call
+func ParseSoloClaimAnyResponse(rsp *http.Response) (*SoloClaimAnyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SoloClaimAnyResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

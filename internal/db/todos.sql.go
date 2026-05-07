@@ -201,6 +201,127 @@ func (q *Queries) ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (C
 	return i, err
 }
 
+const claimNextTodoAny = `-- name: ClaimNextTodoAny :one
+WITH claimed AS (
+  UPDATE zdx_todos SET
+    claimed_by        = $1,
+    claimed_at        = NOW(),
+    lease_expires_at  = NOW() + ($2::int || ' minutes')::interval,
+    claim_base_sha    = $3,
+    claim_base_branch = $4
+  WHERE id = (
+    SELECT t.id FROM zdx_todos t
+    JOIN zdx_projects p ON p.id = t.project_id
+    WHERE t.status = 'open'
+      AND t.blocked = false
+      AND (t.claimed_by = '' OR t.lease_expires_at < NOW())
+    ORDER BY p.priority, t.priority, t.created_at
+    LIMIT 1
+    FOR UPDATE OF t SKIP LOCKED
+  )
+  RETURNING id, project_id, text, title, description, key, persona, priority, status,
+            target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
+            claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+            claim_base_sha, claim_base_branch
+)
+SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
+       c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
+       c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
+       c.claim_base_sha, c.claim_base_branch,
+       COALESCE(i.target_branch, 'dev') AS target_branch,
+       p.slug AS project_slug
+FROM claimed c
+LEFT JOIN zdx_issues i ON i.id = c.issue_ref
+JOIN zdx_projects p ON p.id = c.project_id
+`
+
+type ClaimNextTodoAnyParams struct {
+	AgentID         string `db:"agent_id" json:"agent_id"`
+	LeaseMinutes    int32  `db:"lease_minutes" json:"lease_minutes"`
+	ClaimBaseSha    string `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch string `db:"claim_base_branch" json:"claim_base_branch"`
+}
+
+type ClaimNextTodoAnyRow struct {
+	ID               int32              `db:"id" json:"id"`
+	ProjectID        int32              `db:"project_id" json:"project_id"`
+	Text             string             `db:"text" json:"text"`
+	Title            string             `db:"title" json:"title"`
+	Description      string             `db:"description" json:"description"`
+	Key              string             `db:"key" json:"key"`
+	Persona          string             `db:"persona" json:"persona"`
+	Priority         int32              `db:"priority" json:"priority"`
+	Status           string             `db:"status" json:"status"`
+	TargetType       string             `db:"target_type" json:"target_type"`
+	TargetID         string             `db:"target_id" json:"target_id"`
+	Kind             string             `db:"kind" json:"kind"`
+	IssueRef         string             `db:"issue_ref" json:"issue_ref"`
+	Blocked          bool               `db:"blocked" json:"blocked"`
+	BlockedReason    string             `db:"blocked_reason" json:"blocked_reason"`
+	CycleCount       int32              `db:"cycle_count" json:"cycle_count"`
+	ReferenceIssueID string             `db:"reference_issue_id" json:"reference_issue_id"`
+	ClaimedBy        string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt        pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt   pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
+	TargetBranch     string             `db:"target_branch" json:"target_branch"`
+	ProjectSlug      string             `db:"project_slug" json:"project_slug"`
+}
+
+// Cross-project atomic claim for unpinned global agents. Picks the
+// single best todo across every project, ordered by project.priority
+// (lower=earlier, default 5), then todo.priority, then created_at.
+// The composite ordering means a low-priority project can still
+// starve out a high-priority project's stale low-priority work, and
+// operator priority bumps (LEAST-preserved on UpsertTodo) cut through
+// the same way they do per-project. Same FOR UPDATE SKIP LOCKED
+// semantics as ClaimNextTodo so concurrent global agents don't
+// collide. Returns project_slug so the caller can route follow-up
+// API calls to the right project namespace.
+func (q *Queries) ClaimNextTodoAny(ctx context.Context, arg ClaimNextTodoAnyParams) (ClaimNextTodoAnyRow, error) {
+	row := q.db.QueryRow(ctx, claimNextTodoAny,
+		arg.AgentID,
+		arg.LeaseMinutes,
+		arg.ClaimBaseSha,
+		arg.ClaimBaseBranch,
+	)
+	var i ClaimNextTodoAnyRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Text,
+		&i.Title,
+		&i.Description,
+		&i.Key,
+		&i.Persona,
+		&i.Priority,
+		&i.Status,
+		&i.TargetType,
+		&i.TargetID,
+		&i.Kind,
+		&i.IssueRef,
+		&i.Blocked,
+		&i.BlockedReason,
+		&i.CycleCount,
+		&i.ReferenceIssueID,
+		&i.ClaimedBy,
+		&i.ClaimedAt,
+		&i.LeaseExpiresAt,
+		&i.CreatedAt,
+		&i.ResolvedAt,
+		&i.ReopenCount,
+		&i.ClaimBaseSha,
+		&i.ClaimBaseBranch,
+		&i.TargetBranch,
+		&i.ProjectSlug,
+	)
+	return i, err
+}
+
 const countUnclaimedTodos = `-- name: CountUnclaimedTodos :one
 SELECT COUNT(*) FROM zdx_todos
 WHERE status = 'open'
@@ -999,6 +1120,25 @@ func (q *Queries) SetState(ctx context.Context, arg SetStateParams) error {
 	return err
 }
 
+const setTodoPriority = `-- name: SetTodoPriority :exec
+UPDATE zdx_todos SET priority = $1
+WHERE project_id = $2 AND key = $3
+`
+
+type SetTodoPriorityParams struct {
+	Priority  int32  `db:"priority" json:"priority"`
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Key       string `db:"key" json:"key"`
+}
+
+// Operator-driven push: set the todo's priority directly. UpsertTodo's
+// LEAST() clause preserves the value across re-evaluate, so a push sticks
+// until another operator write or until natural priority drops below it.
+func (q *Queries) SetTodoPriority(ctx context.Context, arg SetTodoPriorityParams) error {
+	_, err := q.db.Exec(ctx, setTodoPriority, arg.Priority, arg.ProjectID, arg.Key)
+	return err
+}
+
 const setTodoReferenceIssue = `-- name: SetTodoReferenceIssue :exec
 UPDATE zdx_todos SET reference_issue_id = $1
 WHERE project_id = $2 AND key = $3
@@ -1057,7 +1197,12 @@ ON CONFLICT (project_id, key) DO UPDATE SET
   title = EXCLUDED.title,
   description = EXCLUDED.description,
   persona = EXCLUDED.persona,
-  priority = EXCLUDED.priority,
+  -- priority: take the lower (more urgent) value so operator-pushed pri stays
+  -- bumped across re-evaluate. The natural priority computed for each kind is
+  -- a ceiling — once an operator escalates, only an even-higher escalation
+  -- (smaller integer) replaces it. To restore natural priority, write the
+  -- desired value via PUT /api/dx/projects/{slug}/todos/{key}/priority.
+  priority = LEAST(zdx_todos.priority, EXCLUDED.priority),
   status = CASE WHEN zdx_todos.status = 'resolved' THEN 'open' ELSE zdx_todos.status END,
   target_type = EXCLUDED.target_type,
   target_id = EXCLUDED.target_id,

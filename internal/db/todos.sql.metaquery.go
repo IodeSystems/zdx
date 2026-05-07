@@ -247,6 +247,142 @@ var ClaimNextTodoCols = struct {
 	TargetBranch:     metaquery.NewTextCol("target_branch"),
 }
 
+var MetaClaimNextTodoAny = metaquery.Query{
+	Name:   "ClaimNextTodoAny",
+	Cmd:    ":one",
+	Source: "todos.sql",
+	SQL: `WITH claimed AS (
+  UPDATE zdx_todos SET
+    claimed_by        = $1,
+    claimed_at        = NOW(),
+    lease_expires_at  = NOW() + ($2::int || ' minutes')::interval,
+    claim_base_sha    = $3,
+    claim_base_branch = $4
+  WHERE id = (
+    SELECT t.id FROM zdx_todos t
+    JOIN zdx_projects p ON p.id = t.project_id
+    WHERE t.status = 'open'
+      AND t.blocked = false
+      AND (t.claimed_by = '' OR t.lease_expires_at < NOW())
+    ORDER BY p.priority, t.priority, t.created_at
+    LIMIT 1
+    FOR UPDATE OF t SKIP LOCKED
+  )
+  RETURNING id, project_id, text, title, description, key, persona, priority, status,
+            target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
+            claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+            claim_base_sha, claim_base_branch
+)
+SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
+       c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
+       c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
+       c.claim_base_sha, c.claim_base_branch,
+       COALESCE(i.target_branch, 'dev') AS target_branch,
+       p.slug AS project_slug
+FROM claimed c
+LEFT JOIN zdx_issues i ON i.id = c.issue_ref
+JOIN zdx_projects p ON p.id = c.project_id`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "claimed"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "claimed"},
+		{Name: "text", OriginalName: "text", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "key", OriginalName: "key", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "persona", OriginalName: "persona", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "priority", OriginalName: "priority", GoType: "int32", DBType: "int4", NotNull: true, Table: "claimed"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "target_type", OriginalName: "target_type", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "target_id", OriginalName: "target_id", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "issue_ref", OriginalName: "issue_ref", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "blocked", OriginalName: "blocked", GoType: "bool", DBType: "bool", NotNull: true, Table: "claimed"},
+		{Name: "blocked_reason", OriginalName: "blocked_reason", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "cycle_count", OriginalName: "cycle_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "claimed"},
+		{Name: "reference_issue_id", OriginalName: "reference_issue_id", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "claimed_by", OriginalName: "claimed_by", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "claimed_at", OriginalName: "claimed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "claimed"},
+		{Name: "lease_expires_at", OriginalName: "lease_expires_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "claimed"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "claimed"},
+		{Name: "resolved_at", OriginalName: "resolved_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "claimed"},
+		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "claimed"},
+		{Name: "claim_base_sha", OriginalName: "claim_base_sha", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "claim_base_branch", OriginalName: "claim_base_branch", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "project_slug", OriginalName: "slug", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "agent_id", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 2, Name: "lease_minutes", GoType: "int32", DBType: "int4", NotNull: true},
+		{Position: 3, Name: "claim_base_sha", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 4, Name: "claim_base_branch", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapClaimNextTodoAny returns a metaquery.Builder over MetaClaimNextTodoAny, pre-bound with typed arguments.
+func WrapClaimNextTodoAny(arg ClaimNextTodoAnyParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaClaimNextTodoAny, arg.AgentID, arg.LeaseMinutes, arg.ClaimBaseSha, arg.ClaimBaseBranch)
+}
+
+// ClaimNextTodoAnyCols gives typed, name-safe access to ClaimNextTodoAny's output columns.
+var ClaimNextTodoAnyCols = struct {
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Text             metaquery.TextCol
+	Title            metaquery.TextCol
+	Description      metaquery.TextCol
+	Key              metaquery.TextCol
+	Persona          metaquery.TextCol
+	Priority         metaquery.IntCol
+	Status           metaquery.TextCol
+	TargetType       metaquery.TextCol
+	TargetID         metaquery.TextCol
+	Kind             metaquery.TextCol
+	IssueRef         metaquery.TextCol
+	Blocked          metaquery.BoolCol
+	BlockedReason    metaquery.TextCol
+	CycleCount       metaquery.IntCol
+	ReferenceIssueID metaquery.TextCol
+	ClaimedBy        metaquery.TextCol
+	ClaimedAt        metaquery.TimeCol
+	LeaseExpiresAt   metaquery.TimeCol
+	CreatedAt        metaquery.TimeCol
+	ResolvedAt       metaquery.TimeCol
+	ReopenCount      metaquery.IntCol
+	ClaimBaseSha     metaquery.TextCol
+	ClaimBaseBranch  metaquery.TextCol
+	TargetBranch     metaquery.TextCol
+	ProjectSlug      metaquery.TextCol
+}{
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Text:             metaquery.NewTextCol("text"),
+	Title:            metaquery.NewTextCol("title"),
+	Description:      metaquery.NewTextCol("description"),
+	Key:              metaquery.NewTextCol("key"),
+	Persona:          metaquery.NewTextCol("persona"),
+	Priority:         metaquery.NewIntCol("priority"),
+	Status:           metaquery.NewTextCol("status"),
+	TargetType:       metaquery.NewTextCol("target_type"),
+	TargetID:         metaquery.NewTextCol("target_id"),
+	Kind:             metaquery.NewTextCol("kind"),
+	IssueRef:         metaquery.NewTextCol("issue_ref"),
+	Blocked:          metaquery.NewBoolCol("blocked"),
+	BlockedReason:    metaquery.NewTextCol("blocked_reason"),
+	CycleCount:       metaquery.NewIntCol("cycle_count"),
+	ReferenceIssueID: metaquery.NewTextCol("reference_issue_id"),
+	ClaimedBy:        metaquery.NewTextCol("claimed_by"),
+	ClaimedAt:        metaquery.NewTimeCol("claimed_at"),
+	LeaseExpiresAt:   metaquery.NewTimeCol("lease_expires_at"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClaimBaseSha:     metaquery.NewTextCol("claim_base_sha"),
+	ClaimBaseBranch:  metaquery.NewTextCol("claim_base_branch"),
+	TargetBranch:     metaquery.NewTextCol("target_branch"),
+	ProjectSlug:      metaquery.NewTextCol("slug"),
+}
+
 var MetaCountUnclaimedTodos = metaquery.Query{
 	Name:   "CountUnclaimedTodos",
 	Cmd:    ":one",
@@ -1237,6 +1373,24 @@ func WrapSetState(arg SetStateParams) *metaquery.Builder {
 	return metaquery.Wrap(&MetaSetState, arg.ProjectID, arg.Key, arg.Value)
 }
 
+var MetaSetTodoPriority = metaquery.Query{
+	Name:   "SetTodoPriority",
+	Cmd:    ":exec",
+	Source: "todos.sql",
+	SQL: `UPDATE zdx_todos SET priority = $1
+WHERE project_id = $2 AND key = $3`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "priority", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 3, Name: "key", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapSetTodoPriority returns a metaquery.Builder over MetaSetTodoPriority, pre-bound with typed arguments.
+func WrapSetTodoPriority(arg SetTodoPriorityParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaSetTodoPriority, arg.Priority, arg.ProjectID, arg.Key)
+}
+
 var MetaSetTodoReferenceIssue = metaquery.Query{
 	Name:   "SetTodoReferenceIssue",
 	Cmd:    ":exec",
@@ -1301,7 +1455,12 @@ ON CONFLICT (project_id, key) DO UPDATE SET
   title = EXCLUDED.title,
   description = EXCLUDED.description,
   persona = EXCLUDED.persona,
-  priority = EXCLUDED.priority,
+  -- priority: take the lower (more urgent) value so operator-pushed pri stays
+  -- bumped across re-evaluate. The natural priority computed for each kind is
+  -- a ceiling — once an operator escalates, only an even-higher escalation
+  -- (smaller integer) replaces it. To restore natural priority, write the
+  -- desired value via PUT /api/dx/projects/{slug}/todos/{key}/priority.
+  priority = LEAST(zdx_todos.priority, EXCLUDED.priority),
   status = CASE WHEN zdx_todos.status = 'resolved' THEN 'open' ELSE zdx_todos.status END,
   target_type = EXCLUDED.target_type,
   target_id = EXCLUDED.target_id,

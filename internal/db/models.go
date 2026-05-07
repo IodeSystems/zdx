@@ -9,22 +9,23 @@ import (
 )
 
 type ZdxAgent struct {
-	ID             string             `db:"id" json:"id"`
-	ProjectID      pgtype.Int4        `db:"project_id" json:"project_id"`
-	SessionID      string             `db:"session_id" json:"session_id"`
-	WorktreePath   string             `db:"worktree_path" json:"worktree_path"`
-	WorktreeBranch string             `db:"worktree_branch" json:"worktree_branch"`
-	Pid            int32              `db:"pid" json:"pid"`
-	Status         string             `db:"status" json:"status"`
-	TaskGroup      string             `db:"task_group" json:"task_group"`
-	ComposeProject string             `db:"compose_project" json:"compose_project"`
-	ServerPort     int32              `db:"server_port" json:"server_port"`
-	DatabaseUrl    string             `db:"database_url" json:"database_url"`
-	LastHeartbeat  pgtype.Timestamptz `db:"last_heartbeat" json:"last_heartbeat"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ValkeyUrl      string             `db:"valkey_url" json:"valkey_url"`
-	DisconnectAt   pgtype.Timestamptz `db:"disconnect_at" json:"disconnect_at"`
-	Idle           bool               `db:"idle" json:"idle"`
+	ID               string             `db:"id" json:"id"`
+	ProjectID        pgtype.Int4        `db:"project_id" json:"project_id"`
+	SessionID        string             `db:"session_id" json:"session_id"`
+	WorktreePath     string             `db:"worktree_path" json:"worktree_path"`
+	WorktreeBranch   string             `db:"worktree_branch" json:"worktree_branch"`
+	Pid              int32              `db:"pid" json:"pid"`
+	Status           string             `db:"status" json:"status"`
+	TaskGroup        string             `db:"task_group" json:"task_group"`
+	ComposeProject   string             `db:"compose_project" json:"compose_project"`
+	ServerPort       int32              `db:"server_port" json:"server_port"`
+	DatabaseUrl      string             `db:"database_url" json:"database_url"`
+	LastHeartbeat    pgtype.Timestamptz `db:"last_heartbeat" json:"last_heartbeat"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ValkeyUrl        string             `db:"valkey_url" json:"valkey_url"`
+	DisconnectAt     pgtype.Timestamptz `db:"disconnect_at" json:"disconnect_at"`
+	Idle             bool               `db:"idle" json:"idle"`
+	OriginallyGlobal bool               `db:"originally_global" json:"originally_global"`
 }
 
 type ZdxAgentBudget struct {
@@ -676,6 +677,7 @@ type ZdxProject struct {
 	GitEnabled          bool               `db:"git_enabled" json:"git_enabled"`
 	Title               string             `db:"title" json:"title"`
 	Description         string             `db:"description" json:"description"`
+	Priority            int32              `db:"priority" json:"priority"`
 }
 
 type ZdxProjectGitConfig struct {

@@ -11,6 +11,50 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const assignAgentToProject = `-- name: AssignAgentToProject :one
+UPDATE zdx_agents
+SET project_id = $1
+WHERE id = $2
+  AND originally_global = true
+RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at, idle, originally_global
+`
+
+type AssignAgentToProjectParams struct {
+	ProjectID pgtype.Int4 `db:"project_id" json:"project_id"`
+	ID        string      `db:"id" json:"id"`
+}
+
+// Pin an originally-global agent to a project. Refuses to operate on
+// project-scoped agents (originally_global=false) — those are
+// scope-immutable per design. Returns the updated row; the caller can
+// check whether RowsAffected==0 to distinguish "not found" from "scope
+// mismatch", but the WHERE-clause guard makes the simpler "fail closed"
+// pattern safe.
+func (q *Queries) AssignAgentToProject(ctx context.Context, arg AssignAgentToProjectParams) (ZdxAgent, error) {
+	row := q.db.QueryRow(ctx, assignAgentToProject, arg.ProjectID, arg.ID)
+	var i ZdxAgent
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.SessionID,
+		&i.WorktreePath,
+		&i.WorktreeBranch,
+		&i.Pid,
+		&i.Status,
+		&i.TaskGroup,
+		&i.ComposeProject,
+		&i.ServerPort,
+		&i.DatabaseUrl,
+		&i.LastHeartbeat,
+		&i.CreatedAt,
+		&i.ValkeyUrl,
+		&i.DisconnectAt,
+		&i.Idle,
+		&i.OriginallyGlobal,
+	)
+	return i, err
+}
+
 const deleteAgent = `-- name: DeleteAgent :exec
 DELETE FROM zdx_agents WHERE id = $1
 `
@@ -21,7 +65,7 @@ func (q *Queries) DeleteAgent(ctx context.Context, id string) error {
 }
 
 const getAgent = `-- name: GetAgent :one
-SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at, idle FROM zdx_agents WHERE id = $1
+SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at, idle, originally_global FROM zdx_agents WHERE id = $1
 `
 
 func (q *Queries) GetAgent(ctx context.Context, id string) (ZdxAgent, error) {
@@ -44,12 +88,13 @@ func (q *Queries) GetAgent(ctx context.Context, id string) (ZdxAgent, error) {
 		&i.ValkeyUrl,
 		&i.DisconnectAt,
 		&i.Idle,
+		&i.OriginallyGlobal,
 	)
 	return i, err
 }
 
 const listAgentsByProject = `-- name: ListAgentsByProject :many
-SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at, idle FROM zdx_agents WHERE project_id = $1 ORDER BY last_heartbeat DESC
+SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at, idle, originally_global FROM zdx_agents WHERE project_id = $1 ORDER BY last_heartbeat DESC
 `
 
 func (q *Queries) ListAgentsByProject(ctx context.Context, projectID pgtype.Int4) ([]ZdxAgent, error) {
@@ -78,6 +123,7 @@ func (q *Queries) ListAgentsByProject(ctx context.Context, projectID pgtype.Int4
 			&i.ValkeyUrl,
 			&i.DisconnectAt,
 			&i.Idle,
+			&i.OriginallyGlobal,
 		); err != nil {
 			return nil, err
 		}
@@ -92,8 +138,8 @@ func (q *Queries) ListAgentsByProject(ctx context.Context, projectID pgtype.Int4
 const listAllAgents = `-- name: ListAllAgents :many
 SELECT a.id, a.project_id, a.session_id, a.worktree_path, a.worktree_branch,
        a.pid, a.status, a.task_group, a.compose_project, a.server_port,
-       a.database_url, a.valkey_url, a.idle, a.last_heartbeat, a.created_at,
-       a.disconnect_at,
+       a.database_url, a.valkey_url, a.idle, a.originally_global,
+       a.last_heartbeat, a.created_at, a.disconnect_at,
        p.slug AS project_slug, p.name AS project_name
 FROM zdx_agents a
 LEFT JOIN zdx_projects p ON p.id = a.project_id
@@ -101,24 +147,25 @@ ORDER BY a.last_heartbeat DESC
 `
 
 type ListAllAgentsRow struct {
-	ID             string             `db:"id" json:"id"`
-	ProjectID      pgtype.Int4        `db:"project_id" json:"project_id"`
-	SessionID      string             `db:"session_id" json:"session_id"`
-	WorktreePath   string             `db:"worktree_path" json:"worktree_path"`
-	WorktreeBranch string             `db:"worktree_branch" json:"worktree_branch"`
-	Pid            int32              `db:"pid" json:"pid"`
-	Status         string             `db:"status" json:"status"`
-	TaskGroup      string             `db:"task_group" json:"task_group"`
-	ComposeProject string             `db:"compose_project" json:"compose_project"`
-	ServerPort     int32              `db:"server_port" json:"server_port"`
-	DatabaseUrl    string             `db:"database_url" json:"database_url"`
-	ValkeyUrl      string             `db:"valkey_url" json:"valkey_url"`
-	Idle           bool               `db:"idle" json:"idle"`
-	LastHeartbeat  pgtype.Timestamptz `db:"last_heartbeat" json:"last_heartbeat"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	DisconnectAt   pgtype.Timestamptz `db:"disconnect_at" json:"disconnect_at"`
-	ProjectSlug    pgtype.Text        `db:"project_slug" json:"project_slug"`
-	ProjectName    pgtype.Text        `db:"project_name" json:"project_name"`
+	ID               string             `db:"id" json:"id"`
+	ProjectID        pgtype.Int4        `db:"project_id" json:"project_id"`
+	SessionID        string             `db:"session_id" json:"session_id"`
+	WorktreePath     string             `db:"worktree_path" json:"worktree_path"`
+	WorktreeBranch   string             `db:"worktree_branch" json:"worktree_branch"`
+	Pid              int32              `db:"pid" json:"pid"`
+	Status           string             `db:"status" json:"status"`
+	TaskGroup        string             `db:"task_group" json:"task_group"`
+	ComposeProject   string             `db:"compose_project" json:"compose_project"`
+	ServerPort       int32              `db:"server_port" json:"server_port"`
+	DatabaseUrl      string             `db:"database_url" json:"database_url"`
+	ValkeyUrl        string             `db:"valkey_url" json:"valkey_url"`
+	Idle             bool               `db:"idle" json:"idle"`
+	OriginallyGlobal bool               `db:"originally_global" json:"originally_global"`
+	LastHeartbeat    pgtype.Timestamptz `db:"last_heartbeat" json:"last_heartbeat"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	DisconnectAt     pgtype.Timestamptz `db:"disconnect_at" json:"disconnect_at"`
+	ProjectSlug      pgtype.Text        `db:"project_slug" json:"project_slug"`
+	ProjectName      pgtype.Text        `db:"project_name" json:"project_name"`
 }
 
 // Server-wide list across every project plus the global pool. Joins the
@@ -148,6 +195,7 @@ func (q *Queries) ListAllAgents(ctx context.Context) ([]ListAllAgentsRow, error)
 			&i.DatabaseUrl,
 			&i.ValkeyUrl,
 			&i.Idle,
+			&i.OriginallyGlobal,
 			&i.LastHeartbeat,
 			&i.CreatedAt,
 			&i.DisconnectAt,
@@ -193,7 +241,7 @@ func (q *Queries) MarkAgentDisconnected(ctx context.Context, id string) error {
 const reapStaleAgents = `-- name: ReapStaleAgents :many
 DELETE FROM zdx_agents
 WHERE last_heartbeat < NOW() - $1::interval
-RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at, idle
+RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at, idle, originally_global
 `
 
 func (q *Queries) ReapStaleAgents(ctx context.Context, staleThreshold pgtype.Interval) ([]ZdxAgent, error) {
@@ -222,6 +270,7 @@ func (q *Queries) ReapStaleAgents(ctx context.Context, staleThreshold pgtype.Int
 			&i.ValkeyUrl,
 			&i.DisconnectAt,
 			&i.Idle,
+			&i.OriginallyGlobal,
 		); err != nil {
 			return nil, err
 		}
@@ -234,8 +283,8 @@ func (q *Queries) ReapStaleAgents(ctx context.Context, staleThreshold pgtype.Int
 }
 
 const registerAgent = `-- name: RegisterAgent :one
-INSERT INTO zdx_agents (id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, valkey_url)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+INSERT INTO zdx_agents (id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, valkey_url, originally_global)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, false)
 ON CONFLICT (id) DO UPDATE SET
     session_id = EXCLUDED.session_id,
     worktree_path = EXCLUDED.worktree_path,
@@ -248,7 +297,7 @@ ON CONFLICT (id) DO UPDATE SET
     database_url = EXCLUDED.database_url,
     valkey_url = EXCLUDED.valkey_url,
     last_heartbeat = NOW()
-RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at, idle
+RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at, idle, originally_global
 `
 
 type RegisterAgentParams struct {
@@ -266,6 +315,8 @@ type RegisterAgentParams struct {
 	ValkeyUrl      string      `db:"valkey_url" json:"valkey_url"`
 }
 
+// Project-scoped agent registration. Sets originally_global=false on first
+// insert; never updates it (immutable after first registration).
 func (q *Queries) RegisterAgent(ctx context.Context, arg RegisterAgentParams) (ZdxAgent, error) {
 	row := q.db.QueryRow(ctx, registerAgent,
 		arg.ID,
@@ -299,6 +350,120 @@ func (q *Queries) RegisterAgent(ctx context.Context, arg RegisterAgentParams) (Z
 		&i.ValkeyUrl,
 		&i.DisconnectAt,
 		&i.Idle,
+		&i.OriginallyGlobal,
+	)
+	return i, err
+}
+
+const registerGlobalAgent = `-- name: RegisterGlobalAgent :one
+INSERT INTO zdx_agents (id, project_id, session_id, worktree_path, worktree_branch, pid, status, idle, originally_global)
+VALUES ($1, NULL, $2, $3, $4, $5, $6, $7, true)
+ON CONFLICT (id) DO UPDATE SET
+    session_id = EXCLUDED.session_id,
+    worktree_path = EXCLUDED.worktree_path,
+    worktree_branch = EXCLUDED.worktree_branch,
+    pid = EXCLUDED.pid,
+    status = EXCLUDED.status,
+    idle = EXCLUDED.idle,
+    last_heartbeat = NOW()
+RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at, idle, originally_global
+`
+
+type RegisterGlobalAgentParams struct {
+	ID             string `db:"id" json:"id"`
+	SessionID      string `db:"session_id" json:"session_id"`
+	WorktreePath   string `db:"worktree_path" json:"worktree_path"`
+	WorktreeBranch string `db:"worktree_branch" json:"worktree_branch"`
+	Pid            int32  `db:"pid" json:"pid"`
+	Status         string `db:"status" json:"status"`
+	Idle           bool   `db:"idle" json:"idle"`
+}
+
+// Global-pool agent registration (no project binding). Used by the WS
+// handshake when ProjectSlug is empty. Sets originally_global=true on
+// first insert; never updates it. Used to persist globals so the
+// /api/agents listing + assign/unassign endpoints can operate on them.
+func (q *Queries) RegisterGlobalAgent(ctx context.Context, arg RegisterGlobalAgentParams) (ZdxAgent, error) {
+	row := q.db.QueryRow(ctx, registerGlobalAgent,
+		arg.ID,
+		arg.SessionID,
+		arg.WorktreePath,
+		arg.WorktreeBranch,
+		arg.Pid,
+		arg.Status,
+		arg.Idle,
+	)
+	var i ZdxAgent
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.SessionID,
+		&i.WorktreePath,
+		&i.WorktreeBranch,
+		&i.Pid,
+		&i.Status,
+		&i.TaskGroup,
+		&i.ComposeProject,
+		&i.ServerPort,
+		&i.DatabaseUrl,
+		&i.LastHeartbeat,
+		&i.CreatedAt,
+		&i.ValkeyUrl,
+		&i.DisconnectAt,
+		&i.Idle,
+		&i.OriginallyGlobal,
+	)
+	return i, err
+}
+
+const setAgentIdle = `-- name: SetAgentIdle :exec
+UPDATE zdx_agents SET idle = $1 WHERE id = $2
+`
+
+type SetAgentIdleParams struct {
+	Idle bool   `db:"idle" json:"idle"`
+	ID   string `db:"id" json:"id"`
+}
+
+// Toggle the idle flag for an agent. Used when the WS handshake reports
+// a new idle state for an existing project-scoped row (RegisterGlobalAgent
+// writes it directly, but project-scoped RegisterAgent doesn't).
+func (q *Queries) SetAgentIdle(ctx context.Context, arg SetAgentIdleParams) error {
+	_, err := q.db.Exec(ctx, setAgentIdle, arg.Idle, arg.ID)
+	return err
+}
+
+const unassignAgent = `-- name: UnassignAgent :one
+UPDATE zdx_agents
+SET project_id = NULL
+WHERE id = $1
+  AND originally_global = true
+RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at, idle, originally_global
+`
+
+// Clear an originally-global agent's project pin (back to global pool).
+// Refuses to operate on project-scoped agents.
+func (q *Queries) UnassignAgent(ctx context.Context, id string) (ZdxAgent, error) {
+	row := q.db.QueryRow(ctx, unassignAgent, id)
+	var i ZdxAgent
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.SessionID,
+		&i.WorktreePath,
+		&i.WorktreeBranch,
+		&i.Pid,
+		&i.Status,
+		&i.TaskGroup,
+		&i.ComposeProject,
+		&i.ServerPort,
+		&i.DatabaseUrl,
+		&i.LastHeartbeat,
+		&i.CreatedAt,
+		&i.ValkeyUrl,
+		&i.DisconnectAt,
+		&i.Idle,
+		&i.OriginallyGlobal,
 	)
 	return i, err
 }

@@ -52,7 +52,7 @@ var MetaGetProjectByID = metaquery.Query{
 	Name:   "GetProjectByID",
 	Cmd:    ":one",
 	Source: "projects.sql",
-	SQL:    `SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description FROM zdx_projects WHERE id = $1`,
+	SQL:    `SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects WHERE id = $1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_projects"},
 		{Name: "slug", OriginalName: "slug", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
@@ -68,6 +68,7 @@ var MetaGetProjectByID = metaquery.Query{
 		{Name: "git_enabled", OriginalName: "git_enabled", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_projects"},
 		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
+		{Name: "priority", OriginalName: "priority", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_projects"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -95,6 +96,7 @@ var GetProjectByIDCols = struct {
 	GitEnabled          metaquery.BoolCol
 	Title               metaquery.TextCol
 	Description         metaquery.TextCol
+	Priority            metaquery.IntCol
 }{
 	ID:                  metaquery.NewIntCol("id"),
 	Slug:                metaquery.NewTextCol("slug"),
@@ -110,13 +112,14 @@ var GetProjectByIDCols = struct {
 	GitEnabled:          metaquery.NewBoolCol("git_enabled"),
 	Title:               metaquery.NewTextCol("title"),
 	Description:         metaquery.NewTextCol("description"),
+	Priority:            metaquery.NewIntCol("priority"),
 }
 
 var MetaGetProjectBySlug = metaquery.Query{
 	Name:   "GetProjectBySlug",
 	Cmd:    ":one",
 	Source: "projects.sql",
-	SQL:    `SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description FROM zdx_projects WHERE slug = $1`,
+	SQL:    `SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects WHERE slug = $1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_projects"},
 		{Name: "slug", OriginalName: "slug", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
@@ -132,6 +135,7 @@ var MetaGetProjectBySlug = metaquery.Query{
 		{Name: "git_enabled", OriginalName: "git_enabled", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_projects"},
 		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
+		{Name: "priority", OriginalName: "priority", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_projects"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "slug", GoType: "string", DBType: "text", NotNull: true},
@@ -159,6 +163,7 @@ var GetProjectBySlugCols = struct {
 	GitEnabled          metaquery.BoolCol
 	Title               metaquery.TextCol
 	Description         metaquery.TextCol
+	Priority            metaquery.IntCol
 }{
 	ID:                  metaquery.NewIntCol("id"),
 	Slug:                metaquery.NewTextCol("slug"),
@@ -174,6 +179,7 @@ var GetProjectBySlugCols = struct {
 	GitEnabled:          metaquery.NewBoolCol("git_enabled"),
 	Title:               metaquery.NewTextCol("title"),
 	Description:         metaquery.NewTextCol("description"),
+	Priority:            metaquery.NewIntCol("priority"),
 }
 
 var MetaGetProjectGitConfig = metaquery.Query{
@@ -248,7 +254,7 @@ var MetaListProjects = metaquery.Query{
 	Name:   "ListProjects",
 	Cmd:    ":many",
 	Source: "projects.sql",
-	SQL:    `SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description FROM zdx_projects ORDER BY name`,
+	SQL:    `SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects ORDER BY name`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_projects"},
 		{Name: "slug", OriginalName: "slug", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
@@ -264,6 +270,7 @@ var MetaListProjects = metaquery.Query{
 		{Name: "git_enabled", OriginalName: "git_enabled", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_projects"},
 		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
+		{Name: "priority", OriginalName: "priority", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_projects"},
 	},
 }
 
@@ -288,6 +295,7 @@ var ListProjectsCols = struct {
 	GitEnabled          metaquery.BoolCol
 	Title               metaquery.TextCol
 	Description         metaquery.TextCol
+	Priority            metaquery.IntCol
 }{
 	ID:                  metaquery.NewIntCol("id"),
 	Slug:                metaquery.NewTextCol("slug"),
@@ -303,6 +311,71 @@ var ListProjectsCols = struct {
 	GitEnabled:          metaquery.NewBoolCol("git_enabled"),
 	Title:               metaquery.NewTextCol("title"),
 	Description:         metaquery.NewTextCol("description"),
+	Priority:            metaquery.NewIntCol("priority"),
+}
+
+var MetaListProjectsByPriority = metaquery.Query{
+	Name:   "ListProjectsByPriority",
+	Cmd:    ":many",
+	Source: "projects.sql",
+	SQL:    `SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects ORDER BY priority, name`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_projects"},
+		{Name: "slug", OriginalName: "slug", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
+		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_projects"},
+		{Name: "git_url", OriginalName: "git_url", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
+		{Name: "git_branch", OriginalName: "git_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
+		{Name: "git_token", OriginalName: "git_token", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
+		{Name: "stage", OriginalName: "stage", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
+		{Name: "classification", OriginalName: "classification", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
+		{Name: "upstream_url", OriginalName: "upstream_url", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
+		{Name: "upstream_credentials", OriginalName: "upstream_credentials", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
+		{Name: "git_enabled", OriginalName: "git_enabled", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_projects"},
+		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
+		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
+		{Name: "priority", OriginalName: "priority", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_projects"},
+	},
+}
+
+// WrapListProjectsByPriority returns a metaquery.Builder over MetaListProjectsByPriority, pre-bound with typed arguments.
+func WrapListProjectsByPriority() *metaquery.Builder {
+	return metaquery.Wrap(&MetaListProjectsByPriority)
+}
+
+// ListProjectsByPriorityCols gives typed, name-safe access to ListProjectsByPriority's output columns.
+var ListProjectsByPriorityCols = struct {
+	ID                  metaquery.IntCol
+	Slug                metaquery.TextCol
+	Name                metaquery.TextCol
+	CreatedAt           metaquery.TimeCol
+	GitUrl              metaquery.TextCol
+	GitBranch           metaquery.TextCol
+	GitToken            metaquery.TextCol
+	Stage               metaquery.TextCol
+	Classification      metaquery.TextCol
+	UpstreamUrl         metaquery.TextCol
+	UpstreamCredentials metaquery.TextCol
+	GitEnabled          metaquery.BoolCol
+	Title               metaquery.TextCol
+	Description         metaquery.TextCol
+	Priority            metaquery.IntCol
+}{
+	ID:                  metaquery.NewIntCol("id"),
+	Slug:                metaquery.NewTextCol("slug"),
+	Name:                metaquery.NewTextCol("name"),
+	CreatedAt:           metaquery.NewTimeCol("created_at"),
+	GitUrl:              metaquery.NewTextCol("git_url"),
+	GitBranch:           metaquery.NewTextCol("git_branch"),
+	GitToken:            metaquery.NewTextCol("git_token"),
+	Stage:               metaquery.NewTextCol("stage"),
+	Classification:      metaquery.NewTextCol("classification"),
+	UpstreamUrl:         metaquery.NewTextCol("upstream_url"),
+	UpstreamCredentials: metaquery.NewTextCol("upstream_credentials"),
+	GitEnabled:          metaquery.NewBoolCol("git_enabled"),
+	Title:               metaquery.NewTextCol("title"),
+	Description:         metaquery.NewTextCol("description"),
+	Priority:            metaquery.NewIntCol("priority"),
 }
 
 var MetaNextID = metaquery.Query{
@@ -349,6 +422,22 @@ var MetaSetProjectGitConfig = metaquery.Query{
 // WrapSetProjectGitConfig returns a metaquery.Builder over MetaSetProjectGitConfig, pre-bound with typed arguments.
 func WrapSetProjectGitConfig(arg SetProjectGitConfigParams) *metaquery.Builder {
 	return metaquery.Wrap(&MetaSetProjectGitConfig, arg.GitUrl, arg.GitBranch, arg.GitToken, arg.Slug)
+}
+
+var MetaSetProjectPriority = metaquery.Query{
+	Name:   "SetProjectPriority",
+	Cmd:    ":exec",
+	Source: "projects.sql",
+	SQL:    `UPDATE zdx_projects SET priority = $1 WHERE slug = $2`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "priority", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "slug", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapSetProjectPriority returns a metaquery.Builder over MetaSetProjectPriority, pre-bound with typed arguments.
+func WrapSetProjectPriority(arg SetProjectPriorityParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaSetProjectPriority, arg.Priority, arg.Slug)
 }
 
 var MetaSetProjectProxyConfig = metaquery.Query{

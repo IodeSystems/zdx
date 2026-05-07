@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as CodeRouteImport } from './routes/code'
 import { Route as CliAuthRouteImport } from './routes/cli-auth'
+import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as ProjectSlugRouteImport } from './routes/project/$slug'
@@ -91,6 +92,11 @@ const CodeRoute = CodeRouteImport.update({
 const CliAuthRoute = CliAuthRouteImport.update({
   id: '/cli-auth',
   path: '/cli-auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentsRoute = AgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -464,6 +470,7 @@ const ProjectSlugDocsNodeKindNodeSlugRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
   '/cli-auth': typeof CliAuthRoute
   '/code': typeof CodeRoute
   '/admin/activity': typeof AdminActivityRoute
@@ -539,6 +546,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
   '/cli-auth': typeof CliAuthRoute
   '/code': typeof CodeRoute
   '/admin/activity': typeof AdminActivityRoute
@@ -600,6 +608,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
   '/cli-auth': typeof CliAuthRoute
   '/code': typeof CodeRoute
   '/admin/activity': typeof AdminActivityRoute
@@ -677,6 +686,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/agents'
     | '/cli-auth'
     | '/code'
     | '/admin/activity'
@@ -752,6 +762,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/agents'
     | '/cli-auth'
     | '/code'
     | '/admin/activity'
@@ -812,6 +823,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/agents'
     | '/cli-auth'
     | '/code'
     | '/admin/activity'
@@ -888,6 +900,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AgentsRoute: typeof AgentsRoute
   CliAuthRoute: typeof CliAuthRoute
   CodeRoute: typeof CodeRoute
   AdminActivityRoute: typeof AdminActivityRoute
@@ -914,6 +927,13 @@ declare module '@tanstack/react-router' {
       path: '/cli-auth'
       fullPath: '/cli-auth'
       preLoaderRoute: typeof CliAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agents': {
+      id: '/agents'
+      path: '/agents'
+      fullPath: '/agents'
+      preLoaderRoute: typeof AgentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -1700,6 +1720,7 @@ const ProjectSlugRouteWithChildren = ProjectSlugRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AgentsRoute: AgentsRoute,
   CliAuthRoute: CliAuthRoute,
   CodeRoute: CodeRoute,
   AdminActivityRoute: AdminActivityRoute,

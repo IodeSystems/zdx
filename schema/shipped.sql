@@ -4,7 +4,6 @@
 
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
--- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -77,7 +76,8 @@ CREATE TABLE public.zdx_agents (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     valkey_url text DEFAULT ''::text NOT NULL,
     disconnect_at timestamp with time zone,
-    idle boolean DEFAULT false NOT NULL
+    idle boolean DEFAULT false NOT NULL,
+    originally_global boolean DEFAULT false NOT NULL
 );
 
 
@@ -1955,7 +1955,8 @@ CREATE TABLE public.zdx_projects (
     upstream_credentials text DEFAULT ''::text NOT NULL,
     git_enabled boolean DEFAULT false NOT NULL,
     title text DEFAULT ''::text NOT NULL,
-    description text DEFAULT ''::text NOT NULL
+    description text DEFAULT ''::text NOT NULL,
+    priority integer DEFAULT 5 NOT NULL
 );
 
 
