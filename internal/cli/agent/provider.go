@@ -30,7 +30,8 @@ type AgentProvider interface {
 //
 // When --provider=X is dispatched in loop mode, the manager checks if the
 // provider implements LoopProvider; if so, calls RunLoop instead of
-// RunManagedLoop. Plain providers (opencode, local) get the universal loop.
+// RunManagedLoop. Plain providers (openai and its legacy aliases
+// opencode/local) get the universal loop.
 type LoopProvider interface {
 	AgentProvider
 	RunLoop(ctx context.Context, opts ProviderOpts) error

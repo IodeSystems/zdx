@@ -46,8 +46,11 @@ func AgentCmd() *cobra.Command {
 		Long: `Run an agent session against the configured project. The provider is
 selected via --provider; complexity-to-model resolution is delegated to the
 provider, so dx agent --provider=claude --complexity=high picks claude-opus-4-7,
-while --provider=opencode --complexity=high picks the project's configured
-high-tier model from admin/llm-configs.
+while --provider=openai --complexity=high picks the project's configured
+high-tier model from admin/llm-configs (and dispatches via OpenAI-compatible
+chat-completions to whatever endpoint that config points at — local llama-swap,
+hosted OpenAI, OpenRouter, etc.). The legacy --provider=opencode and
+--provider=local names remain accepted aliases.
 
 Execution environment is selected via --container=docker|local (default
 docker). Container mode runs the agent inside MCP-slot containers with an

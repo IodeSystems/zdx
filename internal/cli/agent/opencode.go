@@ -24,15 +24,20 @@ import (
 // ── OpenCode AgentAdapter ─────────────────────────────────────────────────
 
 func init() {
-	RegisterProvider("opencode", func(opts ProviderOpts) (AgentProvider, error) {
+	// Register one constructor under three names: "openai" is canonical,
+	// "opencode" and "local" remain as aliases for back-compat (the previous
+	// design split these into separate providers; they were always doing
+	// the same thing — chat-completions against an OpenAI-compatible
+	// endpoint with our in-process MCP tools).
+	ctor := func(opts ProviderOpts) (AgentProvider, error) {
 		llmCfg := opts.LLMLocal
 		if opts.Model != "" {
 			llmCfg.Model = opts.Model
 		}
 		// Pull endpoint + api_key + (when --model unset) model from the
-		// server's admin/llm-configs for the chosen complexity tier. This
-		// lets opencode work against a remote LLM without local llm_local
-		// settings — matches the legacy RunE behavior.
+		// server's admin/llm-configs for the chosen complexity tier. Lets
+		// the operator point the agent at a remote LLM without local
+		// llm_local settings.
 		if opts.Complexity != "" {
 			if serverCfg := resolveLLMConfigFromServer(opts.RC, opts.Complexity); serverCfg.BaseURL != "" {
 				llmCfg.BaseURL = serverCfg.BaseURL
@@ -47,19 +52,24 @@ func init() {
 		return &opencodeAdapter{
 			rc:         opts.RC,
 			llmCfg:     llmCfg,
-			maxTurns:   opts.MaxTurns, // 0 = unlimited; matches opencode CLI default
+			maxTurns:   opts.MaxTurns, // 0 = unlimited
 			seedPrompt: opts.SeedPrompt,
 			mcpCommand: opts.MCPCommand,
 			complexity: opts.Complexity,
 			tlog:       opts.TraceLog,
 		}, nil
-	})
+	}
+	RegisterProvider("openai", ctor)
+	RegisterProvider("opencode", ctor) // deprecated alias
+	RegisterProvider("local", ctor)    // deprecated alias
 }
 
-// opencodeAdapter implements AgentAdapter for the OpenCode agent loop.
-// It drives an in-process chat-completions loop with MCP tools, writing
-// Claude-compatible JSONL to .zdx/agent/opencode/<sid>.jsonl. Session
-// state is persisted as JSON in .zdx/state/opencode/<sid>.json for resume.
+// opencodeAdapter (kept under its legacy name for now to minimize the diff;
+// it actually implements the unified `openai` provider — chat-completions
+// against any OpenAI-compatible endpoint, with our in-process MCP tools).
+// Drives an in-process chat-completions loop, writing Claude-compatible
+// JSONL to .zdx/agent/openai/<sid>.jsonl. Session state is persisted as
+// JSON in .zdx/state/openai/<sid>.json for resume.
 type opencodeAdapter struct {
 	rc         remoteConfig // populated by callers that need ResolveModel; safe to leave zero otherwise
 	llmCfg     config.LLMLocal
@@ -75,7 +85,7 @@ type opencodeAdapter struct {
 	toolNames map[string]string
 }
 
-func (a *opencodeAdapter) Provider() string { return "opencode" }
+func (a *opencodeAdapter) Provider() string { return "openai" }
 
 // ResolveModel maps a complexity tier to a concrete model name by walking the
 // server's admin LLM config in priority order. Falls back to the adapter's
@@ -93,7 +103,7 @@ func (a *opencodeAdapter) Start(ctx context.Context, sid, issueID, alias string)
 	setupStart := time.Now()
 	if a.tlog != nil {
 		a.tlog.Info("setup.start",
-			"provider", "opencode",
+			"provider", "openai",
 			"sid", sid,
 			"alias", alias,
 			"issue_id", issueID,
@@ -106,9 +116,14 @@ func (a *opencodeAdapter) Start(ctx context.Context, sid, issueID, alias string)
 	if alias != "" {
 		os.Setenv("DX_AUTHOR_ALIAS", alias)
 	}
+	// Inject agent issue ID so dx test --escalate can auto-file blockers
+	// scoped to the right issue (parity with the legacy local provider).
+	if issueID != "" {
+		os.Setenv("DX_AGENT_ISSUE", issueID)
+	}
 	root, err := cli.GitRepoRoot()
 	if err != nil {
-		return "", fmt.Errorf("dx agent opencode must run inside a git repo: %w", err)
+		return "", fmt.Errorf("dx agent openai must run inside a git repo: %w", err)
 	}
 
 	dispCtx, dispCancel := context.WithCancel(ctx)
@@ -228,7 +243,7 @@ type opencodeSessionLog struct {
 }
 
 func newOpenCodeSessionLog(sid, issueID, cwd string) (*opencodeSessionLog, error) {
-	dir := ".zdx/agent/opencode"
+	dir := ".zdx/agent/openai"
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
@@ -469,7 +484,7 @@ func (cs *opencodeChatSession) Run(ctx context.Context, system, user string) err
 
 func opencodeSystemPrompt(alias, issueID string) string {
 	var b strings.Builder
-	b.WriteString("You are dx agent opencode, an autonomous developer operating inside a git repo.\n\n")
+	b.WriteString("You are dx agent (openai), an autonomous developer operating inside a git repo.\n\n")
 	b.WriteString("Available tool categories:\n")
 	b.WriteString("  - filesystem tools: read_file, write_file, edit_file, list_dir, glob, grep.\n")
 	b.WriteString("  - structural outline: `outline` (backends: Go, TS/TSX/JS/JSX). Prefer this over read_file when probing what a file or package exposes. Pass `lod` (0=files-only, 1=decl names, 2=signatures (default), 3=full) and `json_path` (e.g. 'files/0/decls') to drill in progressively. Function bodies are never included.\n")
@@ -484,7 +499,12 @@ func opencodeSystemPrompt(alias, issueID string) string {
 		b.WriteString("Your agent alias is: " + alias + ".\n")
 	}
 	if issueID != "" {
-		b.WriteString("Current issue: " + issueID + ".\n")
+		b.WriteString("Current issue: " + issueID + ".\n\n")
+		b.WriteString("TEST-FAILURE PROTOCOL:\n")
+		b.WriteString("  Before committing, run: dx test --classify-preexisting --escalate\n")
+		b.WriteString("  If preexisting failures are detected, the --escalate flag will auto-file\n")
+		b.WriteString("  a deduplicated blocker issue. Do NOT attempt to fix preexisting failures.\n")
+		b.WriteString("  If REGRESSION FAILURES are shown (caused by your diff), fix them first.\n\n")
 	}
 	return b.String()
 }
@@ -501,7 +521,7 @@ type opencodeSessionState struct {
 }
 
 func saveOpenCodeState(sid, issueID, alias, model, repoRoot string) {
-	dir := ".zdx/state/opencode"
+	dir := ".zdx/state/openai"
 	_ = os.MkdirAll(dir, 0o755)
 	st := opencodeSessionState{
 		Sid:       sid,
@@ -524,7 +544,7 @@ func saveOpenCodeState(sid, issueID, alias, model, repoRoot string) {
 }
 
 func loadOpenCodeState(sid string) *opencodeSessionState {
-	path := filepath.Join(".zdx", "state", "opencode", sid+".json")
+	path := filepath.Join(".zdx", "state", "openai", sid+".json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil
