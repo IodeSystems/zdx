@@ -34,15 +34,31 @@ ORDER BY target_type, target_id;
 -- there is actually unread content to surface — otherwise the todo would
 -- regenerate every loop iteration even after the agent claims and "reads"
 -- it, producing the cycle observed in IS-1040.
-SELECT DISTINCT c.target_type, c.target_id
-FROM zdx_comments c
-LEFT JOIN zdx_target_comments_seen s
-       ON s.project_id  = c.project_id
-      AND s.target_type = c.target_type
-      AND s.target_id   = c.target_id
-WHERE c.project_id = $1
-  AND c.id > COALESCE(s.last_comment_id, 0)
-ORDER BY c.target_type, c.target_id;
+--
+-- IS-687 / TK-1455: only surface a target when the LATEST unread comment
+-- is from a non-agent author (author_alias = ''). If the agent replied last,
+-- the target is not surfaced — the agent has already done its job and should
+-- not be asked to read its own reply.
+WITH unread AS (
+    SELECT c.target_type, c.target_id, c.created_at, c.author_alias
+    FROM zdx_comments c
+    LEFT JOIN zdx_target_comments_seen s
+           ON s.project_id  = c.project_id
+          AND s.target_type = c.target_type
+          AND s.target_id   = c.target_id
+    WHERE c.project_id = $1
+      AND c.id > COALESCE(s.last_comment_id, 0)
+),
+latest_unread AS (
+    SELECT DISTINCT ON (target_type, target_id)
+        target_type, target_id, author_alias
+    FROM unread
+    ORDER BY target_type, target_id, created_at DESC
+)
+SELECT target_type, target_id
+FROM latest_unread
+WHERE author_alias = ''
+ORDER BY target_type, target_id;
 
 -- name: MarkTargetCommentsSeen :exec
 -- Advance the seen high-water mark for one target to the current max comment

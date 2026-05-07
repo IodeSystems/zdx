@@ -111,6 +111,7 @@ func (a *localAdapter) buildDispatcher(ctx context.Context, root string) (*local
 	}, nil)
 	mcpcmd.RegisterFSTools(srv, root)
 	mcpcmd.RegisterShellTools(srv, root)
+	mcpcmd.RegisterOutlineTools(srv, root)
 	return newLocalDispatcher(ctx, srv)
 }
 

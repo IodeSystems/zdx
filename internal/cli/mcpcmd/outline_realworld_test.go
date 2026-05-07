@@ -21,29 +21,28 @@ func TestOutline_realworld_sizes(t *testing.T) {
 
 	cs := setupClient(t, repoRoot)
 	for _, c := range []struct {
-		tool string
 		path string
 	}{
-		{"go_outline", "internal/cli/work/todo.go"},
-		{"go_outline", "internal/cli/agent/opencode.go"},
-		{"ts_outline", "ui/src/api/index.ts"},
+		{"internal/cli/work/todo.go"},
+		{"internal/cli/agent/opencode.go"},
+		{"ui/src/api/index.ts"},
 	} {
-		t.Run(c.tool+"_"+c.path, func(t *testing.T) {
+		t.Run("outline_"+c.path, func(t *testing.T) {
 			full := filepath.Join(repoRoot, c.path)
 			fi, err := os.Stat(full)
 			if err != nil {
 				t.Skipf("source missing: %v", err)
 			}
 			res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-				Name:      c.tool,
-				Arguments: map[string]any{"path": c.path},
+				Name:      "outline",
+				Arguments: map[string]any{"path": c.path, "lod": 2},
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
 			b, _ := json.Marshal(res.StructuredContent)
-			t.Logf("%s on %s (%d bytes raw): outline %d bytes (%.0f%% of raw)",
-				c.tool, c.path, fi.Size(), len(b), 100*float64(len(b))/float64(fi.Size()))
+			t.Logf("outline on %s (%d bytes raw): outline %d bytes (%.0f%% of raw)",
+				c.path, fi.Size(), len(b), 100*float64(len(b))/float64(fi.Size()))
 			if len(b) >= int(fi.Size()) {
 				t.Errorf("outline (%d bytes) is not smaller than raw file (%d bytes)", len(b), fi.Size())
 			}

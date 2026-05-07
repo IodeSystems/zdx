@@ -133,6 +133,15 @@ func (d *localDispatcher) Dispatch(ctx context.Context, name, argsJSON string) (
 	}
 	isErr := res.IsError
 	text := renderToolResult(res)
+	// Hard cap on tool-result payload to keep us under crash thresholds in
+	// downstream chat templates (observed: llama.cpp jinja aborts the server
+	// when a tool message exceeds ~50KB on Qwen3 templates). Per-tool caps in
+	// the registered tools are first-line defense; this is the safety net for
+	// any tool that slips through.
+	const maxToolResultBytes = 48 * 1024
+	if len(text) > maxToolResultBytes {
+		text = text[:maxToolResultBytes] + "\n…[truncated by dispatcher: tool result exceeded 48KB]"
+	}
 	return text, isErr, nil
 }
 

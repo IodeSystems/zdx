@@ -149,6 +149,7 @@ func (a *opencodeAdapter) buildDispatcher(ctx context.Context, root string) (*lo
 	}, nil)
 	mcpcmd.RegisterFSTools(srv, root)
 	mcpcmd.RegisterShellTools(srv, root)
+	mcpcmd.RegisterOutlineTools(srv, root)
 	return newLocalDispatcher(ctx, srv)
 }
 
@@ -342,13 +343,24 @@ func (cs *opencodeChatSession) Run(ctx context.Context, system, user string) err
 			return err
 		}
 
+		// Force single tool_call per turn. Local chat templates (e.g.
+		// llama.cpp jinja for Qwen3) abort the server when cumulative
+		// tool_result payload in a single request exceeds ~50KB; serializing
+		// tool calls keeps each turn's request bounded by one tool result
+		// rather than the fan-out sum.
+		serial := false
 		resp, err := cs.client.ChatCompletion(ctx, &llm.ChatRequest{
-			Messages:   msgs,
-			Tools:      cs.tools,
-			ToolChoice: "auto",
-			Timeout:    cs.timeout,
+			Messages:          msgs,
+			Tools:             cs.tools,
+			ToolChoice:        "auto",
+			Timeout:           cs.timeout,
+			ParallelToolCalls: &serial,
 		})
 		if err != nil {
+			// Record a final assistant event so the failure is visible in the
+			// session JSONL — otherwise the log dangles after the last
+			// tool_result and operators have no fingerprint of what crashed.
+			_ = cs.log.AssistantText(fmt.Sprintf("(stopped: chat error on turn %d: %v)", turn, err), nil)
 			return fmt.Errorf("turn %d: %w", turn, err)
 		}
 
@@ -418,6 +430,7 @@ func opencodeSystemPrompt(alias, issueID string) string {
 	b.WriteString("You are dx agent opencode, an autonomous developer operating inside a git repo.\n\n")
 	b.WriteString("Available tool categories:\n")
 	b.WriteString("  - filesystem tools: read_file, write_file, edit_file, list_dir, glob, grep.\n")
+	b.WriteString("  - structural outline: `outline` (backends: Go, TS/TSX/JS/JSX). Prefer this over read_file when probing what a file or package exposes. Pass `lod` (0=files-only, 1=decl names, 2=signatures (default), 3=full) and `json_path` (e.g. 'files/0/decls') to drill in progressively. Function bodies are never included.\n")
 	b.WriteString("  - shell: run_bash. Invoke `dx` CLI for project state — e.g. `dx issue show IS-N`, `dx comment add`, `dx todo dev start/done`, `dx feature show`, `dx pattern search`, `dx question add`. Run `dx --help` for the full tree.\n\n")
 	b.WriteString("Operating rules:\n")
 	b.WriteString("  - Prefer `dx` CLI calls for project state (never re-derive from the filesystem alone).\n")

@@ -53,6 +53,12 @@ type ChatRequest struct {
 	ToolChoice string
 	MaxTokens  int
 	Timeout    time.Duration
+	// ParallelToolCalls — when non-nil, the field is sent as
+	// parallel_tool_calls. Setting false forces the model to emit a single
+	// tool_call per turn, which keeps cumulative tool_result payload bounded
+	// (some local chat templates abort the server when the per-turn tool
+	// payload exceeds ~50KB).
+	ParallelToolCalls *bool
 }
 
 // ChatResponse is the model's reply. Content is text; ToolCalls are structured
@@ -89,6 +95,9 @@ func (c *Client) ChatCompletion(ctx context.Context, req *ChatRequest) (*ChatRes
 	}
 	if req.MaxTokens > 0 {
 		body["max_tokens"] = req.MaxTokens
+	}
+	if req.ParallelToolCalls != nil {
+		body["parallel_tool_calls"] = *req.ParallelToolCalls
 	}
 
 	buf, err := json.Marshal(body)

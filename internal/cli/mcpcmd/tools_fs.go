@@ -7,9 +7,33 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// writeScratch caches large tool output under .zdx/agent/scratch/ so the agent
+// can re-read or grep it without re-running the producing command. Returns the
+// repo-relative path (suitable for read_file/grep callbacks) or an error if
+// the cache directory is not writable. Filenames are timestamped + uuid-keyed
+// so concurrent agents do not collide.
+func writeScratch(root, prefix, content string) (string, error) {
+	dir := filepath.Join(root, ".zdx", "agent", "scratch")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	name := fmt.Sprintf("%s-%s-%s.txt", prefix, time.Now().UTC().Format("20060102T150405Z"), uuid.New().String()[:8])
+	full := filepath.Join(dir, name)
+	if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+		return "", err
+	}
+	rel, err := filepath.Rel(root, full)
+	if err != nil {
+		return "", err
+	}
+	return rel, nil
+}
 
 // RegisterFSTools registers filesystem tools (read_file, write_file, edit_file,
 // grep, glob, list_dir) scoped to the given repo root. All path arguments are
@@ -35,26 +59,50 @@ func RegisterFSTools(srv *mcp.Server, root string) {
 			return nil, nil, err
 		}
 		text := string(data)
-		if in.Offset > 0 || in.Limit > 0 {
-			lines := strings.Split(text, "\n")
-			start := in.Offset - 1
-			if start < 0 {
-				start = 0
-			}
-			if start > len(lines) {
-				start = len(lines)
-			}
-			end := len(lines)
-			limit := in.Limit
-			if limit <= 0 {
-				limit = 2000
-			}
-			if start+limit < end {
-				end = start + limit
-			}
-			text = strings.Join(lines[start:end], "\n")
+		// Always slice through the limit path so the documented "default 2000"
+		// applies even when offset/limit are unset. Some local LLM chat
+		// templates (e.g. llama.cpp jinja for Qwen3) abort the server process
+		// when a tool_result exceeds ~50KB, so we also enforce a hard byte cap.
+		lines := strings.Split(text, "\n")
+		start := in.Offset - 1
+		if start < 0 {
+			start = 0
 		}
-		return nil, map[string]any{"path": in.Path, "content": text}, nil
+		if start > len(lines) {
+			start = len(lines)
+		}
+		limit := in.Limit
+		if limit <= 0 {
+			limit = 2000
+		}
+		end := len(lines)
+		if start+limit < end {
+			end = start + limit
+		}
+		text = strings.Join(lines[start:end], "\n")
+		truncated := end < len(lines)
+		// Long-line truncation: a single line longer than maxLineChars is cut
+		// with an annotation. Critical for files like internal/dxclient/openapi.json
+		// (415KB on a single line) where one line would otherwise blow the
+		// per-result byte cap on its own. The line-count cap above doesn't
+		// help when each "line" is enormous.
+		const maxLineChars = 500
+		text, longLines, longBytes := truncateLongLines(text, maxLineChars)
+		const maxBytes = 48 * 1024
+		if len(text) > maxBytes {
+			text = text[:maxBytes]
+			truncated = true
+		}
+		out := map[string]any{"path": in.Path, "content": text}
+		if truncated {
+			out["truncated"] = true
+			out["total_lines"] = len(lines)
+		}
+		if longLines > 0 {
+			out["truncated_lines"] = longLines
+			out["truncated_line_chars"] = longBytes
+		}
+		return nil, out, nil
 	})
 
 	type writeFileIn struct {
@@ -175,12 +223,12 @@ func RegisterFSTools(srv *mcp.Server, root string) {
 		Path          string `json:"path,omitempty" jsonschema:"repo-relative file or dir (defaults to root)"`
 		Glob          string `json:"glob,omitempty" jsonschema:"filename glob filter (e.g. *.go)"`
 		CaseSensitive bool   `json:"case_sensitive,omitempty" jsonschema:"case-sensitive match (default false)"`
-		Limit         int    `json:"limit,omitempty" jsonschema:"max matching lines to return (default 200)"`
+		Limit         int    `json:"limit,omitempty" jsonschema:"max matching lines to return inline (default 2000)"`
 		MatchLen      int    `json:"match_len,omitempty" jsonschema:"max chars of matching line text; longer lines are windowed around the match with ... ellipses (default 200, 0 disables truncation)"`
 	}
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "grep",
-		Description: "Search file contents for a Go regexp. Returns matching path:line:text entries.",
+		Description: "Search file contents for a Go regexp. Returns matching path:line:text entries. When more matches exist than the inline limit, the full result list is cached under .zdx/agent/scratch/ and the path is included in the response so you can grep it for further filtering instead of rerunning.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in grepIn) (*mcp.CallToolResult, any, error) {
 		pat := in.Pattern
 		if !in.CaseSensitive {
@@ -200,15 +248,16 @@ func RegisterFSTools(srv *mcp.Server, root string) {
 		}
 		limit := in.Limit
 		if limit <= 0 {
-			limit = 200
+			limit = 2000
 		}
 		matchLen := in.MatchLen
 		if matchLen == 0 {
 			matchLen = 200
 		}
 		var matches []map[string]any
+		var scratchLines []string // every match formatted path:line:col:text — written to scratch when truncated
 		walk := func(path string, info os.FileInfo) error {
-			if info.IsDir() || len(matches) >= limit {
+			if info.IsDir() {
 				return nil
 			}
 			if in.Glob != "" {
@@ -228,15 +277,15 @@ func RegisterFSTools(srv *mcp.Server, root string) {
 					continue
 				}
 				text, off := windowMatch(line, loc, matchLen)
-				matches = append(matches, map[string]any{
-					"path": rel,
-					"line": i + 1,
-					"col":  off + 1,
-					"text": text,
-				})
-				if len(matches) >= limit {
-					return nil
+				if len(matches) < limit {
+					matches = append(matches, map[string]any{
+						"path": rel,
+						"line": i + 1,
+						"col":  off + 1,
+						"text": text,
+					})
 				}
+				scratchLines = append(scratchLines, fmt.Sprintf("%s:%d:%d:%s", rel, i+1, off+1, text))
 			}
 			return nil
 		}
@@ -261,7 +310,19 @@ func RegisterFSTools(srv *mcp.Server, root string) {
 		} else {
 			_ = walk(absStart, info)
 		}
-		return nil, map[string]any{"pattern": in.Pattern, "matches": matches}, nil
+		out := map[string]any{"pattern": in.Pattern, "matches": matches}
+		if len(scratchLines) > limit {
+			out["truncated"] = true
+			out["total_matches"] = len(scratchLines)
+			full := strings.Join(scratchLines, "\n") + "\n"
+			if scratchPath, sErr := writeScratch(root, "grep", full); sErr == nil {
+				out["scratch_path"] = scratchPath
+				out["hint"] = fmt.Sprintf("Returned first %d of %d matches inline. Full %s:line:col:text list cached at %s — use the grep tool with path=%q to filter further (e.g. by directory or symbol), or read_file with offset/limit to page through.", limit, len(scratchLines), "path", scratchPath, scratchPath)
+			} else {
+				out["hint"] = fmt.Sprintf("Returned first %d of %d matches inline. (scratch cache failed: %v) Refine the pattern or raise limit to see more.", limit, len(scratchLines), sErr)
+			}
+		}
+		return nil, out, nil
 	})
 }
 

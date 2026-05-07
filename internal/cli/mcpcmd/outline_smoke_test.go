@@ -46,9 +46,10 @@ var _ = stdjson.Marshaler(nil)
 	}
 
 	cs := setupClient(t, root)
+	// LOD 3 = full detail incl. doc lines.
 	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name:      "go_outline",
-		Arguments: map[string]any{"path": "demo.go"},
+		Name:      "outline",
+		Arguments: map[string]any{"path": "demo.go", "lod": 3},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -62,16 +63,17 @@ var _ = stdjson.Marshaler(nil)
 	if f0["package"] != "demo" {
 		t.Errorf("package=%v want demo", f0["package"])
 	}
+	if f0["language"] != "go" {
+		t.Errorf("language=%v want go", f0["language"])
+	}
 	imports, _ := f0["imports"].([]any)
 	if len(imports) != 2 {
 		t.Errorf("imports: got %d want 2", len(imports))
 	}
 	decls, _ := f0["decls"].([]any)
-	// expect: Greet (func), Adder (type), Adder.Add (func), Sayer (type), Version (const), _ (var)
 	if len(decls) < 5 {
 		t.Errorf("decls: got %d want >=5: %v", len(decls), decls)
 	}
-	// Spot-check Greet
 	var greet map[string]any
 	for _, d := range decls {
 		m := d.(map[string]any)
@@ -90,7 +92,41 @@ var _ = stdjson.Marshaler(nil)
 		t.Errorf("Greet.signature=%q", sig)
 	}
 	if doc, _ := greet["doc"].(string); doc != "Greet says hello." {
-		t.Errorf("Greet.doc=%q", doc)
+		t.Errorf("Greet.doc=%q (LOD 3 should expose doc)", doc)
+	}
+
+	// LOD 1: skeleton — decl_names only, no signatures or imports map.
+	resLow, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "outline",
+		Arguments: map[string]any{"path": "demo.go", "lod": 1},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotLow := unmarshalStructured(t, resLow.StructuredContent)
+	filesLow, _ := gotLow["files"].([]any)
+	if len(filesLow) != 1 {
+		t.Fatalf("LOD 1: expected 1 file, got %d", len(filesLow))
+	}
+	f0Low := filesLow[0].(map[string]any)
+	if _, hasDecls := f0Low["decls"]; hasDecls {
+		t.Errorf("LOD 1 should not include 'decls', got %v", f0Low)
+	}
+	if _, hasNames := f0Low["decl_names"]; !hasNames {
+		t.Errorf("LOD 1 should include 'decl_names', got %v", f0Low)
+	}
+
+	// json_path: navigate into the file's package field.
+	resPath, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "outline",
+		Arguments: map[string]any{"path": "demo.go", "lod": 2, "json_path": "files/0/package"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotPath := unmarshalStructured(t, resPath.StructuredContent)
+	if gotPath["result"] != "demo" {
+		t.Errorf("json_path 'files/0/package': got %v want \"demo\"", gotPath["result"])
 	}
 }
 
@@ -133,8 +169,8 @@ function unexported() { return 1; }
 
 	cs := setupClient(t, root)
 	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name:      "ts_outline",
-		Arguments: map[string]any{"path": "demo.ts"},
+		Name:      "outline",
+		Arguments: map[string]any{"path": "demo.ts", "lod": 2},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -145,6 +181,9 @@ function unexported() { return 1; }
 		t.Fatalf("expected 1 file, got %d", len(files))
 	}
 	f0 := files[0].(map[string]any)
+	if f0["language"] != "ts" {
+		t.Errorf("language=%v want ts", f0["language"])
+	}
 	imports, _ := f0["imports"].([]any)
 	if len(imports) != 4 {
 		t.Errorf("imports: got %d want 4: %v", len(imports), imports)
@@ -161,8 +200,82 @@ function unexported() { return 1; }
 	}
 	for n, found := range wantNames {
 		if !found {
-			t.Errorf("ts_outline missing decl %q in %v", n, decls)
+			t.Errorf("ts outline missing decl %q in %v", n, decls)
 		}
+	}
+}
+
+func TestOutlineUnsupported_telemetry(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "demo.py"), []byte("def hi():\n    pass\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "demo.rs"), []byte("fn hi() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cs := setupClient(t, root)
+	res, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "outline",
+		Arguments: map[string]any{"path": ".", "lod": 1},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := unmarshalStructured(t, res.StructuredContent)
+	unsup, _ := got["unsupported_extensions"].([]any)
+	if len(unsup) != 2 {
+		t.Errorf("expected 2 unsupported extensions (.py, .rs), got %v", unsup)
+	}
+	missLog := filepath.Join(root, ".zdx", "agent", "outline-misses.jsonl")
+	if _, err := os.Stat(missLog); err != nil {
+		t.Errorf("expected miss log at %s: %v", missLog, err)
+	}
+}
+
+func TestNavigateJSONPath(t *testing.T) {
+	obj := map[string]any{
+		"files": []any{
+			map[string]any{"path": "a.go", "decls": []any{
+				map[string]any{"name": "Foo"},
+				map[string]any{"name": "Bar"},
+			}},
+			map[string]any{"path": "b.go", "decls": []any{
+				map[string]any{"name": "Baz"},
+			}},
+		},
+	}
+	cases := []struct {
+		path string
+		want any
+	}{
+		{"", obj},
+		{"files/0/path", "a.go"},
+		{"files/1/decls/0/name", "Baz"},
+	}
+	for _, c := range cases {
+		got, err := navigateJSONPath(obj, c.path)
+		if err != nil {
+			t.Errorf("navigate %q: %v", c.path, err)
+			continue
+		}
+		if got == nil && c.want != nil {
+			t.Errorf("navigate %q: got nil want %v", c.path, c.want)
+		}
+		// Spot-check string results
+		if s, ok := c.want.(string); ok {
+			if gs, _ := got.(string); gs != s {
+				t.Errorf("navigate %q: got %q want %q", c.path, gs, s)
+			}
+		}
+	}
+	// Wildcard projection
+	got, err := navigateJSONPath(obj, "files/*/path")
+	if err != nil {
+		t.Fatal(err)
+	}
+	gs, _ := got.([]any)
+	if len(gs) != 2 || gs[0] != "a.go" || gs[1] != "b.go" {
+		t.Errorf("'files/*/path': got %v want [a.go, b.go]", gs)
 	}
 }
 

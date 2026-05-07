@@ -129,6 +129,7 @@ func runMCPStdio(root string) error {
 	}, nil)
 	mcpcmd.RegisterFSTools(srv, root)
 	mcpcmd.RegisterShellTools(srv, root)
+	mcpcmd.RegisterOutlineTools(srv, root)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
