@@ -831,6 +831,10 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			}
 		}) (*struct{ Body OKBody }, error) {
 			issueID := issueIDFromInt(in.Body.ID)
+			var projectID int32
+			if iss, gErr := h.Q.GetIssueByAnyProject(ctx, issueID); gErr == nil {
+				projectID = iss.ProjectID
+			}
 			err := h.Q.SetIssueField(ctx, db.SetIssueFieldParams{
 				Field: in.Body.Field,
 				Value: in.Body.Value,
@@ -838,6 +842,9 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
+			}
+			if projectID != 0 {
+				traceEvent(ctx, h.Q, projectID, "issue.field_updated", "issue_id", issueID, "field", in.Body.Field)
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
@@ -850,6 +857,10 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			}
 		}) (*struct{ Body OKBody }, error) {
 			issueID := issueIDFromInt(in.Body.ID)
+			var projectID int32
+			if iss, gErr := h.Q.GetIssueByAnyProject(ctx, issueID); gErr == nil {
+				projectID = iss.ProjectID
+			}
 			err := h.Q.SetIssueField(ctx, db.SetIssueFieldParams{
 				Field: "component",
 				Value: in.Body.Kind,
@@ -857,6 +868,9 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
+			}
+			if projectID != 0 {
+				traceEvent(ctx, h.Q, projectID, "issue.kind_set", "issue_id", issueID, "kind", in.Body.Kind)
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})

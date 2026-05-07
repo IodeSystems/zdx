@@ -134,6 +134,7 @@ func (h *Handler) registerPlanRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			traceEvent(ctx, h.Q, p.ID, "plan.created", "plan_id", row.ID, "title", row.Title)
 			return &struct{ Body PlanItem }{Body: planItemFromCreate(row)}, nil
 		})
 

@@ -278,6 +278,7 @@ func (h *Handler) registerQARoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			traceEvent(ctx, h.Q, p.ID, "blocker_question.answered", "question_id", in.Body.ID, "target_type", row.TargetType, "target_id", row.TargetID)
 			h.refreshQueueAsync(p.ID)
 			return &struct{ Body BlockerQuestionItem }{Body: toBlockerQuestionItem(row)}, nil
 		})

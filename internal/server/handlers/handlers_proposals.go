@@ -378,6 +378,7 @@ func (h *Handler) registerProposalRoutes(api huma.API) {
 					Body:       in.Body.Reason,
 				})
 			}
+			traceEvent(ctx, h.Q, p.ID, "proposal.rejected", "proposal_id", in.ID, "reason", in.Body.Reason)
 			return &struct{ Body ProposalItem }{Body: toProposalItem(updated)}, nil
 		})
 

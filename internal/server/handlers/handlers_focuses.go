@@ -173,6 +173,7 @@ func (h *Handler) registerFocusRoutes(api huma.API) {
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			traceEvent(ctx, h.Q, p.ID, "focus.blocker_added", "focus_id", focus.ID, "issue_id", in.Body.Issue)
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -198,6 +199,7 @@ func (h *Handler) registerFocusRoutes(api huma.API) {
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			traceEvent(ctx, h.Q, p.ID, "focus.blocker_removed", "focus_id", focus.ID, "issue_id", in.Body.Issue)
 			h.refreshQueueAsync(p.ID)
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
