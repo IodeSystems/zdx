@@ -7,7 +7,7 @@ import {
 import { ArrowBack as ArrowBackIcon, TrendingUp, TrendingDown, TrendingFlat } from '@mui/icons-material'
 import { useMemo } from 'react'
 import { useJournalEntry } from '../api'
-import { CommentsAndRevisions } from './CommentsAndRevisions'
+import { EventStream } from './EventStream'
 import { KpiSparklineRow } from './KpiSparklineRow'
 import { MarkdownContent } from './MarkdownContent'
 
@@ -188,7 +188,7 @@ export function JournalDetail({ slug, entryId }: { slug: string; entryId: string
       <Section label="Next Steps" content={entry.next} slug={slug} />
 
       <Box sx={{ mt: 3 }}>
-        <CommentsAndRevisions slug={slug} targetType="journal" targetId={entryId} />
+        <EventStream slug={slug} targetType="journal" targetId={entryId} />
       </Box>
     </Box>
   )
