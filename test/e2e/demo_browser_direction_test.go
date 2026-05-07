@@ -83,22 +83,29 @@ func TestDemoBrowser_ProjectDirectionTab(t *testing.T) {
 		t.Fatalf("goto direction tab: %v", err)
 	}
 
+	// Scope every locator to <main> — the left drawer nav also contains "Goals"
+	// and "Add" elements (one per project, with the non-current project's Collapse
+	// in MuiCollapse-hidden state). Without this scope, .First() can resolve to
+	// a hidden drawer match and waitFor never satisfies. The flake only surfaced
+	// once another browser demo seeded a second project earlier in the run.
+	main := page.Locator("main")
+
 	// Wait for the Goals section heading to appear (React app loaded + data fetched).
 	timeout := float64(15000)
-	if err := page.GetByText("Goals").First().WaitFor(pw.LocatorWaitForOptions{
+	if err := main.GetByText("Goals").First().WaitFor(pw.LocatorWaitForOptions{
 		State:   pw.WaitForSelectorStateVisible,
 		Timeout: &timeout,
 	}); err != nil {
 		t.Fatalf("goals section not visible within 15s: %v", err)
 	}
 
-	if ok, _ := page.GetByText("Goals").First().IsVisible(); !ok {
+	if ok, _ := main.GetByText("Goals").First().IsVisible(); !ok {
 		t.Error("Goals section heading not visible")
 	}
 
 	// The page exposes only the Goals section now (Constraints removed in
 	// IS-627). With 0 goals: Add[0]. With 1 goal: Add[0], Edit[1], Delete[2].
-	addBtn := page.GetByRole("button", pw.PageGetByRoleOptions{Name: "Add"}).First()
+	addBtn := main.GetByRole("button", pw.LocatorGetByRoleOptions{Name: "Add"}).First()
 
 	// ── Goal: create ────────────────────────────────────────────────────────
 	if err := addBtn.Click(); err != nil {

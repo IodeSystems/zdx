@@ -494,17 +494,27 @@ blocks the GAPD stream from being considered done.
   `bin/lint --intent` now reports `OK: raw-api-calls` (was
   `WARN: 3 callsites in 2 files`). `go vet` + `go test ./internal/cli/...`
   clean.
-- **Browser-demo cross-test flake.**
-  `TestDemoBrowser_ProjectDirectionTab` passes alone (~3s) but times
-  out on the Goals heading when run after another browser demo in the
-  same process. Pre-rewrite tests had the same binary-level isolation,
-  so this likely predates phase 2 — it was masked by a universal
-  SPA-404 regression. Suspected: `.zdx/demo/video/` accumulating per
-  context, or shared playwright-go runtime not actually disposing
-  between tests. Repro:
-  `STATIC_DIR=… TEST_DRIVER=ui dx test --layer demo --filter TestDemoBrowser_`.
-  Not blocking — demos are individually reliable and demo runs are
-  rarely batched.
+- ✅ **Browser-demo cross-test flake fixed (2026-05-06).**
+  Diagnosis was wrong in the prior plan note — the suspected
+  `.zdx/demo/video/` accumulation / playwright-runtime disposal was
+  not the cause. Real cause: `DrawerNav` in `__root.tsx` renders a
+  `<Collapse>` containing per-project nav links for **every project
+  returned by `useProjects()`**, with `in={isExpanded}` flipping the
+  non-current project's Collapse to `MuiCollapse-hidden`
+  (`visibility: hidden`). With one project (Direction alone),
+  `page.GetByText("Goals").First()` resolved to the visible nav
+  link. With two projects (after AgentsPoolPanel seeds
+  `demo-agents-pool`), `.First()` resolved to the **hidden**
+  `demo-agents-pool` nav link, then `WaitFor(state: visible)`
+  blocked indefinitely on that specific element.
+  Fix: scope every Goals/Add locator in the Direction test to
+  `page.Locator("main")`, which excludes the drawer entirely.
+  Direction now passes both alone and after AgentsPoolPanel
+  (~3s either way). All 4 browser demos green in one run.
+  General lesson for future browser demos: prefer
+  `page.Locator("main").GetBy*(…)` — drawer nav text bleeds
+  into top-level text locators once the project list grows past
+  one.
 - ✅ **Jest environment-card failures fixed (2026-05-06).**
   6 tests in `ui/src/routes/project/$slug/environments/index.test.tsx`
   were failing with `useNavigate is not a function`. Cause: the
