@@ -33,19 +33,30 @@ var MetaCloseIssue = metaquery.Query{
 	Name:   "CloseIssue",
 	Cmd:    ":exec",
 	Source: "issues.sql",
-	SQL:    `UPDATE zdx_issues SET status = 'closed', duplicate_of = $1, link_of = $2, close_reason = $3, closed_at = NOW(), updated_at = NOW() WHERE project_id = $4 AND id = $5`,
+	SQL: `UPDATE zdx_issues
+SET status = 'closed',
+    duplicate_of = $1,
+    link_of = $2,
+    close_reason = $3,
+    completed_in_sha = $4::text,
+    closed_dirty = $5::boolean,
+    closed_at = NOW(),
+    updated_at = NOW()
+WHERE project_id = $6 AND id = $7`,
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "duplicate_of", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 2, Name: "link_of", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 3, Name: "close_reason", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 4, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
-		{Position: 5, Name: "id", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 4, Name: "completed_in_sha", GoType: "pgtype.Text", DBType: "text"},
+		{Position: 5, Name: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool"},
+		{Position: 6, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 7, Name: "id", GoType: "string", DBType: "text", NotNull: true},
 	},
 }
 
 // WrapCloseIssue returns a metaquery.Builder over MetaCloseIssue, pre-bound with typed arguments.
 func WrapCloseIssue(arg CloseIssueParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaCloseIssue, arg.DuplicateOf, arg.LinkOf, arg.CloseReason, arg.ProjectID, arg.ID)
+	return metaquery.Wrap(&MetaCloseIssue, arg.DuplicateOf, arg.LinkOf, arg.CloseReason, arg.CompletedInSha, arg.ClosedDirty, arg.ProjectID, arg.ID)
 }
 
 var MetaCountOpenIssuesByTitle = metaquery.Query{
@@ -105,7 +116,7 @@ var MetaCreateIssue = metaquery.Query{
 	Source: "issues.sql",
 	SQL: `INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url, source_error_id, node_ref)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref`,
+RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_issues"},
@@ -127,6 +138,8 @@ RETURNING id, project_id, title, status, priority, component, context, created_a
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "node_ref", OriginalName: "node_ref", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "id", GoType: "string", DBType: "text", NotNull: true},
@@ -171,6 +184,8 @@ var CreateIssueCols = struct {
 	TargetBranch    metaquery.TextCol
 	CloseReason     metaquery.TextCol
 	NodeRef         metaquery.TextCol
+	CompletedInSha  metaquery.TextCol
+	ClosedDirty     metaquery.BoolCol
 }{
 	ID:              metaquery.NewTextCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -192,6 +207,8 @@ var CreateIssueCols = struct {
 	TargetBranch:    metaquery.NewTextCol("target_branch"),
 	CloseReason:     metaquery.NewTextCol("close_reason"),
 	NodeRef:         metaquery.NewTextCol("node_ref"),
+	CompletedInSha:  metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:     metaquery.NewBoolCol("closed_dirty"),
 }
 
 var MetaFindOpenIssueByTitle = metaquery.Query{
@@ -226,7 +243,7 @@ var MetaGetIssue = metaquery.Query{
 	Name:   "GetIssue",
 	Cmd:    ":one",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
 FROM zdx_issues WHERE project_id = $1 AND id = $2`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
@@ -249,6 +266,8 @@ FROM zdx_issues WHERE project_id = $1 AND id = $2`,
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "node_ref", OriginalName: "node_ref", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -283,6 +302,8 @@ var GetIssueCols = struct {
 	TargetBranch    metaquery.TextCol
 	CloseReason     metaquery.TextCol
 	NodeRef         metaquery.TextCol
+	CompletedInSha  metaquery.TextCol
+	ClosedDirty     metaquery.BoolCol
 }{
 	ID:              metaquery.NewTextCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -304,13 +325,15 @@ var GetIssueCols = struct {
 	TargetBranch:    metaquery.NewTextCol("target_branch"),
 	CloseReason:     metaquery.NewTextCol("close_reason"),
 	NodeRef:         metaquery.NewTextCol("node_ref"),
+	CompletedInSha:  metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:     metaquery.NewBoolCol("closed_dirty"),
 }
 
 var MetaGetIssueByAnyProject = metaquery.Query{
 	Name:   "GetIssueByAnyProject",
 	Cmd:    ":one",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
 FROM zdx_issues WHERE id = $1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
@@ -333,6 +356,8 @@ FROM zdx_issues WHERE id = $1`,
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "node_ref", OriginalName: "node_ref", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "id", GoType: "string", DBType: "text", NotNull: true},
@@ -366,6 +391,8 @@ var GetIssueByAnyProjectCols = struct {
 	TargetBranch    metaquery.TextCol
 	CloseReason     metaquery.TextCol
 	NodeRef         metaquery.TextCol
+	CompletedInSha  metaquery.TextCol
+	ClosedDirty     metaquery.BoolCol
 }{
 	ID:              metaquery.NewTextCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -387,13 +414,15 @@ var GetIssueByAnyProjectCols = struct {
 	TargetBranch:    metaquery.NewTextCol("target_branch"),
 	CloseReason:     metaquery.NewTextCol("close_reason"),
 	NodeRef:         metaquery.NewTextCol("node_ref"),
+	CompletedInSha:  metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:     metaquery.NewBoolCol("closed_dirty"),
 }
 
 var MetaGetIssueBySourceErrorID = metaquery.Query{
 	Name:   "GetIssueBySourceErrorID",
 	Cmd:    ":one",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
 FROM zdx_issues WHERE project_id = $1 AND source_error_id = $2
 LIMIT 1`,
 	Columns: []metaquery.Column{
@@ -417,6 +446,8 @@ LIMIT 1`,
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "node_ref", OriginalName: "node_ref", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -451,6 +482,8 @@ var GetIssueBySourceErrorIDCols = struct {
 	TargetBranch    metaquery.TextCol
 	CloseReason     metaquery.TextCol
 	NodeRef         metaquery.TextCol
+	CompletedInSha  metaquery.TextCol
+	ClosedDirty     metaquery.BoolCol
 }{
 	ID:              metaquery.NewTextCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -472,6 +505,8 @@ var GetIssueBySourceErrorIDCols = struct {
 	TargetBranch:    metaquery.NewTextCol("target_branch"),
 	CloseReason:     metaquery.NewTextCol("close_reason"),
 	NodeRef:         metaquery.NewTextCol("node_ref"),
+	CompletedInSha:  metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:     metaquery.NewBoolCol("closed_dirty"),
 }
 
 var MetaGetIssueWork = metaquery.Query{
@@ -677,7 +712,7 @@ var MetaListIssues = metaquery.Query{
 	Name:   "ListIssues",
 	Cmd:    ":many",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
 FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
@@ -700,6 +735,8 @@ FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC`,
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "node_ref", OriginalName: "node_ref", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -733,6 +770,8 @@ var ListIssuesCols = struct {
 	TargetBranch    metaquery.TextCol
 	CloseReason     metaquery.TextCol
 	NodeRef         metaquery.TextCol
+	CompletedInSha  metaquery.TextCol
+	ClosedDirty     metaquery.BoolCol
 }{
 	ID:              metaquery.NewTextCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -754,13 +793,106 @@ var ListIssuesCols = struct {
 	TargetBranch:    metaquery.NewTextCol("target_branch"),
 	CloseReason:     metaquery.NewTextCol("close_reason"),
 	NodeRef:         metaquery.NewTextCol("node_ref"),
+	CompletedInSha:  metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:     metaquery.NewBoolCol("closed_dirty"),
+}
+
+var MetaListIssuesClosedDirty = metaquery.Query{
+	Name:   "ListIssuesClosedDirty",
+	Cmd:    ":many",
+	Source: "issues.sql",
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
+FROM zdx_issues
+WHERE project_id = $1 AND closed_dirty = true
+ORDER BY closed_at DESC NULLS LAST`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_issues"},
+		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "priority", OriginalName: "priority", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "component", OriginalName: "component", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "context", OriginalName: "context", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_issues"},
+		{Name: "issue_type", OriginalName: "issue_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "duplicate_of", OriginalName: "duplicate_of", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "url", OriginalName: "url", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_issues"},
+		{Name: "source_error_id", OriginalName: "source_error_id", GoType: "pgtype.Int8", DBType: "int8", Table: "zdx_issues"},
+		{Name: "link_of", OriginalName: "link_of", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_issues"},
+		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_issues"},
+		{Name: "interactive_only", OriginalName: "interactive_only", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_issues"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "node_ref", OriginalName: "node_ref", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapListIssuesClosedDirty returns a metaquery.Builder over MetaListIssuesClosedDirty, pre-bound with typed arguments.
+func WrapListIssuesClosedDirty(projectID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListIssuesClosedDirty, projectID)
+}
+
+// ListIssuesClosedDirtyCols gives typed, name-safe access to ListIssuesClosedDirty's output columns.
+var ListIssuesClosedDirtyCols = struct {
+	ID              metaquery.TextCol
+	ProjectID       metaquery.IntCol
+	Title           metaquery.TextCol
+	Status          metaquery.TextCol
+	Priority        metaquery.TextCol
+	Component       metaquery.TextCol
+	Context         metaquery.TextCol
+	CreatedAt       metaquery.TimeCol
+	IssueType       metaquery.TextCol
+	DuplicateOf     metaquery.TextCol
+	Url             metaquery.TextCol
+	UpdatedAt       metaquery.TimeCol
+	SourceErrorID   metaquery.IntCol
+	LinkOf          metaquery.TextCol
+	ReopenCount     metaquery.IntCol
+	ClosedAt        metaquery.TimeCol
+	InteractiveOnly metaquery.BoolCol
+	TargetBranch    metaquery.TextCol
+	CloseReason     metaquery.TextCol
+	NodeRef         metaquery.TextCol
+	CompletedInSha  metaquery.TextCol
+	ClosedDirty     metaquery.BoolCol
+}{
+	ID:              metaquery.NewTextCol("id"),
+	ProjectID:       metaquery.NewIntCol("project_id"),
+	Title:           metaquery.NewTextCol("title"),
+	Status:          metaquery.NewTextCol("status"),
+	Priority:        metaquery.NewTextCol("priority"),
+	Component:       metaquery.NewTextCol("component"),
+	Context:         metaquery.NewTextCol("context"),
+	CreatedAt:       metaquery.NewTimeCol("created_at"),
+	IssueType:       metaquery.NewTextCol("issue_type"),
+	DuplicateOf:     metaquery.NewTextCol("duplicate_of"),
+	Url:             metaquery.NewTextCol("url"),
+	UpdatedAt:       metaquery.NewTimeCol("updated_at"),
+	SourceErrorID:   metaquery.NewIntCol("source_error_id"),
+	LinkOf:          metaquery.NewTextCol("link_of"),
+	ReopenCount:     metaquery.NewIntCol("reopen_count"),
+	ClosedAt:        metaquery.NewTimeCol("closed_at"),
+	InteractiveOnly: metaquery.NewBoolCol("interactive_only"),
+	TargetBranch:    metaquery.NewTextCol("target_branch"),
+	CloseReason:     metaquery.NewTextCol("close_reason"),
+	NodeRef:         metaquery.NewTextCol("node_ref"),
+	CompletedInSha:  metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:     metaquery.NewBoolCol("closed_dirty"),
 }
 
 var MetaListOpenIssues = metaquery.Query{
 	Name:   "ListOpenIssues",
 	Cmd:    ":many",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY updated_at DESC`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
@@ -783,6 +915,8 @@ FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY updated_at DE
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "node_ref", OriginalName: "node_ref", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -816,6 +950,8 @@ var ListOpenIssuesCols = struct {
 	TargetBranch    metaquery.TextCol
 	CloseReason     metaquery.TextCol
 	NodeRef         metaquery.TextCol
+	CompletedInSha  metaquery.TextCol
+	ClosedDirty     metaquery.BoolCol
 }{
 	ID:              metaquery.NewTextCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -837,13 +973,15 @@ var ListOpenIssuesCols = struct {
 	TargetBranch:    metaquery.NewTextCol("target_branch"),
 	CloseReason:     metaquery.NewTextCol("close_reason"),
 	NodeRef:         metaquery.NewTextCol("node_ref"),
+	CompletedInSha:  metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:     metaquery.NewBoolCol("closed_dirty"),
 }
 
 var MetaListOpenIssuesEligibleForBackport = metaquery.Query{
 	Name:   "ListOpenIssuesEligibleForBackport",
 	Cmd:    ":many",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
 FROM zdx_issues
 WHERE project_id = $1
   AND status = 'open'
@@ -872,6 +1010,8 @@ ORDER BY (priority)::int ASC, updated_at DESC`,
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "node_ref", OriginalName: "node_ref", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -906,6 +1046,8 @@ var ListOpenIssuesEligibleForBackportCols = struct {
 	TargetBranch    metaquery.TextCol
 	CloseReason     metaquery.TextCol
 	NodeRef         metaquery.TextCol
+	CompletedInSha  metaquery.TextCol
+	ClosedDirty     metaquery.BoolCol
 }{
 	ID:              metaquery.NewTextCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -927,13 +1069,15 @@ var ListOpenIssuesEligibleForBackportCols = struct {
 	TargetBranch:    metaquery.NewTextCol("target_branch"),
 	CloseReason:     metaquery.NewTextCol("close_reason"),
 	NodeRef:         metaquery.NewTextCol("node_ref"),
+	CompletedInSha:  metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:     metaquery.NewBoolCol("closed_dirty"),
 }
 
 var MetaListOpenLinkedIssues = metaquery.Query{
 	Name:   "ListOpenLinkedIssues",
 	Cmd:    ":many",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
 FROM zdx_issues
 WHERE project_id = $1
   AND status = 'open'
@@ -959,6 +1103,8 @@ WHERE project_id = $1
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "node_ref", OriginalName: "node_ref", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -993,6 +1139,8 @@ var ListOpenLinkedIssuesCols = struct {
 	TargetBranch    metaquery.TextCol
 	CloseReason     metaquery.TextCol
 	NodeRef         metaquery.TextCol
+	CompletedInSha  metaquery.TextCol
+	ClosedDirty     metaquery.BoolCol
 }{
 	ID:              metaquery.NewTextCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -1014,6 +1162,8 @@ var ListOpenLinkedIssuesCols = struct {
 	TargetBranch:    metaquery.NewTextCol("target_branch"),
 	CloseReason:     metaquery.NewTextCol("close_reason"),
 	NodeRef:         metaquery.NewTextCol("node_ref"),
+	CompletedInSha:  metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:     metaquery.NewBoolCol("closed_dirty"),
 }
 
 var MetaListWorklogForProject = metaquery.Query{
@@ -1147,7 +1297,7 @@ var MetaSearchIssues = metaquery.Query{
 	Name:   "SearchIssues",
 	Cmd:    ":many",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
 FROM zdx_issues
 WHERE project_id = $1
   AND (title ILIKE '%' || $2::text || '%' OR context ILIKE '%' || $2::text || '%')
@@ -1173,6 +1323,8 @@ ORDER BY updated_at DESC`,
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "node_ref", OriginalName: "node_ref", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -1207,6 +1359,8 @@ var SearchIssuesCols = struct {
 	TargetBranch    metaquery.TextCol
 	CloseReason     metaquery.TextCol
 	NodeRef         metaquery.TextCol
+	CompletedInSha  metaquery.TextCol
+	ClosedDirty     metaquery.BoolCol
 }{
 	ID:              metaquery.NewTextCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -1228,6 +1382,8 @@ var SearchIssuesCols = struct {
 	TargetBranch:    metaquery.NewTextCol("target_branch"),
 	CloseReason:     metaquery.NewTextCol("close_reason"),
 	NodeRef:         metaquery.NewTextCol("node_ref"),
+	CompletedInSha:  metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:     metaquery.NewBoolCol("closed_dirty"),
 }
 
 var MetaSetIssueField = metaquery.Query{

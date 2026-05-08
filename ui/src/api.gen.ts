@@ -630,6 +630,182 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/agent/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["agent-claim"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/agent/claim-any": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["agent-claim-any"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/agent/claims": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["agent-list-claims"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/agent/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["agent-health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/agent/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-agent-queue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/agent/queue/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["agent-apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/agent/queue/evaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["agent-evaluate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/agent/queue/unblock-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["agent-unblock-all"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/agent/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["agent-release"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/agent/renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["agent-renew"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/agent/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["agent-list-reservations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/agent/sessions/{sid}/close": {
         parameters: {
             query?: never;
@@ -3030,6 +3206,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/qa/link-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["link-question-task"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/qa/list": {
         parameters: {
             query?: never;
@@ -3038,6 +3230,38 @@ export interface paths {
             cookie?: never;
         };
         get: operations["list-questions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/qa/owner": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["update-question-owner"];
+        trace?: never;
+    };
+    "/api/dx/qa/questions-by-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-questions-by-task"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3062,6 +3286,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/qa/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-tasks-by-question"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/qa/unanswered": {
         parameters: {
             query?: never;
@@ -3073,6 +3313,22 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/qa/unlink-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["unlink-question-task"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3200,182 +3456,6 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["report-slow-query"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/agent/queue": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["list-agent-queue"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/agent/queue/apply": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["agent-apply"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/agent/claim": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["agent-claim"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/agent/claim-any": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["agent-claim-any"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/agent/claims": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["agent-list-claims"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/agent/queue/evaluate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["agent-evaluate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/agent/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["agent-health"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/agent/release": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["agent-release"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/agent/renew": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["agent-renew"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/agent/reservations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["agent-list-reservations"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/agent/queue/unblock-all": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["agent-unblock-all"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5519,6 +5599,10 @@ export interface components {
             blocked_by: string[] | null;
             blocked_by_detail: components["schemas"]["IssueBlockerRef"][] | null;
             close_reason?: string;
+            /** @description True only when the issue was force-closed against an unclean working tree (audit hook). */
+            closed_dirty?: boolean;
+            /** @description Commit (HEAD or operator-asserted via --commit) that completed the issue. Set on close; null for historical pre-IS-1062 closes. */
+            completed_in_sha?: string;
             component: string;
             context: string;
             created_at: string;
@@ -5628,6 +5712,8 @@ export interface components {
              */
             readonly $schema?: string;
             category: string;
+            /** Format: int32 */
+            owner_user_id?: number;
             /** Format: int32 */
             parent_question_id?: number;
             question: string;
@@ -5768,6 +5854,180 @@ export interface components {
             slug: string;
             task_id: string;
         };
+        "Agent-applyRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Agent-applyRequest.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["AgentQueueItem"][] | null;
+            slug: string;
+        };
+        "Agent-claim-anyRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Agent-claim-anyRequest.json
+             */
+            readonly $schema?: string;
+            agent_id: string;
+            /** Format: int32 */
+            lease_minutes?: number;
+            mode?: string;
+        };
+        "Agent-claimRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Agent-claimRequest.json
+             */
+            readonly $schema?: string;
+            agent_id: string;
+            /** Format: int32 */
+            lease_minutes?: number;
+            mode?: string;
+            slug: string;
+        };
+        "Agent-evaluateRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Agent-evaluateRequest.json
+             */
+            readonly $schema?: string;
+            issue: string;
+            slug: string;
+        };
+        "Agent-healthResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Agent-healthResponse.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            closed_task_count: number;
+            /** Format: int64 */
+            goal_count: number;
+            owner_journal_date: string;
+            tech_journal_date: string;
+        };
+        "Agent-list-claimsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Agent-list-claimsResponse.json
+             */
+            readonly $schema?: string;
+            tasks: components["schemas"]["AgentTaskItem"][] | null;
+            todos: components["schemas"]["TodoItem"][] | null;
+        };
+        "Agent-list-reservationsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Agent-list-reservationsResponse.json
+             */
+            readonly $schema?: string;
+            reservations: components["schemas"]["ReservationItem"][] | null;
+        };
+        "Agent-releaseRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Agent-releaseRequest.json
+             */
+            readonly $schema?: string;
+            agent_id: string;
+            branch_state?: components["schemas"]["BranchState"];
+            force?: boolean;
+            /** Format: int32 */
+            id: number;
+            resolve?: boolean;
+            session_id?: string;
+        };
+        "Agent-releaseResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Agent-releaseResponse.json
+             */
+            readonly $schema?: string;
+            churn_downgraded?: boolean;
+            cycle_detected?: boolean;
+            ok: boolean;
+        };
+        "Agent-renewRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Agent-renewRequest.json
+             */
+            readonly $schema?: string;
+            agent_id: string;
+            /** Format: int32 */
+            id: number;
+            /** Format: int32 */
+            lease_minutes?: number;
+        };
+        "Agent-unblock-allRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Agent-unblock-allRequest.json
+             */
+            readonly $schema?: string;
+            slug: string;
+        };
+        "Agent-unblock-allResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Agent-unblock-allResponse.json
+             */
+            readonly $schema?: string;
+            ok: boolean;
+        };
+        AgentClaimBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/AgentClaimBody.json
+             */
+            readonly $schema?: string;
+            blocked: boolean;
+            blocked_reason?: string;
+            claim_base_branch?: string;
+            claim_base_sha?: string;
+            claim_contract?: string;
+            claimed_at?: string;
+            claimed_by?: string;
+            created_at: string;
+            /** Format: int32 */
+            cycle_count?: number;
+            debug?: components["schemas"]["DebugOutput"];
+            description?: string;
+            /** Format: int32 */
+            id: number;
+            instructions?: string;
+            issue_ref: string;
+            key: string;
+            kind: string;
+            persona: string;
+            /** Format: int32 */
+            priority: number;
+            project_slug?: string;
+            reference_issue_id?: string;
+            resolved_at?: string;
+            status: string;
+            suggested_action?: string;
+            target_branch?: string;
+            target_id: string;
+            target_type: string;
+            text: string;
+            title?: string;
+        };
         AgentItem: {
             /**
              * Format: uri
@@ -5798,6 +6058,24 @@ export interface components {
             valkey_url: string;
             worktree_branch: string;
             worktree_path: string;
+        };
+        AgentQueueItem: {
+            blocked: boolean;
+            blocked_reason?: string;
+            description?: string;
+            issue_ref: string;
+            key: string;
+            kind: string;
+            persona: string;
+            /** Format: int32 */
+            priority: number;
+            status: string;
+            suggested_action?: string;
+            target_branch?: string;
+            target_id: string;
+            target_type: string;
+            text: string;
+            title?: string;
         };
         AgentTaskItem: {
             /**
@@ -6371,6 +6649,10 @@ export interface components {
              */
             readonly $schema?: string;
             branch_state?: components["schemas"]["BranchState"];
+            /** @description True when the close occurred against an unclean working tree — the CLI sets this when --force overrides the clean-tree gate (IS-1062). */
+            closed_dirty?: boolean;
+            /** @description Commit SHA that completed the issue (HEAD or operator-asserted via dx issue close --commit). Recorded on the row for auditability (IS-1062). */
+            completed_in_sha?: string;
             duplicate_of?: string;
             force?: boolean;
             /** Format: int32 */
@@ -7807,6 +8089,10 @@ export interface components {
             blocked_by: string[] | null;
             blocked_by_detail: components["schemas"]["IssueBlockerRef"][] | null;
             close_reason?: string;
+            /** @description True only when the issue was force-closed against an unclean working tree (audit hook). */
+            closed_dirty?: boolean;
+            /** @description Commit (HEAD or operator-asserted via --commit) that completed the issue. Set on close; null for historical pre-IS-1062 closes. */
+            completed_in_sha?: string;
             component: string;
             context: string;
             created_at: string;
@@ -8011,6 +8297,18 @@ export interface components {
             slug: string;
             /** Format: int32 */
             spec_id?: number;
+        };
+        "Link-question-taskRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Link-question-taskRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            question_id: number;
+            slug: string;
+            task_id: string;
         };
         "Link-spec-issueRequest": {
             /**
@@ -8741,6 +9039,15 @@ export interface components {
             readonly $schema?: string;
             proposals: components["schemas"]["QuestionProposalItem"][] | null;
         };
+        "List-questions-by-taskResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-questions-by-taskResponse.json
+             */
+            readonly $schema?: string;
+            questions: components["schemas"]["QuestionItem"][] | null;
+        };
         "List-questionsResponse": {
             /**
              * Format: uri
@@ -8935,6 +9242,15 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        "List-tasks-by-questionResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-tasks-by-questionResponse.json
+             */
+            readonly $schema?: string;
+            tasks: components["schemas"]["ListTasksByQuestionRow"][] | null;
+        };
         "List-tasks-for-issueResponse": {
             /**
              * Format: uri
@@ -9092,6 +9408,21 @@ export interface components {
              */
             readonly $schema?: string;
             clients: components["schemas"]["ClientItem"][] | null;
+        };
+        ListTasksByQuestionRow: {
+            created_at: components["schemas"]["Timestamptz"];
+            feature: string;
+            id: string;
+            issue: string;
+            reason: string;
+            status: string;
+            target_branch: string;
+            task_group: string;
+            test_plan: string;
+            test_refs: string;
+            text: string;
+            title: string;
+            updated_at: components["schemas"]["Timestamptz"];
         };
         LogEventGroupedItem: {
             /** Format: int32 */
@@ -9440,6 +9771,8 @@ export interface components {
             created_at: string;
             /** Format: int32 */
             id: number;
+            /** Format: int32 */
+            owner_user_id?: number;
             /** Format: int32 */
             parent_question_id: number | null;
             question: string;
@@ -10413,198 +10746,6 @@ export interface components {
             slug: string;
             snoozed_until: string;
         };
-        "Agent-applyRequest": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Solo-applyRequest.json
-             */
-            readonly $schema?: string;
-            items: components["schemas"]["AgentQueueItem"][] | null;
-            slug: string;
-        };
-        "Agent-claim-anyRequest": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Solo-claim-anyRequest.json
-             */
-            readonly $schema?: string;
-            agent_id: string;
-            /** Format: int32 */
-            lease_minutes?: number;
-            mode?: string;
-        };
-        "Agent-claimRequest": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Solo-claimRequest.json
-             */
-            readonly $schema?: string;
-            agent_id: string;
-            /** Format: int32 */
-            lease_minutes?: number;
-            mode?: string;
-            slug: string;
-        };
-        "Agent-evaluateRequest": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Solo-evaluateRequest.json
-             */
-            readonly $schema?: string;
-            issue: string;
-            slug: string;
-        };
-        "Agent-healthResponse": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Solo-healthResponse.json
-             */
-            readonly $schema?: string;
-            /** Format: int64 */
-            closed_task_count: number;
-            /** Format: int64 */
-            goal_count: number;
-            owner_journal_date: string;
-            tech_journal_date: string;
-        };
-        "Agent-list-claimsResponse": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Solo-list-claimsResponse.json
-             */
-            readonly $schema?: string;
-            tasks: components["schemas"]["AgentTaskItem"][] | null;
-            todos: components["schemas"]["TodoItem"][] | null;
-        };
-        "Agent-list-reservationsResponse": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Solo-list-reservationsResponse.json
-             */
-            readonly $schema?: string;
-            reservations: components["schemas"]["ReservationItem"][] | null;
-        };
-        "Agent-releaseRequest": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Solo-releaseRequest.json
-             */
-            readonly $schema?: string;
-            agent_id: string;
-            branch_state?: components["schemas"]["BranchState"];
-            force?: boolean;
-            /** Format: int32 */
-            id: number;
-            resolve?: boolean;
-            session_id?: string;
-        };
-        "Agent-releaseResponse": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Solo-releaseResponse.json
-             */
-            readonly $schema?: string;
-            churn_downgraded?: boolean;
-            cycle_detected?: boolean;
-            ok: boolean;
-        };
-        "Agent-renewRequest": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Solo-renewRequest.json
-             */
-            readonly $schema?: string;
-            agent_id: string;
-            /** Format: int32 */
-            id: number;
-            /** Format: int32 */
-            lease_minutes?: number;
-        };
-        "Agent-unblock-allRequest": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Solo-unblock-allRequest.json
-             */
-            readonly $schema?: string;
-            slug: string;
-        };
-        "Agent-unblock-allResponse": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Solo-unblock-allResponse.json
-             */
-            readonly $schema?: string;
-            ok: boolean;
-        };
-        AgentClaimBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SoloClaimBody.json
-             */
-            readonly $schema?: string;
-            blocked: boolean;
-            blocked_reason?: string;
-            claim_base_branch?: string;
-            claim_base_sha?: string;
-            claim_contract?: string;
-            claimed_at?: string;
-            claimed_by?: string;
-            created_at: string;
-            /** Format: int32 */
-            cycle_count?: number;
-            debug?: components["schemas"]["DebugOutput"];
-            description?: string;
-            /** Format: int32 */
-            id: number;
-            instructions?: string;
-            issue_ref: string;
-            key: string;
-            kind: string;
-            persona: string;
-            /** Format: int32 */
-            priority: number;
-            project_slug?: string;
-            reference_issue_id?: string;
-            resolved_at?: string;
-            status: string;
-            suggested_action?: string;
-            target_branch?: string;
-            target_id: string;
-            target_type: string;
-            text: string;
-            title?: string;
-        };
-        AgentQueueItem: {
-            blocked: boolean;
-            blocked_reason?: string;
-            description?: string;
-            issue_ref: string;
-            key: string;
-            kind: string;
-            persona: string;
-            /** Format: int32 */
-            priority: number;
-            status: string;
-            suggested_action?: string;
-            target_branch?: string;
-            target_id: string;
-            target_type: string;
-            text: string;
-            title?: string;
-        };
         SpecCloseGateOffender: {
             description: string;
             feature: string;
@@ -10951,6 +11092,13 @@ export interface components {
             /** Format: int64 */
             total_ms: number;
         };
+        Timestamptz: {
+            /** Format: int32 */
+            InfinityModifier: number;
+            /** Format: date-time */
+            Time: string;
+            Valid: boolean;
+        };
         TodoDetailBody: {
             /**
              * Format: uri
@@ -11094,6 +11242,18 @@ export interface components {
             slug: string;
             /** Format: int32 */
             spec_id?: number;
+        };
+        "Unlink-question-taskRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Unlink-question-taskRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            question_id: number;
+            slug: string;
+            task_id: string;
         };
         "Unlink-spec-issueRequest": {
             /**
@@ -11264,6 +11424,19 @@ export interface components {
             slug: string;
             title: string;
             value: string;
+        };
+        "Update-question-ownerRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Update-question-ownerRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            id: number;
+            /** Format: int32 */
+            owner_user_id: number;
+            slug: string;
         };
         "Update-specsRequest": {
             /**
@@ -12996,6 +13169,374 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Get-configResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "agent-claim": {
+        parameters: {
+            query?: {
+                debug?: string;
+            };
+            header?: {
+                "X-Atlas-Debug"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Agent-claimRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentClaimBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "agent-claim-any": {
+        parameters: {
+            query?: {
+                debug?: string;
+            };
+            header?: {
+                "X-Atlas-Debug"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Agent-claim-anyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentClaimBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "agent-list-claims": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Agent-list-claimsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "agent-health": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Agent-healthResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-agent-queue": {
+        parameters: {
+            query: {
+                slug: string;
+                issue?: string;
+                blocked?: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoItem"][] | null;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "agent-apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Agent-applyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "agent-evaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Agent-evaluateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluateDiff"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "agent-unblock-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Agent-unblock-allRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Agent-unblock-allResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "agent-release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Agent-releaseRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Agent-releaseResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "agent-renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Agent-renewRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "agent-list-reservations": {
+        parameters: {
+            query: {
+                slug: string;
+                issue_id?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Agent-list-reservationsResponse"];
                 };
             };
             /** @description Error */
@@ -18534,14 +19075,46 @@ export interface operations {
             };
         };
     };
+    "link-question-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Link-question-taskRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-questions": {
         parameters: {
             query: {
                 slug: string;
+                owner?: string;
                 limit?: number;
                 offset?: number;
-                status?: string;
-                search?: string;
             };
             header?: never;
             path?: never;
@@ -18556,6 +19129,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-questionsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-question-owner": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Update-question-ownerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-questions-by-task": {
+        parameters: {
+            query: {
+                slug: string;
+                task_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-questions-by-taskResponse"];
                 };
             };
             /** @description Error */
@@ -18602,6 +19240,38 @@ export interface operations {
             };
         };
     };
+    "list-tasks-by-question": {
+        parameters: {
+            query: {
+                slug: string;
+                question_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-tasks-by-questionResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-unanswered-questions": {
         parameters: {
             query: {
@@ -18620,6 +19290,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-unanswered-questionsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "unlink-question-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Unlink-question-taskRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
                 };
             };
             /** @description Error */
@@ -18889,374 +19592,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SlowQueryItem"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "list-agent-queue": {
-        parameters: {
-            query: {
-                slug: string;
-                issue?: string;
-                blocked?: string;
-                status?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TodoItem"][] | null;
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "agent-apply": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Agent-applyRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OKBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "agent-claim": {
-        parameters: {
-            query?: {
-                debug?: string;
-            };
-            header?: {
-                "X-Atlas-Debug"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Agent-claimRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentClaimBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "agent-claim-any": {
-        parameters: {
-            query?: {
-                debug?: string;
-            };
-            header?: {
-                "X-Atlas-Debug"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Agent-claim-anyRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AgentClaimBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "agent-list-claims": {
-        parameters: {
-            query: {
-                slug: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Agent-list-claimsResponse"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "agent-evaluate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Agent-evaluateRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EvaluateDiff"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "agent-health": {
-        parameters: {
-            query: {
-                slug: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Agent-healthResponse"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "agent-release": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Agent-releaseRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Agent-releaseResponse"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "agent-renew": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Agent-renewRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OKBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "agent-list-reservations": {
-        parameters: {
-            query: {
-                slug: string;
-                issue_id?: string;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Agent-list-reservationsResponse"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "agent-unblock-all": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Agent-unblock-allRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Agent-unblock-allResponse"];
                 };
             };
             /** @description Error */
@@ -21168,6 +21503,8 @@ export interface operations {
                 status?: string;
                 search?: string;
                 component?: string;
+                /** @description Filter to issues that were force-closed against an unclean working tree (IS-1062). */
+                closed_dirty?: boolean;
             };
             header?: never;
             path?: never;

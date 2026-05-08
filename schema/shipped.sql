@@ -4,6 +4,7 @@
 
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1338,7 +1339,9 @@ CREATE TABLE public.zdx_issues (
     interactive_only boolean DEFAULT false NOT NULL,
     target_branch text DEFAULT 'dev'::text NOT NULL,
     close_reason text DEFAULT ''::text NOT NULL,
-    node_ref text
+    node_ref text,
+    completed_in_sha text,
+    closed_dirty boolean
 );
 
 
@@ -2091,6 +2094,17 @@ CREATE SEQUENCE public.zdx_question_proposals_id_seq
 --
 
 ALTER SEQUENCE public.zdx_question_proposals_id_seq OWNED BY public.zdx_question_proposals.id;
+
+
+--
+-- Name: zdx_question_tasks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_question_tasks (
+    question_id integer NOT NULL,
+    task_id text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
 
 
 --
@@ -4137,6 +4151,14 @@ ALTER TABLE ONLY public.zdx_question_proposals
 
 
 --
+-- Name: zdx_question_tasks zdx_question_tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_question_tasks
+    ADD CONSTRAINT zdx_question_tasks_pkey PRIMARY KEY (question_id, task_id);
+
+
+--
 -- Name: zdx_questions zdx_questions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4676,6 +4698,27 @@ CREATE INDEX idx_question_proposals_status ON public.zdx_question_proposals USIN
 
 
 --
+-- Name: idx_question_tasks_question; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_question_tasks_question ON public.zdx_question_tasks USING btree (question_id);
+
+
+--
+-- Name: idx_question_tasks_task; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_question_tasks_task ON public.zdx_question_tasks USING btree (task_id);
+
+
+--
+-- Name: idx_questions_owner_unanswered; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_questions_owner_unanswered ON public.zdx_questions USING btree (owner_user_id) WHERE ((owner_user_id IS NOT NULL) AND (answer IS NULL));
+
+
+--
 -- Name: idx_questions_parent; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4785,6 +4828,13 @@ CREATE INDEX idx_tests_project ON public.zdx_tests USING btree (project_id);
 --
 
 CREATE INDEX idx_tests_status ON public.zdx_tests USING btree (project_id, status);
+
+
+--
+-- Name: idx_zdx_issues_closed_dirty; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_zdx_issues_closed_dirty ON public.zdx_issues USING btree (project_id) WHERE (closed_dirty = true);
 
 
 --
@@ -5844,6 +5894,30 @@ ALTER TABLE ONLY public.zdx_question_proposals
 
 
 --
+-- Name: zdx_question_tasks zdx_question_tasks_question_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_question_tasks
+    ADD CONSTRAINT zdx_question_tasks_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.zdx_questions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_question_tasks zdx_question_tasks_task_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_question_tasks
+    ADD CONSTRAINT zdx_question_tasks_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.zdx_tasks(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_questions zdx_questions_owner_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_questions
+    ADD CONSTRAINT zdx_questions_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES public.zdx_users(id) ON DELETE SET NULL;
+
+
+--
 -- Name: zdx_questions zdx_questions_parent_question_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6186,28 +6260,6 @@ ALTER TABLE ONLY public.zdx_version_branches
 ALTER TABLE ONLY public.zdx_work_log
     ADD CONSTRAINT zdx_work_log_issue_id_fkey FOREIGN KEY (issue_id) REFERENCES public.zdx_issues(id) ON DELETE CASCADE;
 
-
---
--- Name: zdx_question_tasks; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.zdx_question_tasks (
-    question_id integer NOT NULL,
-    task_id text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-ALTER TABLE ONLY public.zdx_question_tasks
-    ADD CONSTRAINT zdx_question_tasks_pkey PRIMARY KEY (question_id, task_id);
-
-CREATE INDEX idx_question_tasks_question ON public.zdx_question_tasks USING btree (question_id);
-CREATE INDEX idx_question_tasks_task ON public.zdx_question_tasks USING btree (task_id);
-
-ALTER TABLE ONLY public.zdx_question_tasks
-    ADD CONSTRAINT zdx_question_tasks_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.zdx_questions(id) ON DELETE CASCADE;
-
-ALTER TABLE ONLY public.zdx_question_tasks
-    ADD CONSTRAINT zdx_question_tasks_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.zdx_tasks(id) ON DELETE CASCADE;
 
 --
 -- PostgreSQL database dump complete

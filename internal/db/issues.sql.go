@@ -27,22 +27,38 @@ func (q *Queries) AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams
 }
 
 const closeIssue = `-- name: CloseIssue :exec
-UPDATE zdx_issues SET status = 'closed', duplicate_of = $1, link_of = $2, close_reason = $3, closed_at = NOW(), updated_at = NOW() WHERE project_id = $4 AND id = $5
+UPDATE zdx_issues
+SET status = 'closed',
+    duplicate_of = $1,
+    link_of = $2,
+    close_reason = $3,
+    completed_in_sha = $4::text,
+    closed_dirty = $5::boolean,
+    closed_at = NOW(),
+    updated_at = NOW()
+WHERE project_id = $6 AND id = $7
 `
 
 type CloseIssueParams struct {
-	DuplicateOf string `db:"duplicate_of" json:"duplicate_of"`
-	LinkOf      string `db:"link_of" json:"link_of"`
-	CloseReason string `db:"close_reason" json:"close_reason"`
-	ProjectID   int32  `db:"project_id" json:"project_id"`
-	ID          string `db:"id" json:"id"`
+	DuplicateOf    string      `db:"duplicate_of" json:"duplicate_of"`
+	LinkOf         string      `db:"link_of" json:"link_of"`
+	CloseReason    string      `db:"close_reason" json:"close_reason"`
+	CompletedInSha pgtype.Text `db:"completed_in_sha" json:"completed_in_sha"`
+	ClosedDirty    pgtype.Bool `db:"closed_dirty" json:"closed_dirty"`
+	ProjectID      int32       `db:"project_id" json:"project_id"`
+	ID             string      `db:"id" json:"id"`
 }
 
+// IS-1062: completed_in_sha is the HEAD (or operator-asserted) commit that
+// completed the issue. closed_dirty is true when --force overrode the
+// clean-tree gate (impl/ops only) — an audit hook for force-closes.
 func (q *Queries) CloseIssue(ctx context.Context, arg CloseIssueParams) error {
 	_, err := q.db.Exec(ctx, closeIssue,
 		arg.DuplicateOf,
 		arg.LinkOf,
 		arg.CloseReason,
+		arg.CompletedInSha,
+		arg.ClosedDirty,
 		arg.ProjectID,
 		arg.ID,
 	)
@@ -118,7 +134,7 @@ func (q *Queries) CountSubstantiveIssueWork(ctx context.Context, issueID string)
 const createIssue = `-- name: CreateIssue :one
 INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url, source_error_id, node_ref)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
 `
 
 type CreateIssueParams struct {
@@ -171,6 +187,8 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIs
 		&i.TargetBranch,
 		&i.CloseReason,
 		&i.NodeRef,
+		&i.CompletedInSha,
+		&i.ClosedDirty,
 	)
 	return i, err
 }
@@ -198,7 +216,7 @@ func (q *Queries) FindOpenIssueByTitle(ctx context.Context, arg FindOpenIssueByT
 }
 
 const getIssue = `-- name: GetIssue :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
 FROM zdx_issues WHERE project_id = $1 AND id = $2
 `
 
@@ -231,12 +249,14 @@ func (q *Queries) GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, e
 		&i.TargetBranch,
 		&i.CloseReason,
 		&i.NodeRef,
+		&i.CompletedInSha,
+		&i.ClosedDirty,
 	)
 	return i, err
 }
 
 const getIssueByAnyProject = `-- name: GetIssueByAnyProject :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
 FROM zdx_issues WHERE id = $1
 `
 
@@ -264,12 +284,14 @@ func (q *Queries) GetIssueByAnyProject(ctx context.Context, id string) (ZdxIssue
 		&i.TargetBranch,
 		&i.CloseReason,
 		&i.NodeRef,
+		&i.CompletedInSha,
+		&i.ClosedDirty,
 	)
 	return i, err
 }
 
 const getIssueBySourceErrorID = `-- name: GetIssueBySourceErrorID :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
 FROM zdx_issues WHERE project_id = $1 AND source_error_id = $2
 LIMIT 1
 `
@@ -303,6 +325,8 @@ func (q *Queries) GetIssueBySourceErrorID(ctx context.Context, arg GetIssueBySou
 		&i.TargetBranch,
 		&i.CloseReason,
 		&i.NodeRef,
+		&i.CompletedInSha,
+		&i.ClosedDirty,
 	)
 	return i, err
 }
@@ -509,7 +533,7 @@ func (q *Queries) ListHistoricalCloseGateOffenders(ctx context.Context, projectI
 }
 
 const listIssues = `-- name: ListIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
 FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC
 `
 
@@ -543,6 +567,60 @@ func (q *Queries) ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, 
 			&i.TargetBranch,
 			&i.CloseReason,
 			&i.NodeRef,
+			&i.CompletedInSha,
+			&i.ClosedDirty,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listIssuesClosedDirty = `-- name: ListIssuesClosedDirty :many
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
+FROM zdx_issues
+WHERE project_id = $1 AND closed_dirty = true
+ORDER BY closed_at DESC NULLS LAST
+`
+
+// IS-1062: surfacing hook for `dx issue list --closed-dirty`. Returns issues
+// that were force-closed against an unclean working tree, newest first.
+func (q *Queries) ListIssuesClosedDirty(ctx context.Context, projectID int32) ([]ZdxIssue, error) {
+	rows, err := q.db.Query(ctx, listIssuesClosedDirty, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxIssue
+	for rows.Next() {
+		var i ZdxIssue
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Title,
+			&i.Status,
+			&i.Priority,
+			&i.Component,
+			&i.Context,
+			&i.CreatedAt,
+			&i.IssueType,
+			&i.DuplicateOf,
+			&i.Url,
+			&i.UpdatedAt,
+			&i.SourceErrorID,
+			&i.LinkOf,
+			&i.ReopenCount,
+			&i.ClosedAt,
+			&i.InteractiveOnly,
+			&i.TargetBranch,
+			&i.CloseReason,
+			&i.NodeRef,
+			&i.CompletedInSha,
+			&i.ClosedDirty,
 		); err != nil {
 			return nil, err
 		}
@@ -555,7 +633,7 @@ func (q *Queries) ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, 
 }
 
 const listOpenIssues = `-- name: ListOpenIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY updated_at DESC
 `
 
@@ -589,6 +667,8 @@ func (q *Queries) ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIss
 			&i.TargetBranch,
 			&i.CloseReason,
 			&i.NodeRef,
+			&i.CompletedInSha,
+			&i.ClosedDirty,
 		); err != nil {
 			return nil, err
 		}
@@ -601,7 +681,7 @@ func (q *Queries) ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIss
 }
 
 const listOpenIssuesEligibleForBackport = `-- name: ListOpenIssuesEligibleForBackport :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
 FROM zdx_issues
 WHERE project_id = $1
   AND status = 'open'
@@ -654,6 +734,8 @@ func (q *Queries) ListOpenIssuesEligibleForBackport(ctx context.Context, arg Lis
 			&i.TargetBranch,
 			&i.CloseReason,
 			&i.NodeRef,
+			&i.CompletedInSha,
+			&i.ClosedDirty,
 		); err != nil {
 			return nil, err
 		}
@@ -666,7 +748,7 @@ func (q *Queries) ListOpenIssuesEligibleForBackport(ctx context.Context, arg Lis
 }
 
 const listOpenLinkedIssues = `-- name: ListOpenLinkedIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
 FROM zdx_issues
 WHERE project_id = $1
   AND status = 'open'
@@ -710,6 +792,8 @@ func (q *Queries) ListOpenLinkedIssues(ctx context.Context, arg ListOpenLinkedIs
 			&i.TargetBranch,
 			&i.CloseReason,
 			&i.NodeRef,
+			&i.CompletedInSha,
+			&i.ClosedDirty,
 		); err != nil {
 			return nil, err
 		}
@@ -887,7 +971,7 @@ func (q *Queries) ReopenIssue(ctx context.Context, arg ReopenIssueParams) error 
 }
 
 const searchIssues = `-- name: SearchIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
 FROM zdx_issues
 WHERE project_id = $1
   AND (title ILIKE '%' || $2::text || '%' OR context ILIKE '%' || $2::text || '%')
@@ -929,6 +1013,8 @@ func (q *Queries) SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]Z
 			&i.TargetBranch,
 			&i.CloseReason,
 			&i.NodeRef,
+			&i.CompletedInSha,
+			&i.ClosedDirty,
 		); err != nil {
 			return nil, err
 		}

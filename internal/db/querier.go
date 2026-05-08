@@ -73,6 +73,9 @@ type Querier interface {
 	ClearFeatureParent(ctx context.Context, id int32) error
 	ClearStaleFlag(ctx context.Context, id string) error
 	CloseClaudeSession(ctx context.Context, id int64) error
+	// IS-1062: completed_in_sha is the HEAD (or operator-asserted) commit that
+	// completed the issue. closed_dirty is true when --force overrode the
+	// clean-tree gate (impl/ops only) — an audit hook for force-closes.
 	CloseIssue(ctx context.Context, arg CloseIssueParams) error
 	CloseStaleClaudeSessions(ctx context.Context, staleMinutes int32) ([]CloseStaleClaudeSessionsRow, error)
 	CountApiKeys(ctx context.Context) (int32, error)
@@ -450,6 +453,9 @@ type Querier interface {
 	ListIssueSpecs(ctx context.Context, issueID string) ([]ListIssueSpecsRow, error)
 	ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	ListIssuesBlockedBy(ctx context.Context, blockedByID string) ([]string, error)
+	// IS-1062: surfacing hook for `dx issue list --closed-dirty`. Returns issues
+	// that were force-closed against an unclean working tree, newest first.
+	ListIssuesClosedDirty(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	ListJournalEntries(ctx context.Context, arg ListJournalEntriesParams) ([]ListJournalEntriesRow, error)
 	ListKpiTrend(ctx context.Context, arg ListKpiTrendParams) ([]ZdxKpiSample, error)
 	ListLLMConfigs(ctx context.Context) ([]ListLLMConfigsRow, error)

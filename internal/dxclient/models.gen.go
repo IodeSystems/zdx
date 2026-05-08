@@ -154,11 +154,17 @@ type AddIssueResponse struct {
 	BlockedBy       *[]string          `json:"blocked_by"`
 	BlockedByDetail *[]IssueBlockerRef `json:"blocked_by_detail"`
 	CloseReason     *string            `json:"close_reason,omitempty"`
-	Component       string             `json:"component"`
-	Context         string             `json:"context"`
-	CreatedAt       string             `json:"created_at"`
-	DuplicateOf     *string            `json:"duplicate_of,omitempty"`
-	Features        string             `json:"features"`
+
+	// ClosedDirty True only when the issue was force-closed against an unclean working tree (audit hook).
+	ClosedDirty *bool `json:"closed_dirty,omitempty"`
+
+	// CompletedInSha Commit (HEAD or operator-asserted via --commit) that completed the issue. Set on close; null for historical pre-IS-1062 closes.
+	CompletedInSha *string `json:"completed_in_sha,omitempty"`
+	Component      string  `json:"component"`
+	Context        string  `json:"context"`
+	CreatedAt      string  `json:"created_at"`
+	DuplicateOf    *string `json:"duplicate_of,omitempty"`
+	Features       string  `json:"features"`
 
 	// Id Server integer ID; CLI formats as IS-N
 	Id              int32   `json:"id"`
@@ -242,6 +248,7 @@ type AddQuestionRequest struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema           *string `json:"$schema,omitempty"`
 	Category         string  `json:"category"`
+	OwnerUserId      *int32  `json:"owner_user_id,omitempty"`
 	ParentQuestionId *int32  `json:"parent_question_id,omitempty"`
 	Question         string  `json:"question"`
 	Slug             string  `json:"slug"`
@@ -1006,13 +1013,19 @@ type CloseIssueRequest struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema      *string      `json:"$schema,omitempty"`
 	BranchState *BranchState `json:"branch_state,omitempty"`
-	DuplicateOf *string      `json:"duplicate_of,omitempty"`
-	Force       *bool        `json:"force,omitempty"`
-	Id          int32        `json:"id"`
-	LinkOf      *string      `json:"link_of,omitempty"`
-	Notes       *string      `json:"notes,omitempty"`
-	Reason      *string      `json:"reason,omitempty"`
-	Slug        string       `json:"slug"`
+
+	// ClosedDirty True when the close occurred against an unclean working tree — the CLI sets this when --force overrides the clean-tree gate (IS-1062).
+	ClosedDirty *bool `json:"closed_dirty,omitempty"`
+
+	// CompletedInSha Commit SHA that completed the issue (HEAD or operator-asserted via dx issue close --commit). Recorded on the row for auditability (IS-1062).
+	CompletedInSha *string `json:"completed_in_sha,omitempty"`
+	DuplicateOf    *string `json:"duplicate_of,omitempty"`
+	Force          *bool   `json:"force,omitempty"`
+	Id             int32   `json:"id"`
+	LinkOf         *string `json:"link_of,omitempty"`
+	Notes          *string `json:"notes,omitempty"`
+	Reason         *string `json:"reason,omitempty"`
+	Slug           string  `json:"slug"`
 }
 
 // CodeRefItem defines model for CodeRefItem.
@@ -2187,11 +2200,17 @@ type IssueItem struct {
 	BlockedBy       *[]string          `json:"blocked_by"`
 	BlockedByDetail *[]IssueBlockerRef `json:"blocked_by_detail"`
 	CloseReason     *string            `json:"close_reason,omitempty"`
-	Component       string             `json:"component"`
-	Context         string             `json:"context"`
-	CreatedAt       string             `json:"created_at"`
-	DuplicateOf     *string            `json:"duplicate_of,omitempty"`
-	Features        string             `json:"features"`
+
+	// ClosedDirty True only when the issue was force-closed against an unclean working tree (audit hook).
+	ClosedDirty *bool `json:"closed_dirty,omitempty"`
+
+	// CompletedInSha Commit (HEAD or operator-asserted via --commit) that completed the issue. Set on close; null for historical pre-IS-1062 closes.
+	CompletedInSha *string `json:"completed_in_sha,omitempty"`
+	Component      string  `json:"component"`
+	Context        string  `json:"context"`
+	CreatedAt      string  `json:"created_at"`
+	DuplicateOf    *string `json:"duplicate_of,omitempty"`
+	Features       string  `json:"features"`
 
 	// Id Server integer ID; CLI formats as IS-N
 	Id              int32   `json:"id"`
@@ -2365,6 +2384,15 @@ type LinkConcernRequest struct {
 	PatternId   *int32  `json:"pattern_id,omitempty"`
 	Slug        string  `json:"slug"`
 	SpecId      *int32  `json:"spec_id,omitempty"`
+}
+
+// LinkQuestionTaskRequest defines model for Link-question-taskRequest.
+type LinkQuestionTaskRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema     *string `json:"$schema,omitempty"`
+	QuestionId int32   `json:"question_id"`
+	Slug       string  `json:"slug"`
+	TaskId     string  `json:"task_id"`
 }
 
 // LinkSpecIssueRequest defines model for Link-spec-issueRequest.
@@ -2924,6 +2952,13 @@ type ListQuestionProposalsResponse struct {
 	Proposals *[]QuestionProposalItem `json:"proposals"`
 }
 
+// ListQuestionsByTaskResponse defines model for List-questions-by-taskResponse.
+type ListQuestionsByTaskResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema    *string         `json:"$schema,omitempty"`
+	Questions *[]QuestionItem `json:"questions"`
+}
+
 // ListQuestionsResponse defines model for List-questionsResponse.
 type ListQuestionsResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -3071,6 +3106,13 @@ type ListTasksByFeatureResponse struct {
 	Total  int64       `json:"total"`
 }
 
+// ListTasksByQuestionResponse defines model for List-tasks-by-questionResponse.
+type ListTasksByQuestionResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string                   `json:"$schema,omitempty"`
+	Tasks  *[]ListTasksByQuestionRow `json:"tasks"`
+}
+
 // ListTasksForIssueResponse defines model for List-tasks-for-issueResponse.
 type ListTasksForIssueResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -3188,6 +3230,23 @@ type ListWsClientsResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema  *string       `json:"$schema,omitempty"`
 	Clients *[]ClientItem `json:"clients"`
+}
+
+// ListTasksByQuestionRow defines model for ListTasksByQuestionRow.
+type ListTasksByQuestionRow struct {
+	CreatedAt    Timestamptz `json:"created_at"`
+	Feature      string      `json:"feature"`
+	Id           string      `json:"id"`
+	Issue        string      `json:"issue"`
+	Reason       string      `json:"reason"`
+	Status       string      `json:"status"`
+	TargetBranch string      `json:"target_branch"`
+	TaskGroup    string      `json:"task_group"`
+	TestPlan     string      `json:"test_plan"`
+	TestRefs     string      `json:"test_refs"`
+	Text         string      `json:"text"`
+	Title        string      `json:"title"`
+	UpdatedAt    Timestamptz `json:"updated_at"`
 }
 
 // LogEventGroupedItem defines model for LogEventGroupedItem.
@@ -3473,6 +3532,7 @@ type QuestionItem struct {
 	Category         string  `json:"category"`
 	CreatedAt        string  `json:"created_at"`
 	Id               int32   `json:"id"`
+	OwnerUserId      *int32  `json:"owner_user_id,omitempty"`
 	ParentQuestionId *int32  `json:"parent_question_id"`
 	Question         string  `json:"question"`
 	UpdatedAt        string  `json:"updated_at"`
@@ -4582,6 +4642,13 @@ type TimedItem struct {
 	TotalMs     int64       `json:"total_ms"`
 }
 
+// Timestamptz defines model for Timestamptz.
+type Timestamptz struct {
+	InfinityModifier int32     `json:"InfinityModifier"`
+	Time             time.Time `json:"Time"`
+	Valid            bool      `json:"Valid"`
+}
+
 // TodoDetailBody defines model for TodoDetailBody.
 type TodoDetailBody struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -4700,6 +4767,15 @@ type UnlinkConcernRequest struct {
 	PatternId   *int32  `json:"pattern_id,omitempty"`
 	Slug        string  `json:"slug"`
 	SpecId      *int32  `json:"spec_id,omitempty"`
+}
+
+// UnlinkQuestionTaskRequest defines model for Unlink-question-taskRequest.
+type UnlinkQuestionTaskRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema     *string `json:"$schema,omitempty"`
+	QuestionId int32   `json:"question_id"`
+	Slug       string  `json:"slug"`
+	TaskId     string  `json:"task_id"`
 }
 
 // UnlinkSpecIssueRequest defines model for Unlink-spec-issueRequest.
@@ -4832,6 +4908,15 @@ type UpdateProposalRequest struct {
 	Slug   string  `json:"slug"`
 	Title  string  `json:"title"`
 	Value  string  `json:"value"`
+}
+
+// UpdateQuestionOwnerRequest defines model for Update-question-ownerRequest.
+type UpdateQuestionOwnerRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema      *string `json:"$schema,omitempty"`
+	Id          int32   `json:"id"`
+	OwnerUserId int32   `json:"owner_user_id"`
+	Slug        string  `json:"slug"`
 }
 
 // UpdateSpecsRequest defines model for Update-specsRequest.
@@ -5576,10 +5661,21 @@ type GetQuestionParams struct {
 // ListQuestionsParams defines parameters for ListQuestions.
 type ListQuestionsParams struct {
 	Slug   string  `form:"slug" json:"slug"`
+	Owner  *string `form:"owner,omitempty" json:"owner,omitempty"`
 	Limit  *int32  `form:"limit,omitempty" json:"limit,omitempty"`
 	Offset *int32  `form:"offset,omitempty" json:"offset,omitempty"`
-	Status *string `form:"status,omitempty" json:"status,omitempty"`
-	Search *string `form:"search,omitempty" json:"search,omitempty"`
+}
+
+// ListQuestionsByTaskParams defines parameters for ListQuestionsByTask.
+type ListQuestionsByTaskParams struct {
+	Slug   string `form:"slug" json:"slug"`
+	TaskId string `form:"task_id" json:"task_id"`
+}
+
+// ListTasksByQuestionParams defines parameters for ListTasksByQuestion.
+type ListTasksByQuestionParams struct {
+	Slug       string `form:"slug" json:"slug"`
+	QuestionId int32  `form:"question_id" json:"question_id"`
 }
 
 // ListUnansweredQuestionsParams defines parameters for ListUnansweredQuestions.
@@ -5798,6 +5894,9 @@ type ListIssuesParams struct {
 	Status    *string `form:"status,omitempty" json:"status,omitempty"`
 	Search    *string `form:"search,omitempty" json:"search,omitempty"`
 	Component *string `form:"component,omitempty" json:"component,omitempty"`
+
+	// ClosedDirty Filter to issues that were force-closed against an unclean working tree (IS-1062).
+	ClosedDirty *bool `form:"closed_dirty,omitempty" json:"closed_dirty,omitempty"`
 }
 
 // ListIssueResolutionsParams defines parameters for ListIssueResolutions.
@@ -6263,8 +6362,17 @@ type AddQuestionJSONRequestBody = AddQuestionRequest
 // AnswerQuestionJSONRequestBody defines body for AnswerQuestion for application/json ContentType.
 type AnswerQuestionJSONRequestBody = AnswerQuestionRequest
 
+// LinkQuestionTaskJSONRequestBody defines body for LinkQuestionTask for application/json ContentType.
+type LinkQuestionTaskJSONRequestBody = LinkQuestionTaskRequest
+
+// UpdateQuestionOwnerJSONRequestBody defines body for UpdateQuestionOwner for application/json ContentType.
+type UpdateQuestionOwnerJSONRequestBody = UpdateQuestionOwnerRequest
+
 // SimilarQuestionsJSONRequestBody defines body for SimilarQuestions for application/json ContentType.
 type SimilarQuestionsJSONRequestBody = SimilarQuestionsRequest
+
+// UnlinkQuestionTaskJSONRequestBody defines body for UnlinkQuestionTask for application/json ContentType.
+type UnlinkQuestionTaskJSONRequestBody = UnlinkQuestionTaskRequest
 
 // AcceptQuestionProposalJSONRequestBody defines body for AcceptQuestionProposal for application/json ContentType.
 type AcceptQuestionProposalJSONRequestBody = AcceptQuestionProposalRequest
@@ -7459,16 +7567,37 @@ type ClientInterface interface {
 	// GetQuestion request
 	GetQuestion(ctx context.Context, params *GetQuestionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// LinkQuestionTaskWithBody request with any body
+	LinkQuestionTaskWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	LinkQuestionTask(ctx context.Context, body LinkQuestionTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListQuestions request
 	ListQuestions(ctx context.Context, params *ListQuestionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateQuestionOwnerWithBody request with any body
+	UpdateQuestionOwnerWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateQuestionOwner(ctx context.Context, body UpdateQuestionOwnerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListQuestionsByTask request
+	ListQuestionsByTask(ctx context.Context, params *ListQuestionsByTaskParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SimilarQuestionsWithBody request with any body
 	SimilarQuestionsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	SimilarQuestions(ctx context.Context, body SimilarQuestionsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListTasksByQuestion request
+	ListTasksByQuestion(ctx context.Context, params *ListTasksByQuestionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListUnansweredQuestions request
 	ListUnansweredQuestions(ctx context.Context, params *ListUnansweredQuestionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UnlinkQuestionTaskWithBody request with any body
+	UnlinkQuestionTaskWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UnlinkQuestionTask(ctx context.Context, body UnlinkQuestionTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AcceptQuestionProposalWithBody request with any body
 	AcceptQuestionProposalWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -12017,8 +12146,68 @@ func (c *APIClient) GetQuestion(ctx context.Context, params *GetQuestionParams, 
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) LinkQuestionTaskWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLinkQuestionTaskRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) LinkQuestionTask(ctx context.Context, body LinkQuestionTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLinkQuestionTaskRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) ListQuestions(ctx context.Context, params *ListQuestionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListQuestionsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) UpdateQuestionOwnerWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateQuestionOwnerRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) UpdateQuestionOwner(ctx context.Context, body UpdateQuestionOwnerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateQuestionOwnerRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListQuestionsByTask(ctx context.Context, params *ListQuestionsByTaskParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListQuestionsByTaskRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -12053,8 +12242,44 @@ func (c *APIClient) SimilarQuestions(ctx context.Context, body SimilarQuestionsJ
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) ListTasksByQuestion(ctx context.Context, params *ListTasksByQuestionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListTasksByQuestionRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) ListUnansweredQuestions(ctx context.Context, params *ListUnansweredQuestionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListUnansweredQuestionsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) UnlinkQuestionTaskWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUnlinkQuestionTaskRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) UnlinkQuestionTask(ctx context.Context, body UnlinkQuestionTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUnlinkQuestionTaskRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -26256,6 +26481,46 @@ func NewGetQuestionRequest(server string, params *GetQuestionParams) (*http.Requ
 	return req, nil
 }
 
+// NewLinkQuestionTaskRequest calls the generic LinkQuestionTask builder with application/json body
+func NewLinkQuestionTaskRequest(server string, body LinkQuestionTaskJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewLinkQuestionTaskRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewLinkQuestionTaskRequestWithBody generates requests for LinkQuestionTask with any type of body
+func NewLinkQuestionTaskRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/qa/link-task")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListQuestionsRequest generates requests for ListQuestions
 func NewListQuestionsRequest(server string, params *ListQuestionsParams) (*http.Request, error) {
 	var err error
@@ -26290,6 +26555,22 @@ func NewListQuestionsRequest(server string, params *ListQuestionsParams) (*http.
 			}
 		}
 
+		if params.Owner != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "owner", *params.Owner, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		if params.Limit != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
@@ -26322,36 +26603,101 @@ func NewListQuestionsRequest(server string, params *ListQuestionsParams) (*http.
 
 		}
 
-		if params.Status != nil {
+		queryURL.RawQuery = queryValues.Encode()
+	}
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateQuestionOwnerRequest calls the generic UpdateQuestionOwner builder with application/json body
+func NewUpdateQuestionOwnerRequest(server string, body UpdateQuestionOwnerJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateQuestionOwnerRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewUpdateQuestionOwnerRequestWithBody generates requests for UpdateQuestionOwner with any type of body
+func NewUpdateQuestionOwnerRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/qa/owner")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListQuestionsByTaskRequest generates requests for ListQuestionsByTask
+func NewListQuestionsByTaskRequest(server string, params *ListQuestionsByTaskParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/qa/questions-by-task")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
 				}
 			}
-
 		}
 
-		if params.Search != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "search", *params.Search, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "task_id", params.TaskId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
 				}
 			}
-
 		}
 
 		queryURL.RawQuery = queryValues.Encode()
@@ -26405,6 +26751,63 @@ func NewSimilarQuestionsRequestWithBody(server string, contentType string, body 
 	return req, nil
 }
 
+// NewListTasksByQuestionRequest generates requests for ListTasksByQuestion
+func NewListTasksByQuestionRequest(server string, params *ListTasksByQuestionParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/qa/tasks")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "question_id", params.QuestionId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListUnansweredQuestionsRequest generates requests for ListUnansweredQuestions
 func NewListUnansweredQuestionsRequest(server string, params *ListUnansweredQuestionsParams) (*http.Request, error) {
 	var err error
@@ -26446,6 +26849,46 @@ func NewListUnansweredQuestionsRequest(server string, params *ListUnansweredQues
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewUnlinkQuestionTaskRequest calls the generic UnlinkQuestionTask builder with application/json body
+func NewUnlinkQuestionTaskRequest(server string, body UnlinkQuestionTaskJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUnlinkQuestionTaskRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewUnlinkQuestionTaskRequestWithBody generates requests for UnlinkQuestionTask with any type of body
+func NewUnlinkQuestionTaskRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/qa/unlink-task")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -30034,6 +30477,22 @@ func NewListIssuesRequest(server string, params *ListIssuesParams) (*http.Reques
 		if params.Component != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "component", *params.Component, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.ClosedDirty != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "closed_dirty", *params.ClosedDirty, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -34547,16 +35006,37 @@ type ClientWithResponsesInterface interface {
 	// GetQuestionWithResponse request
 	GetQuestionWithResponse(ctx context.Context, params *GetQuestionParams, reqEditors ...RequestEditorFn) (*GetQuestionResponse, error)
 
+	// LinkQuestionTaskWithBodyWithResponse request with any body
+	LinkQuestionTaskWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LinkQuestionTaskResponse, error)
+
+	LinkQuestionTaskWithResponse(ctx context.Context, body LinkQuestionTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*LinkQuestionTaskResponse, error)
+
 	// ListQuestionsWithResponse request
 	ListQuestionsWithResponse(ctx context.Context, params *ListQuestionsParams, reqEditors ...RequestEditorFn) (*ParsedListQuestionsResponse, error)
+
+	// UpdateQuestionOwnerWithBodyWithResponse request with any body
+	UpdateQuestionOwnerWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateQuestionOwnerResponse, error)
+
+	UpdateQuestionOwnerWithResponse(ctx context.Context, body UpdateQuestionOwnerJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateQuestionOwnerResponse, error)
+
+	// ListQuestionsByTaskWithResponse request
+	ListQuestionsByTaskWithResponse(ctx context.Context, params *ListQuestionsByTaskParams, reqEditors ...RequestEditorFn) (*ParsedListQuestionsByTaskResponse, error)
 
 	// SimilarQuestionsWithBodyWithResponse request with any body
 	SimilarQuestionsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSimilarQuestionsResponse, error)
 
 	SimilarQuestionsWithResponse(ctx context.Context, body SimilarQuestionsJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSimilarQuestionsResponse, error)
 
+	// ListTasksByQuestionWithResponse request
+	ListTasksByQuestionWithResponse(ctx context.Context, params *ListTasksByQuestionParams, reqEditors ...RequestEditorFn) (*ParsedListTasksByQuestionResponse, error)
+
 	// ListUnansweredQuestionsWithResponse request
 	ListUnansweredQuestionsWithResponse(ctx context.Context, params *ListUnansweredQuestionsParams, reqEditors ...RequestEditorFn) (*ParsedListUnansweredQuestionsResponse, error)
+
+	// UnlinkQuestionTaskWithBodyWithResponse request with any body
+	UnlinkQuestionTaskWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UnlinkQuestionTaskResponse, error)
+
+	UnlinkQuestionTaskWithResponse(ctx context.Context, body UnlinkQuestionTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*UnlinkQuestionTaskResponse, error)
 
 	// AcceptQuestionProposalWithBodyWithResponse request with any body
 	AcceptQuestionProposalWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedAcceptQuestionProposalResponse, error)
@@ -40339,6 +40819,29 @@ func (r GetQuestionResponse) StatusCode() int {
 	return 0
 }
 
+type LinkQuestionTaskResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r LinkQuestionTaskResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LinkQuestionTaskResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedListQuestionsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -40356,6 +40859,52 @@ func (r ParsedListQuestionsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedListQuestionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateQuestionOwnerResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *QuestionItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateQuestionOwnerResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateQuestionOwnerResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListQuestionsByTaskResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListQuestionsByTaskResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListQuestionsByTaskResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListQuestionsByTaskResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -40385,6 +40934,29 @@ func (r ParsedSimilarQuestionsResponse) StatusCode() int {
 	return 0
 }
 
+type ParsedListTasksByQuestionResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListTasksByQuestionResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListTasksByQuestionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListTasksByQuestionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedListUnansweredQuestionsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -40402,6 +40974,29 @@ func (r ParsedListUnansweredQuestionsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedListUnansweredQuestionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UnlinkQuestionTaskResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r UnlinkQuestionTaskResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UnlinkQuestionTaskResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -46497,6 +47092,23 @@ func (c *ClientWithResponses) GetQuestionWithResponse(ctx context.Context, param
 	return ParseGetQuestionResponse(rsp)
 }
 
+// LinkQuestionTaskWithBodyWithResponse request with arbitrary body returning *LinkQuestionTaskResponse
+func (c *ClientWithResponses) LinkQuestionTaskWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LinkQuestionTaskResponse, error) {
+	rsp, err := c.LinkQuestionTaskWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLinkQuestionTaskResponse(rsp)
+}
+
+func (c *ClientWithResponses) LinkQuestionTaskWithResponse(ctx context.Context, body LinkQuestionTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*LinkQuestionTaskResponse, error) {
+	rsp, err := c.LinkQuestionTask(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLinkQuestionTaskResponse(rsp)
+}
+
 // ListQuestionsWithResponse request returning *ParsedListQuestionsResponse
 func (c *ClientWithResponses) ListQuestionsWithResponse(ctx context.Context, params *ListQuestionsParams, reqEditors ...RequestEditorFn) (*ParsedListQuestionsResponse, error) {
 	rsp, err := c.ListQuestions(ctx, params, reqEditors...)
@@ -46504,6 +47116,32 @@ func (c *ClientWithResponses) ListQuestionsWithResponse(ctx context.Context, par
 		return nil, err
 	}
 	return ParseParsedListQuestionsResponse(rsp)
+}
+
+// UpdateQuestionOwnerWithBodyWithResponse request with arbitrary body returning *UpdateQuestionOwnerResponse
+func (c *ClientWithResponses) UpdateQuestionOwnerWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateQuestionOwnerResponse, error) {
+	rsp, err := c.UpdateQuestionOwnerWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateQuestionOwnerResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateQuestionOwnerWithResponse(ctx context.Context, body UpdateQuestionOwnerJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateQuestionOwnerResponse, error) {
+	rsp, err := c.UpdateQuestionOwner(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateQuestionOwnerResponse(rsp)
+}
+
+// ListQuestionsByTaskWithResponse request returning *ParsedListQuestionsByTaskResponse
+func (c *ClientWithResponses) ListQuestionsByTaskWithResponse(ctx context.Context, params *ListQuestionsByTaskParams, reqEditors ...RequestEditorFn) (*ParsedListQuestionsByTaskResponse, error) {
+	rsp, err := c.ListQuestionsByTask(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListQuestionsByTaskResponse(rsp)
 }
 
 // SimilarQuestionsWithBodyWithResponse request with arbitrary body returning *ParsedSimilarQuestionsResponse
@@ -46523,6 +47161,15 @@ func (c *ClientWithResponses) SimilarQuestionsWithResponse(ctx context.Context, 
 	return ParseParsedSimilarQuestionsResponse(rsp)
 }
 
+// ListTasksByQuestionWithResponse request returning *ParsedListTasksByQuestionResponse
+func (c *ClientWithResponses) ListTasksByQuestionWithResponse(ctx context.Context, params *ListTasksByQuestionParams, reqEditors ...RequestEditorFn) (*ParsedListTasksByQuestionResponse, error) {
+	rsp, err := c.ListTasksByQuestion(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListTasksByQuestionResponse(rsp)
+}
+
 // ListUnansweredQuestionsWithResponse request returning *ParsedListUnansweredQuestionsResponse
 func (c *ClientWithResponses) ListUnansweredQuestionsWithResponse(ctx context.Context, params *ListUnansweredQuestionsParams, reqEditors ...RequestEditorFn) (*ParsedListUnansweredQuestionsResponse, error) {
 	rsp, err := c.ListUnansweredQuestions(ctx, params, reqEditors...)
@@ -46530,6 +47177,23 @@ func (c *ClientWithResponses) ListUnansweredQuestionsWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseParsedListUnansweredQuestionsResponse(rsp)
+}
+
+// UnlinkQuestionTaskWithBodyWithResponse request with arbitrary body returning *UnlinkQuestionTaskResponse
+func (c *ClientWithResponses) UnlinkQuestionTaskWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UnlinkQuestionTaskResponse, error) {
+	rsp, err := c.UnlinkQuestionTaskWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUnlinkQuestionTaskResponse(rsp)
+}
+
+func (c *ClientWithResponses) UnlinkQuestionTaskWithResponse(ctx context.Context, body UnlinkQuestionTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*UnlinkQuestionTaskResponse, error) {
+	rsp, err := c.UnlinkQuestionTask(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUnlinkQuestionTaskResponse(rsp)
 }
 
 // AcceptQuestionProposalWithBodyWithResponse request with arbitrary body returning *ParsedAcceptQuestionProposalResponse
@@ -55794,6 +56458,39 @@ func ParseGetQuestionResponse(rsp *http.Response) (*GetQuestionResponse, error) 
 	return response, nil
 }
 
+// ParseLinkQuestionTaskResponse parses an HTTP response from a LinkQuestionTaskWithResponse call
+func ParseLinkQuestionTaskResponse(rsp *http.Response) (*LinkQuestionTaskResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LinkQuestionTaskResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedListQuestionsResponse parses an HTTP response from a ListQuestionsWithResponse call
 func ParseParsedListQuestionsResponse(rsp *http.Response) (*ParsedListQuestionsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -55810,6 +56507,72 @@ func ParseParsedListQuestionsResponse(rsp *http.Response) (*ParsedListQuestionsR
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ListQuestionsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateQuestionOwnerResponse parses an HTTP response from a UpdateQuestionOwnerWithResponse call
+func ParseUpdateQuestionOwnerResponse(rsp *http.Response) (*UpdateQuestionOwnerResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateQuestionOwnerResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest QuestionItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListQuestionsByTaskResponse parses an HTTP response from a ListQuestionsByTaskWithResponse call
+func ParseParsedListQuestionsByTaskResponse(rsp *http.Response) (*ParsedListQuestionsByTaskResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListQuestionsByTaskResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListQuestionsByTaskResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -55860,6 +56623,39 @@ func ParseParsedSimilarQuestionsResponse(rsp *http.Response) (*ParsedSimilarQues
 	return response, nil
 }
 
+// ParseParsedListTasksByQuestionResponse parses an HTTP response from a ListTasksByQuestionWithResponse call
+func ParseParsedListTasksByQuestionResponse(rsp *http.Response) (*ParsedListTasksByQuestionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListTasksByQuestionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListTasksByQuestionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedListUnansweredQuestionsResponse parses an HTTP response from a ListUnansweredQuestionsWithResponse call
 func ParseParsedListUnansweredQuestionsResponse(rsp *http.Response) (*ParsedListUnansweredQuestionsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -55876,6 +56672,39 @@ func ParseParsedListUnansweredQuestionsResponse(rsp *http.Response) (*ParsedList
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ListUnansweredQuestionsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUnlinkQuestionTaskResponse parses an HTTP response from a UnlinkQuestionTaskWithResponse call
+func ParseUnlinkQuestionTaskResponse(rsp *http.Response) (*UnlinkQuestionTaskResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UnlinkQuestionTaskResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

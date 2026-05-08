@@ -434,6 +434,8 @@ type ZdxIssue struct {
 	TargetBranch    string             `db:"target_branch" json:"target_branch"`
 	CloseReason     string             `db:"close_reason" json:"close_reason"`
 	NodeRef         pgtype.Text        `db:"node_ref" json:"node_ref"`
+	CompletedInSha  pgtype.Text        `db:"completed_in_sha" json:"completed_in_sha"`
+	ClosedDirty     pgtype.Bool        `db:"closed_dirty" json:"closed_dirty"`
 }
 
 type ZdxIssueBlock struct {
