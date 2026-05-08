@@ -357,15 +357,41 @@ func (s *opencodeSessionLog) AITitle(title string) error {
 	})
 }
 
+// writeCompaction appends a tombstone.applied or compaction.applied record
+// referencing an original event by UUID. The original event is never
+// rewritten — compactions are attached, not destructive.
+func (s *opencodeSessionLog) writeCompaction(rec SessionEvent) error {
+	ev := map[string]any{
+		"type":              rec.Type,
+		"strategy":          rec.Strategy,
+		"compacted_content": rec.CompactedContent,
+	}
+	if rec.EventID != "" {
+		ev["event_id"] = rec.EventID
+	}
+	if rec.OriginalSize > 0 {
+		ev["original_size"] = rec.OriginalSize
+	}
+	return s.writeEvent(ev)
+}
+
 // ── Chat session loop ─────────────────────────────────────────────────────
 
 type opencodeChatSession struct {
 	client     *llm.Client
+	summarizer *llm.Client
 	dispatcher *localDispatcher
 	log        *opencodeSessionLog
 	tools      []llm.ToolDef
 	maxTurns   int
 	timeout    time.Duration
+
+	// Context-window awareness for the 3-phase compaction ladder.
+	// nCtx is probed from the model's /props endpoint at session start;
+	// 0 means probe failed and compaction is disabled. phase is
+	// 1=raw, 2=tombstone, 3=compact.
+	nCtx  int
+	phase int
 }
 
 func newOpenCodeChatSession(llmCfg config.LLMLocal, disp *localDispatcher, log *opencodeSessionLog, maxTurns int) *opencodeChatSession {
@@ -377,11 +403,13 @@ func newOpenCodeChatSession(llmCfg config.LLMLocal, disp *localDispatcher, log *
 	})
 	return &opencodeChatSession{
 		client:     client,
+		summarizer: client,
 		dispatcher: disp,
 		log:        log,
 		tools:      disp.OpenAIFunctions(),
 		maxTurns:   maxTurns,
 		timeout:    time.Duration(llmCfg.TimeoutSeconds) * time.Second,
+		phase:      1,
 	}
 }
 
@@ -389,11 +417,19 @@ func (cs *opencodeChatSession) Run(ctx context.Context, system, user string) err
 	_ = cs.log.AITitle(cli.Truncate(user, 80))
 	_ = cs.log.UserText(user)
 
-	msgs := []llm.ChatMsg{}
-	if system != "" {
-		msgs = append(msgs, llm.ChatMsg{Role: "system", Content: system})
+	// Probe the model server for n_ctx so the compaction ladder has a real
+	// budget to reason against. Failure is non-fatal — compaction simply
+	// stays disabled and the session behaves like before.
+	if props, err := cs.client.FetchServerProps(ctx); err == nil && props != nil && props.NCtx > 0 {
+		cs.nCtx = props.NCtx
+	} else {
+		cs.nCtx = defaultNCtx
 	}
-	msgs = append(msgs, llm.ChatMsg{Role: "user", Content: user})
+
+	msgs, err := cs.rehydrate(system, user)
+	if err != nil {
+		return fmt.Errorf("initial hydrate: %w", err)
+	}
 
 	for turn := 0; cs.maxTurns == 0 || turn < cs.maxTurns; turn++ {
 		if err := ctx.Err(); err != nil {
@@ -474,10 +510,86 @@ func (cs *opencodeChatSession) Run(ctx context.Context, system, user string) err
 				Content:    result,
 			})
 		}
+
+		// 3-phase compaction ladder. Pressure is computed against the
+		// last response's prompt_tokens + a reservation for the next
+		// completion. Phase advances on threshold breach (60% standard,
+		// 80% panic). Each transition writes compaction records to the
+		// log and re-hydrates msgs[] from the post-compaction state.
+		if next, ok := cs.shouldCompact(resp.Usage.PromptTokens); ok {
+			rebuilt, err := cs.compactAndRehydrate(ctx, next, system, user)
+			if err != nil {
+				_ = cs.log.AssistantText(fmt.Sprintf("(compaction error on turn %d: %v)", turn, err), nil)
+				return fmt.Errorf("compaction turn %d: %w", turn, err)
+			}
+			msgs = rebuilt
+			cs.phase = next
+		}
 	}
 
 	_ = cs.log.AssistantText(fmt.Sprintf("(stopped: max-turns=%d exceeded)", cs.maxTurns), nil)
 	return fmt.Errorf("max turns (%d) exceeded", cs.maxTurns)
+}
+
+// rehydrate reads the JSONL session log and reconstructs msgs[] using the
+// default hydration strategy (most recent compaction wins per event).
+func (cs *opencodeChatSession) rehydrate(system, user string) ([]llm.ChatMsg, error) {
+	events, err := readSessionEvents(cs.log.path)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	return hydrate(events, system, user, HydrationStrategy{}), nil
+}
+
+// shouldCompact returns the target phase if the current pressure crosses a
+// threshold, plus a bool indicating whether to compact. Panic-trigger forces
+// the next phase regardless of the current phase; the standard 60% trigger
+// only steps forward by one. Compaction is disabled when nCtx is unknown.
+func (cs *opencodeChatSession) shouldCompact(promptTokens int) (int, bool) {
+	if cs.nCtx <= 0 {
+		return cs.phase, false
+	}
+	if cs.phase >= 3 {
+		return cs.phase, false
+	}
+	used := promptTokens + defaultResponseReserveTokens
+	budget := float64(cs.nCtx)
+	if float64(used) > thresholdPanic*budget {
+		return cs.phase + 1, true
+	}
+	if float64(used) > thresholdEnterPhase2*budget {
+		return cs.phase + 1, true
+	}
+	return cs.phase, false
+}
+
+// compactAndRehydrate writes the records for the target phase to the log and
+// rebuilds msgs[]. Phase 2 = tombstone large tool_results; phase 3 = LLM
+// summary of the dropped middle, with the verbatim tail preserved.
+func (cs *opencodeChatSession) compactAndRehydrate(ctx context.Context, targetPhase int, system, user string) ([]llm.ChatMsg, error) {
+	events, err := readSessionEvents(cs.log.path)
+	if err != nil {
+		return nil, fmt.Errorf("read session log: %w", err)
+	}
+
+	var records []SessionEvent
+	switch targetPhase {
+	case 2:
+		records = applyTombstone(events, HydrationStrategy{})
+	case 3:
+		records, err = applyCompaction(ctx, cs.summarizer, events, HydrationStrategy{})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, r := range records {
+		if werr := cs.log.writeCompaction(r); werr != nil {
+			return nil, fmt.Errorf("write compaction record: %w", werr)
+		}
+	}
+
+	return cs.rehydrate(system, user)
 }
 
 // ── System prompt ─────────────────────────────────────────────────────────

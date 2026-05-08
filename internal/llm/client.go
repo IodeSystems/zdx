@@ -128,6 +128,39 @@ type ChatMessage struct {
 	Content string `json:"content"`
 }
 
+// ServerProps is the subset of llama.cpp's GET /props payload we care about.
+// Only n_ctx is interpreted today; the field is best-effort and fails open.
+type ServerProps struct {
+	NCtx int `json:"n_ctx"`
+}
+
+// FetchServerProps queries GET <url>/props (llama.cpp) for n_ctx and other
+// runtime properties. Returns nil + error when the endpoint is missing or
+// the payload doesn't decode — callers should fall back to a default n_ctx.
+func (c *Client) FetchServerProps(ctx context.Context) (*ServerProps, error) {
+	url := strings.TrimRight(c.cfg.URL, "/") + "/props"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if c.cfg.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("llm: props: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("llm: props %s", resp.Status)
+	}
+	var p ServerProps
+	if err := json.NewDecoder(resp.Body).Decode(&p); err != nil {
+		return nil, fmt.Errorf("llm: props decode: %w", err)
+	}
+	return &p, nil
+}
+
 func (c *Client) Complete(ctx context.Context, messages []ChatMessage) (string, error) {
 	url := strings.TrimRight(c.cfg.URL, "/") + "/v1/chat/completions"
 
