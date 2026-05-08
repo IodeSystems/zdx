@@ -15,6 +15,10 @@ jest.mock('../api', () => {
   }
 })
 
+jest.mock('@tanstack/react-router', () => ({
+  Link: (props: any) => <a href={typeof props.to === 'string' ? props.to : '#'}>{props.children}</a>,
+}))
+
 import {
   useGoals,
   useCreateGoal,

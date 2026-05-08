@@ -24,10 +24,6 @@ jest.mock('./MarkdownContent', () => ({
   MarkdownContent: ({ children }: { children: string }) => <div data-testid="markdown">{children}</div>,
 }))
 
-jest.mock('./CommentsAndRevisions', () => ({
-  CommentsAndRevisions: () => <div data-testid="comments" />,
-}))
-
 jest.mock('./DemoPlayer', () => ({
   DemosSection: () => <div data-testid="demos" />,
 }))
