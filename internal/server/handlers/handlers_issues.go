@@ -818,21 +818,21 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			Body IssueIntIDInput
 		}) (*struct{ Body OKBody }, error) {
 			issueID := issueIDFromInt(in.Body.ID)
-			prevStatus := ""
-			var projectID int32
-			if issue, gErr := h.Q.GetIssueByAnyProject(ctx, issueID); gErr == nil {
-				prevStatus = issue.Status
-				projectID = issue.ProjectID
+			issue, gErr := h.Q.GetIssueByAnyProject(ctx, issueID)
+			if gErr != nil {
+				return nil, apiErr(http.StatusNotFound, "issue not found: "+issueID)
 			}
+			prevStatus := issue.Status
+			projectID := issue.ProjectID
 			// Reopening a target does NOT reopen linked/duplicate issues: a
 			// narrow-slice link may have been fixed independently, or the new
 			// target reopen may describe a different aspect. Closed links stay
 			// closed until explicitly reopened.
-			_ = h.Q.ReopenIssue(ctx, db.ReopenIssueParams{ID: issueID, ProjectID: 0})
-			if projectID != 0 {
-				h.recordRevision(ctx, projectID, "issue", issueID, "status", prevStatus, "open")
-				traceEvent(ctx, h.Q, projectID, "issue.reopened", "issue_id", issueID, "prev_status", prevStatus)
+			if err := h.Q.ReopenIssue(ctx, db.ReopenIssueParams{ID: issueID, ProjectID: projectID}); err != nil {
+				return nil, apiErr(500, err.Error())
 			}
+			h.recordRevision(ctx, projectID, "issue", issueID, "status", prevStatus, "open")
+			traceEvent(ctx, h.Q, projectID, "issue.reopened", "issue_id", issueID, "prev_status", prevStatus)
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
