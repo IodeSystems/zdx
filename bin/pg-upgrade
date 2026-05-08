@@ -1,0 +1,186 @@
+#!/usr/bin/env bash
+# bin/pg-upgrade — major-version PostgreSQL upgrade for the zdx prod box.
+#
+# Strategy: dump/restore + swap the data volume.
+#   - Take MAINTENANCE on both slots so users see a maintenance page,
+#     and stop zdx-current / zdx-next so no app writes hit PG during the
+#     dump.
+#   - pg_dump (custom format, parallel-restorable) into the host's
+#     home/var/ directory.
+#   - docker compose down → mv home/data/postgres aside (kept as backup
+#     for manual rollback) → install the new compose file (rsync via
+#     bin/ship's provision flow) → docker compose up -d. Postgres-NEW
+#     initialises an empty zdx DB with role zdx.
+#   - pg_restore -j 4 the dump into the fresh zdx DB.
+#   - Restart zdx services, clear maintenance, run sanity checks.
+#
+# Prereqs:
+#   - infra/provision/files/etc/docker-compose.yml already updated to the
+#     target postgres image (e.g. postgres:18) and committed.
+#   - home/deploy.secret.properties present with deploy.host=...
+#
+# Usage:
+#   bin/pg-upgrade           Full upgrade (interactive confirmation).
+#   bin/pg-upgrade --yes     Skip the interactive confirm.
+#   bin/pg-upgrade --rollback-from <stamp>
+#                            Restore home/data/postgres from a prior
+#                            postgres.bak.<stamp> directory after a
+#                            failed upgrade.
+
+set -euo pipefail
+SECRETS_FILE="${ZDX_SHIP_SECRETS:-home/deploy.secret.properties}"
+[ -f "$SECRETS_FILE" ] || { echo "missing $SECRETS_FILE" >&2; exit 1; }
+HOST=$(grep '^deploy.host=' "$SECRETS_FILE" | cut -d= -f2-)
+[ -n "$HOST" ] || { echo "deploy.host not set in $SECRETS_FILE" >&2; exit 1; }
+
+REMOTE_HOME=/home/zdx
+SERVICE=zdx
+PG_CONTAINER=zdx-postgres-1
+
+# ── arg parse ────────────────────────────────────────────────────────────────
+YES=false
+ROLLBACK_FROM=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --yes|-y) YES=true ;;
+    --rollback-from) ROLLBACK_FROM="$2"; shift ;;
+    *) echo "unknown flag: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+ssh_cmd() { ssh "$HOST" "$1"; }
+
+# ── rollback path ────────────────────────────────────────────────────────────
+if [ -n "$ROLLBACK_FROM" ]; then
+  BACKUP_DIR="$REMOTE_HOME/home/data/postgres.bak.$ROLLBACK_FROM"
+  echo "[rollback] restoring $BACKUP_DIR → home/data/postgres"
+  ssh_cmd "sudo test -d $BACKUP_DIR" || { echo "no such backup" >&2; exit 1; }
+  echo "[rollback] enabling maintenance"
+  for slot in current next; do
+    ssh_cmd "sudo mkdir -p /etc/systemd/system/${SERVICE}-${slot}.service.d && \
+             printf '[Service]\nEnvironment=MAINTENANCE=true\n' | sudo tee /etc/systemd/system/${SERVICE}-${slot}.service.d/maintenance.conf >/dev/null && \
+             sudo systemctl daemon-reload && sudo systemctl restart ${SERVICE}-${slot}"
+  done
+  ssh_cmd "sudo docker compose -f $REMOTE_HOME/docker-compose.yml down"
+  ssh_cmd "sudo mv $REMOTE_HOME/home/data/postgres $REMOTE_HOME/home/data/postgres.failed.$(date +%s) || true"
+  ssh_cmd "sudo mv $BACKUP_DIR $REMOTE_HOME/home/data/postgres"
+  # restore the prior postgres:17 compose (assume git history or operator pinned it)
+  echo "[rollback] note: docker-compose.yml on host is whatever was last installed."
+  echo "[rollback] revert it manually (or via bin/ship after reverting the compose commit)."
+  ssh_cmd "sudo docker compose -f $REMOTE_HOME/docker-compose.yml up -d"
+  for slot in current next; do
+    ssh_cmd "sudo rm -f /etc/systemd/system/${SERVICE}-${slot}.service.d/maintenance.conf && \
+             sudo systemctl daemon-reload && sudo systemctl restart ${SERVICE}-${slot}"
+  done
+  echo "[rollback] done"
+  exit 0
+fi
+
+# ── pre-flight ───────────────────────────────────────────────────────────────
+echo "=== pg-upgrade: prod $HOST ==="
+echo
+ssh_cmd "sudo docker exec $PG_CONTAINER psql -U zdx -d zdx -tAc 'SELECT version()' | head -1"
+echo
+TARGET_IMAGE=$(grep -E '^\s*image:\s*postgres:' infra/provision/files/etc/docker-compose.yml | head -1 | awk '{print $2}')
+[ -n "$TARGET_IMAGE" ] || { echo "could not parse target postgres image from compose" >&2; exit 1; }
+echo "Target image: $TARGET_IMAGE"
+
+if ! $YES; then
+  read -r -p "Proceed with PG upgrade? [y/N] " ans
+  [ "$ans" = "y" ] || [ "$ans" = "Y" ] || { echo "aborted"; exit 1; }
+fi
+
+STAMP=$(date +%Y%m%d-%H%M%S)
+DUMP_PATH="$REMOTE_HOME/home/var/pg-upgrade-$STAMP.dump"
+BACKUP_DIR="$REMOTE_HOME/home/data/postgres.bak.$STAMP"
+
+# ── 1. maintenance + stop zdx services ──────────────────────────────────────
+echo
+echo "[1/8] maintenance on + stop zdx services"
+for slot in current next; do
+  ssh_cmd "sudo mkdir -p /etc/systemd/system/${SERVICE}-${slot}.service.d && \
+           printf '[Service]\nEnvironment=MAINTENANCE=true\n' | sudo tee /etc/systemd/system/${SERVICE}-${slot}.service.d/maintenance.conf >/dev/null && \
+           sudo systemctl daemon-reload && sudo systemctl restart ${SERVICE}-${slot}"
+done
+sleep 2
+for slot in current next; do
+  port=7600; [ "$slot" = "next" ] && port=7602
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    if ssh_cmd "curl -sf http://localhost:$port/api/health >/dev/null"; then
+      echo "  $slot maintenance page healthy on :$port"; break
+    fi
+    sleep 1
+  done
+done
+ssh_cmd "sudo systemctl stop ${SERVICE}-current ${SERVICE}-next"
+echo "  zdx-current + zdx-next stopped"
+
+# ── 2. dump ─────────────────────────────────────────────────────────────────
+echo
+echo "[2/8] dumping zdx → $DUMP_PATH"
+ssh_cmd "sudo docker exec $PG_CONTAINER pg_dump -U zdx -d zdx -Fc -Z 6 -f /tmp/zdx.dump"
+ssh_cmd "sudo docker cp $PG_CONTAINER:/tmp/zdx.dump $DUMP_PATH && sudo docker exec $PG_CONTAINER rm -f /tmp/zdx.dump"
+ssh_cmd "sudo chown zdx:zdx $DUMP_PATH && sudo ls -lh $DUMP_PATH"
+
+# ── 3. compose down + volume swap ───────────────────────────────────────────
+echo
+echo "[3/8] compose down + mv home/data/postgres → postgres.bak.$STAMP"
+ssh_cmd "sudo docker compose -f $REMOTE_HOME/docker-compose.yml down"
+ssh_cmd "sudo mv $REMOTE_HOME/home/data/postgres $BACKUP_DIR"
+ssh_cmd "sudo install -d -o $SERVICE -g $SERVICE -m 770 $REMOTE_HOME/home/data/postgres"
+
+# ── 4. install new compose ──────────────────────────────────────────────────
+echo
+echo "[4/8] rsync provision (installs new docker-compose.yml on host)"
+RSYNC_PATH="sudo -u $SERVICE rsync"
+rsync -az --rsync-path="$RSYNC_PATH" \
+  infra/provision/ "$HOST:$REMOTE_HOME/home/provision/"
+ssh_cmd "sudo SKIP_SERVICE_START=true bash $REMOTE_HOME/home/provision/provision.sh"
+
+# ── 5. start postgres + wait ────────────────────────────────────────────────
+echo
+echo "[5/8] starting compose ($TARGET_IMAGE)"
+ssh_cmd "sudo docker compose -f $REMOTE_HOME/docker-compose.yml up -d"
+for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+  if ssh_cmd "sudo docker exec $PG_CONTAINER pg_isready -U zdx -d zdx -h 127.0.0.1 -p 5432" >/dev/null 2>&1; then
+    echo "  postgres ready"
+    break
+  fi
+  sleep 2
+done
+ssh_cmd "sudo docker exec $PG_CONTAINER psql -U zdx -d zdx -tAc 'SELECT version()' | head -1"
+
+# ── 6. restore ──────────────────────────────────────────────────────────────
+echo
+echo "[6/8] restoring dump into fresh zdx DB"
+ssh_cmd "sudo docker cp $DUMP_PATH $PG_CONTAINER:/tmp/zdx.dump"
+ssh_cmd "sudo docker exec $PG_CONTAINER pg_restore -U zdx -d zdx -j 4 --no-owner --no-acl /tmp/zdx.dump 2>&1 | tail -20"
+ssh_cmd "sudo docker exec $PG_CONTAINER rm -f /tmp/zdx.dump"
+
+# ── 7. sanity ───────────────────────────────────────────────────────────────
+echo
+echo "[7/8] sanity checks"
+ssh_cmd "sudo docker exec $PG_CONTAINER psql -U zdx -d zdx -c \"SELECT count(*) AS tables FROM information_schema.tables WHERE table_schema='public';\""
+ssh_cmd "sudo docker exec $PG_CONTAINER psql -U zdx -d zdx -c \"SELECT 'zdx_issues', count(*) FROM zdx_issues UNION ALL SELECT 'zdx_features', count(*) FROM zdx_features UNION ALL SELECT 'zdx_specs', count(*) FROM zdx_specs;\""
+
+# ── 8. clear maintenance + restart zdx ──────────────────────────────────────
+echo
+echo "[8/8] clear maintenance + restart zdx services"
+for slot in current next; do
+  ssh_cmd "sudo rm -f /etc/systemd/system/${SERVICE}-${slot}.service.d/maintenance.conf && \
+           sudo systemctl daemon-reload && sudo systemctl restart ${SERVICE}-${slot}"
+done
+for slot in current next; do
+  port=7600; [ "$slot" = "next" ] && port=7602
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    if ssh_cmd "curl -sf http://localhost:$port/api/health >/dev/null"; then
+      echo "  $slot up on :$port"; break
+    fi
+    sleep 2
+  done
+done
+
+echo
+echo "=== done. backup retained at: $BACKUP_DIR ==="
+echo "rollback: bin/pg-upgrade --rollback-from $STAMP"
