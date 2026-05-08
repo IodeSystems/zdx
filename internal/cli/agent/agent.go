@@ -114,7 +114,7 @@ For the long-running work loop, use ` + "`dx agent loop --provider=X`" + `.`,
 	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
 	cmd.Flags().StringVar(&mcpContainer, "mcp-container", "", "dispatch tool calls through dx-agent --mcp-stdio running inside this container (opencode/local only)")
 
-	cmd.AddCommand(agentLoopCmd(), agentConnectCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd(), agentDrainCmd(), agentBudgetCmd(), streamEvaluateCmd())
+	cmd.AddCommand(agentLoopCmd(), agentConnectCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd(), agentDrainCmd(), agentBudgetCmd(), streamEvaluateCmd(), agentAuditCmd())
 	return cmd
 }
 

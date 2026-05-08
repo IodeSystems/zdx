@@ -176,6 +176,42 @@ func (h *Handler) registerClaudeRoutes(api huma.API) {
 			}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "resolve-agent-session", Method: http.MethodGet, Path: "/api/dx/agent/audit/resolve"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			ID   string `query:"id" required:"true"`
+		}) (*struct {
+			Body ClaudeSessionItem
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			sess, err := h.Q.ResolveClaudeSession(ctx, db.ResolveClaudeSessionParams{ProjectID: p.ID, SessionID: in.ID})
+			if err != nil {
+				return nil, apiErr(404, "no session matches id-or-alias: "+in.ID)
+			}
+			cnt, _ := h.Q.CountClaudeEvents(ctx, sess.ID)
+			return &struct {
+				Body ClaudeSessionItem
+			}{Body: ClaudeSessionItem{
+				ID:         sess.ID,
+				IssueID:    sess.IssueID,
+				SessionID:  sess.SessionID,
+				Title:      sess.Title,
+				Alias:      sess.Alias,
+				Header:     sess.Header,
+				Summary:    sess.Summary,
+				Status:     sess.Status,
+				Lifecycle:  lifecycleFor(sess.ClosedAt, cnt),
+				EventCount: cnt,
+				CreatedAt:  fmtTS(sess.CreatedAt),
+				UpdatedAt:  fmtTS(sess.UpdatedAt),
+				ClosedAt:   fmtTS(sess.ClosedAt),
+				TodoID:     todoInt(sess.TodoID),
+			}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "get-claude-session-events", Method: http.MethodGet, Path: "/api/dx/claude/sessions/{sessionId}/events"},
 		func(ctx context.Context, in *struct {
 			Slug      string `query:"slug" required:"true"`

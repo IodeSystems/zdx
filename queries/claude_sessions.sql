@@ -92,11 +92,33 @@ FROM zdx_claude_events
 WHERE session_pk = $1
 ORDER BY seq;
 
+-- name: ListClaudeEventsSinceSeq :many
+-- Tail-shaped query for `dx agent audit --follow`: returns events with
+-- seq > $2 in ascending order, capped at $3. The SSE handler polls this
+-- on a 1s tick to deliver new turns to a connected operator.
+SELECT id, session_pk, seq, event_type, event_json, created_at, agent_id, is_sidechain, agent_type, agent_description
+FROM zdx_claude_events
+WHERE session_pk = $1 AND seq > $2
+ORDER BY seq
+LIMIT $3;
+
 -- name: CountClaudeEvents :one
 SELECT count(*) FROM zdx_claude_events WHERE session_pk = $1;
 
 -- name: GetMaxClaudeEventSeq :one
 SELECT coalesce(max(seq), -1)::int AS max_seq FROM zdx_claude_events WHERE session_pk = $1;
+
+-- name: ResolveClaudeSession :one
+-- Resolve a session by either its session_id text OR its agent alias
+-- (most-recent for that alias wins). Used by `dx agent audit <id>` so the
+-- operator can pass either the UUID-shaped session_id or the agent alias
+-- without having to know which they have.
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at, todo_id
+FROM zdx_claude_sessions
+WHERE project_id = $1
+  AND (session_id = $2 OR alias = $2)
+ORDER BY created_at DESC
+LIMIT 1;
 
 
 -- name: ListChurnSessions :many

@@ -155,6 +155,7 @@ func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Serve
 	s.registerWSRoutes(s.api)
 	s.mux.Get("/api/agents/connect", h.HandleAgentConnect(s.agentRegistry))
 	s.mux.Get("/api/dx/log-events/stream", h.HandleLogStream())
+	s.mux.Get("/api/dx/agent/audit/stream", h.HandleAgentAuditStream())
 
 	s.mux.NotFound(notFoundHandler(staticDir))
 
