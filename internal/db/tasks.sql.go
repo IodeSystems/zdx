@@ -748,7 +748,7 @@ type ListOrphanReadyTasksRow struct {
 	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-// Ready tasks with no parent issue — invisible to the normal solo queue.
+// Ready tasks with no parent issue — invisible to the normal agent queue.
 func (q *Queries) ListOrphanReadyTasks(ctx context.Context, projectID int32) ([]ListOrphanReadyTasksRow, error) {
 	rows, err := q.db.Query(ctx, listOrphanReadyTasks, projectID)
 	if err != nil {

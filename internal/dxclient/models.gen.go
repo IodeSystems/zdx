@@ -361,6 +361,144 @@ type AdoptTaskRequest struct {
 	TaskId  string  `json:"task_id"`
 }
 
+// AgentApplyRequest defines model for Agent-applyRequest.
+type AgentApplyRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string           `json:"$schema,omitempty"`
+	Items  *[]AgentQueueItem `json:"items"`
+	Slug   string            `json:"slug"`
+}
+
+// AgentClaimAnyRequest defines model for Agent-claim-anyRequest.
+type AgentClaimAnyRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema       *string `json:"$schema,omitempty"`
+	AgentId      string  `json:"agent_id"`
+	LeaseMinutes *int32  `json:"lease_minutes,omitempty"`
+	Mode         *string `json:"mode,omitempty"`
+}
+
+// AgentClaimRequest defines model for Agent-claimRequest.
+type AgentClaimRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema       *string `json:"$schema,omitempty"`
+	AgentId      string  `json:"agent_id"`
+	LeaseMinutes *int32  `json:"lease_minutes,omitempty"`
+	Mode         *string `json:"mode,omitempty"`
+	Slug         string  `json:"slug"`
+}
+
+// AgentEvaluateRequest defines model for Agent-evaluateRequest.
+type AgentEvaluateRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Issue  string  `json:"issue"`
+	Slug   string  `json:"slug"`
+}
+
+// AgentHealthResponse defines model for Agent-healthResponse.
+type AgentHealthResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema           *string `json:"$schema,omitempty"`
+	ClosedTaskCount  int64   `json:"closed_task_count"`
+	GoalCount        int64   `json:"goal_count"`
+	OwnerJournalDate string  `json:"owner_journal_date"`
+	TechJournalDate  string  `json:"tech_journal_date"`
+}
+
+// AgentListClaimsResponse defines model for Agent-list-claimsResponse.
+type AgentListClaimsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string          `json:"$schema,omitempty"`
+	Tasks  *[]AgentTaskItem `json:"tasks"`
+	Todos  *[]TodoItem      `json:"todos"`
+}
+
+// AgentListReservationsResponse defines model for Agent-list-reservationsResponse.
+type AgentListReservationsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema       *string            `json:"$schema,omitempty"`
+	Reservations *[]ReservationItem `json:"reservations"`
+}
+
+// AgentReleaseRequest defines model for Agent-releaseRequest.
+type AgentReleaseRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema      *string      `json:"$schema,omitempty"`
+	AgentId     string       `json:"agent_id"`
+	BranchState *BranchState `json:"branch_state,omitempty"`
+	Force       *bool        `json:"force,omitempty"`
+	Id          int32        `json:"id"`
+	Resolve     *bool        `json:"resolve,omitempty"`
+	SessionId   *string      `json:"session_id,omitempty"`
+}
+
+// AgentReleaseResponse defines model for Agent-releaseResponse.
+type AgentReleaseResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema          *string `json:"$schema,omitempty"`
+	ChurnDowngraded *bool   `json:"churn_downgraded,omitempty"`
+	CycleDetected   *bool   `json:"cycle_detected,omitempty"`
+	Ok              bool    `json:"ok"`
+}
+
+// AgentRenewRequest defines model for Agent-renewRequest.
+type AgentRenewRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema       *string `json:"$schema,omitempty"`
+	AgentId      string  `json:"agent_id"`
+	Id           int32   `json:"id"`
+	LeaseMinutes *int32  `json:"lease_minutes,omitempty"`
+}
+
+// AgentUnblockAllRequest defines model for Agent-unblock-allRequest.
+type AgentUnblockAllRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Slug   string  `json:"slug"`
+}
+
+// AgentUnblockAllResponse defines model for Agent-unblock-allResponse.
+type AgentUnblockAllResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Ok     bool    `json:"ok"`
+}
+
+// AgentClaimBody defines model for AgentClaimBody.
+type AgentClaimBody struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema           *string      `json:"$schema,omitempty"`
+	Blocked          bool         `json:"blocked"`
+	BlockedReason    *string      `json:"blocked_reason,omitempty"`
+	ClaimBaseBranch  *string      `json:"claim_base_branch,omitempty"`
+	ClaimBaseSha     *string      `json:"claim_base_sha,omitempty"`
+	ClaimContract    *string      `json:"claim_contract,omitempty"`
+	ClaimedAt        *string      `json:"claimed_at,omitempty"`
+	ClaimedBy        *string      `json:"claimed_by,omitempty"`
+	CreatedAt        string       `json:"created_at"`
+	CycleCount       *int32       `json:"cycle_count,omitempty"`
+	Debug            *DebugOutput `json:"debug,omitempty"`
+	Description      *string      `json:"description,omitempty"`
+	Id               int32        `json:"id"`
+	Instructions     *string      `json:"instructions,omitempty"`
+	IssueRef         string       `json:"issue_ref"`
+	Key              string       `json:"key"`
+	Kind             string       `json:"kind"`
+	Persona          string       `json:"persona"`
+	Priority         int32        `json:"priority"`
+	ProjectSlug      *string      `json:"project_slug,omitempty"`
+	ReferenceIssueId *string      `json:"reference_issue_id,omitempty"`
+	ResolvedAt       *string      `json:"resolved_at,omitempty"`
+	Status           string       `json:"status"`
+	SuggestedAction  *string      `json:"suggested_action,omitempty"`
+	TargetBranch     *string      `json:"target_branch,omitempty"`
+	TargetId         string       `json:"target_id"`
+	TargetType       string       `json:"target_type"`
+	Text             string       `json:"text"`
+	Title            *string      `json:"title,omitempty"`
+}
+
 // AgentItem defines model for AgentItem.
 type AgentItem struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -385,6 +523,25 @@ type AgentItem struct {
 	ValkeyUrl        string  `json:"valkey_url"`
 	WorktreeBranch   string  `json:"worktree_branch"`
 	WorktreePath     string  `json:"worktree_path"`
+}
+
+// AgentQueueItem defines model for AgentQueueItem.
+type AgentQueueItem struct {
+	Blocked         bool    `json:"blocked"`
+	BlockedReason   *string `json:"blocked_reason,omitempty"`
+	Description     *string `json:"description,omitempty"`
+	IssueRef        string  `json:"issue_ref"`
+	Key             string  `json:"key"`
+	Kind            string  `json:"kind"`
+	Persona         string  `json:"persona"`
+	Priority        int32   `json:"priority"`
+	Status          string  `json:"status"`
+	SuggestedAction *string `json:"suggested_action,omitempty"`
+	TargetBranch    *string `json:"target_branch,omitempty"`
+	TargetId        string  `json:"target_id"`
+	TargetType      string  `json:"target_type"`
+	Text            string  `json:"text"`
+	Title           *string `json:"title,omitempty"`
 }
 
 // AgentTaskItem defines model for AgentTaskItem.
@@ -1541,18 +1698,18 @@ type ErrorReportItem struct {
 
 // EvaluateChange defines model for EvaluateChange.
 type EvaluateChange struct {
-	After  SoloQueueItem `json:"after"`
-	Before TodoItem      `json:"before"`
+	After  AgentQueueItem `json:"after"`
+	Before TodoItem       `json:"before"`
 }
 
 // EvaluateDiff defines model for EvaluateDiff.
 type EvaluateDiff struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema    *string           `json:"$schema,omitempty"`
-	Added     *[]SoloQueueItem  `json:"added"`
+	Added     *[]AgentQueueItem `json:"added"`
 	Changed   *[]EvaluateChange `json:"changed"`
 	Removed   *[]TodoItem       `json:"removed"`
-	Unchanged *[]SoloQueueItem  `json:"unchanged"`
+	Unchanged *[]AgentQueueItem `json:"unchanged"`
 }
 
 // EventItem defines model for EventItem.
@@ -4109,163 +4266,6 @@ type SnoozeProposalRequest struct {
 	SnoozedUntil string  `json:"snoozed_until"`
 }
 
-// SoloApplyRequest defines model for Solo-applyRequest.
-type SoloApplyRequest struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema *string          `json:"$schema,omitempty"`
-	Items  *[]SoloQueueItem `json:"items"`
-	Slug   string           `json:"slug"`
-}
-
-// SoloClaimAnyRequest defines model for Solo-claim-anyRequest.
-type SoloClaimAnyRequest struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema       *string `json:"$schema,omitempty"`
-	AgentId      string  `json:"agent_id"`
-	LeaseMinutes *int32  `json:"lease_minutes,omitempty"`
-	Mode         *string `json:"mode,omitempty"`
-}
-
-// SoloClaimRequest defines model for Solo-claimRequest.
-type SoloClaimRequest struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema       *string `json:"$schema,omitempty"`
-	AgentId      string  `json:"agent_id"`
-	LeaseMinutes *int32  `json:"lease_minutes,omitempty"`
-	Mode         *string `json:"mode,omitempty"`
-	Slug         string  `json:"slug"`
-}
-
-// SoloEvaluateRequest defines model for Solo-evaluateRequest.
-type SoloEvaluateRequest struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema *string `json:"$schema,omitempty"`
-	Issue  string  `json:"issue"`
-	Slug   string  `json:"slug"`
-}
-
-// SoloHealthResponse defines model for Solo-healthResponse.
-type SoloHealthResponse struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema           *string `json:"$schema,omitempty"`
-	ClosedTaskCount  int64   `json:"closed_task_count"`
-	GoalCount        int64   `json:"goal_count"`
-	OwnerJournalDate string  `json:"owner_journal_date"`
-	TechJournalDate  string  `json:"tech_journal_date"`
-}
-
-// SoloListClaimsResponse defines model for Solo-list-claimsResponse.
-type SoloListClaimsResponse struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema *string          `json:"$schema,omitempty"`
-	Tasks  *[]AgentTaskItem `json:"tasks"`
-	Todos  *[]TodoItem      `json:"todos"`
-}
-
-// SoloListReservationsResponse defines model for Solo-list-reservationsResponse.
-type SoloListReservationsResponse struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema       *string            `json:"$schema,omitempty"`
-	Reservations *[]ReservationItem `json:"reservations"`
-}
-
-// SoloReleaseRequest defines model for Solo-releaseRequest.
-type SoloReleaseRequest struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema      *string      `json:"$schema,omitempty"`
-	AgentId     string       `json:"agent_id"`
-	BranchState *BranchState `json:"branch_state,omitempty"`
-	Force       *bool        `json:"force,omitempty"`
-	Id          int32        `json:"id"`
-	Resolve     *bool        `json:"resolve,omitempty"`
-	SessionId   *string      `json:"session_id,omitempty"`
-}
-
-// SoloReleaseResponse defines model for Solo-releaseResponse.
-type SoloReleaseResponse struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema          *string `json:"$schema,omitempty"`
-	ChurnDowngraded *bool   `json:"churn_downgraded,omitempty"`
-	CycleDetected   *bool   `json:"cycle_detected,omitempty"`
-	Ok              bool    `json:"ok"`
-}
-
-// SoloRenewRequest defines model for Solo-renewRequest.
-type SoloRenewRequest struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema       *string `json:"$schema,omitempty"`
-	AgentId      string  `json:"agent_id"`
-	Id           int32   `json:"id"`
-	LeaseMinutes *int32  `json:"lease_minutes,omitempty"`
-}
-
-// SoloUnblockAllRequest defines model for Solo-unblock-allRequest.
-type SoloUnblockAllRequest struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema *string `json:"$schema,omitempty"`
-	Slug   string  `json:"slug"`
-}
-
-// SoloUnblockAllResponse defines model for Solo-unblock-allResponse.
-type SoloUnblockAllResponse struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema *string `json:"$schema,omitempty"`
-	Ok     bool    `json:"ok"`
-}
-
-// SoloClaimBody defines model for SoloClaimBody.
-type SoloClaimBody struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema           *string      `json:"$schema,omitempty"`
-	Blocked          bool         `json:"blocked"`
-	BlockedReason    *string      `json:"blocked_reason,omitempty"`
-	ClaimBaseBranch  *string      `json:"claim_base_branch,omitempty"`
-	ClaimBaseSha     *string      `json:"claim_base_sha,omitempty"`
-	ClaimContract    *string      `json:"claim_contract,omitempty"`
-	ClaimedAt        *string      `json:"claimed_at,omitempty"`
-	ClaimedBy        *string      `json:"claimed_by,omitempty"`
-	CreatedAt        string       `json:"created_at"`
-	CycleCount       *int32       `json:"cycle_count,omitempty"`
-	Debug            *DebugOutput `json:"debug,omitempty"`
-	Description      *string      `json:"description,omitempty"`
-	Id               int32        `json:"id"`
-	Instructions     *string      `json:"instructions,omitempty"`
-	IssueRef         string       `json:"issue_ref"`
-	Key              string       `json:"key"`
-	Kind             string       `json:"kind"`
-	Persona          string       `json:"persona"`
-	Priority         int32        `json:"priority"`
-	ProjectSlug      *string      `json:"project_slug,omitempty"`
-	ReferenceIssueId *string      `json:"reference_issue_id,omitempty"`
-	ResolvedAt       *string      `json:"resolved_at,omitempty"`
-	Status           string       `json:"status"`
-	SuggestedAction  *string      `json:"suggested_action,omitempty"`
-	TargetBranch     *string      `json:"target_branch,omitempty"`
-	TargetId         string       `json:"target_id"`
-	TargetType       string       `json:"target_type"`
-	Text             string       `json:"text"`
-	Title            *string      `json:"title,omitempty"`
-}
-
-// SoloQueueItem defines model for SoloQueueItem.
-type SoloQueueItem struct {
-	Blocked         bool    `json:"blocked"`
-	BlockedReason   *string `json:"blocked_reason,omitempty"`
-	Description     *string `json:"description,omitempty"`
-	IssueRef        string  `json:"issue_ref"`
-	Key             string  `json:"key"`
-	Kind            string  `json:"kind"`
-	Persona         string  `json:"persona"`
-	Priority        int32   `json:"priority"`
-	Status          string  `json:"status"`
-	SuggestedAction *string `json:"suggested_action,omitempty"`
-	TargetBranch    *string `json:"target_branch,omitempty"`
-	TargetId        string  `json:"target_id"`
-	TargetType      string  `json:"target_type"`
-	Text            string  `json:"text"`
-	Title           *string `json:"title,omitempty"`
-}
-
 // SpecCloseGateOffender defines model for SpecCloseGateOffender.
 type SpecCloseGateOffender struct {
 	Description string `json:"description"`
@@ -5041,6 +5041,43 @@ type ListAgentsParams struct {
 	Slug string `form:"slug" json:"slug"`
 }
 
+// AgentClaimParams defines parameters for AgentClaim.
+type AgentClaimParams struct {
+	Debug       *string `form:"debug,omitempty" json:"debug,omitempty"`
+	XAtlasDebug *string `json:"X-Atlas-Debug,omitempty"`
+}
+
+// AgentClaimAnyParams defines parameters for AgentClaimAny.
+type AgentClaimAnyParams struct {
+	Debug       *string `form:"debug,omitempty" json:"debug,omitempty"`
+	XAtlasDebug *string `json:"X-Atlas-Debug,omitempty"`
+}
+
+// AgentListClaimsParams defines parameters for AgentListClaims.
+type AgentListClaimsParams struct {
+	Slug string `form:"slug" json:"slug"`
+}
+
+// AgentHealthParams defines parameters for AgentHealth.
+type AgentHealthParams struct {
+	Slug string `form:"slug" json:"slug"`
+}
+
+// ListAgentQueueParams defines parameters for ListAgentQueue.
+type ListAgentQueueParams struct {
+	Slug    string  `form:"slug" json:"slug"`
+	Issue   *string `form:"issue,omitempty" json:"issue,omitempty"`
+	Blocked *string `form:"blocked,omitempty" json:"blocked,omitempty"`
+	Status  *string `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// AgentListReservationsParams defines parameters for AgentListReservations.
+type AgentListReservationsParams struct {
+	Slug    string  `form:"slug" json:"slug"`
+	IssueId *string `form:"issue_id,omitempty" json:"issue_id,omitempty"`
+	Limit   *int32  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // CloseAgentSessionParams defines parameters for CloseAgentSession.
 type CloseAgentSessionParams struct {
 	Slug string `form:"slug" json:"slug"`
@@ -5582,43 +5619,6 @@ type ListSlowQueriesParams struct {
 	Search *string `form:"search,omitempty" json:"search,omitempty"`
 }
 
-// ListSoloQueueParams defines parameters for ListSoloQueue.
-type ListSoloQueueParams struct {
-	Slug    string  `form:"slug" json:"slug"`
-	Issue   *string `form:"issue,omitempty" json:"issue,omitempty"`
-	Blocked *string `form:"blocked,omitempty" json:"blocked,omitempty"`
-	Status  *string `form:"status,omitempty" json:"status,omitempty"`
-}
-
-// SoloClaimParams defines parameters for SoloClaim.
-type SoloClaimParams struct {
-	Debug       *string `form:"debug,omitempty" json:"debug,omitempty"`
-	XAtlasDebug *string `json:"X-Atlas-Debug,omitempty"`
-}
-
-// SoloClaimAnyParams defines parameters for SoloClaimAny.
-type SoloClaimAnyParams struct {
-	Debug       *string `form:"debug,omitempty" json:"debug,omitempty"`
-	XAtlasDebug *string `json:"X-Atlas-Debug,omitempty"`
-}
-
-// SoloListClaimsParams defines parameters for SoloListClaims.
-type SoloListClaimsParams struct {
-	Slug string `form:"slug" json:"slug"`
-}
-
-// SoloHealthParams defines parameters for SoloHealth.
-type SoloHealthParams struct {
-	Slug string `form:"slug" json:"slug"`
-}
-
-// SoloListReservationsParams defines parameters for SoloListReservations.
-type SoloListReservationsParams struct {
-	Slug    string  `form:"slug" json:"slug"`
-	IssueId *string `form:"issue_id,omitempty" json:"issue_id,omitempty"`
-	Limit   *int32  `form:"limit,omitempty" json:"limit,omitempty"`
-}
-
 // ListSpecsBlockerResolvedParams defines parameters for ListSpecsBlockerResolved.
 type ListSpecsBlockerResolvedParams struct {
 	Slug string `form:"slug" json:"slug"`
@@ -6011,6 +6011,27 @@ type AuthLoginJSONRequestBody = AuthLoginRequest
 // AuthRegisterJSONRequestBody defines body for AuthRegister for application/json ContentType.
 type AuthRegisterJSONRequestBody = AuthRegisterRequest
 
+// AgentClaimJSONRequestBody defines body for AgentClaim for application/json ContentType.
+type AgentClaimJSONRequestBody = AgentClaimRequest
+
+// AgentClaimAnyJSONRequestBody defines body for AgentClaimAny for application/json ContentType.
+type AgentClaimAnyJSONRequestBody = AgentClaimAnyRequest
+
+// AgentApplyJSONRequestBody defines body for AgentApply for application/json ContentType.
+type AgentApplyJSONRequestBody = AgentApplyRequest
+
+// AgentEvaluateJSONRequestBody defines body for AgentEvaluate for application/json ContentType.
+type AgentEvaluateJSONRequestBody = AgentEvaluateRequest
+
+// AgentUnblockAllJSONRequestBody defines body for AgentUnblockAll for application/json ContentType.
+type AgentUnblockAllJSONRequestBody = AgentUnblockAllRequest
+
+// AgentReleaseJSONRequestBody defines body for AgentRelease for application/json ContentType.
+type AgentReleaseJSONRequestBody = AgentReleaseRequest
+
+// AgentRenewJSONRequestBody defines body for AgentRenew for application/json ContentType.
+type AgentRenewJSONRequestBody = AgentRenewRequest
+
 // CloseAgentSessionJSONRequestBody defines body for CloseAgentSession for application/json ContentType.
 type CloseAgentSessionJSONRequestBody = CloseAgentSessionRequest
 
@@ -6256,27 +6277,6 @@ type DenyQuestionProposalJSONRequestBody = DenyQuestionProposalRequest
 
 // ReportSlowQueryJSONRequestBody defines body for ReportSlowQuery for application/json ContentType.
 type ReportSlowQueryJSONRequestBody = ReportSlowQueryRequest
-
-// SoloApplyJSONRequestBody defines body for SoloApply for application/json ContentType.
-type SoloApplyJSONRequestBody = SoloApplyRequest
-
-// SoloClaimJSONRequestBody defines body for SoloClaim for application/json ContentType.
-type SoloClaimJSONRequestBody = SoloClaimRequest
-
-// SoloClaimAnyJSONRequestBody defines body for SoloClaimAny for application/json ContentType.
-type SoloClaimAnyJSONRequestBody = SoloClaimAnyRequest
-
-// SoloEvaluateJSONRequestBody defines body for SoloEvaluate for application/json ContentType.
-type SoloEvaluateJSONRequestBody = SoloEvaluateRequest
-
-// SoloReleaseJSONRequestBody defines body for SoloRelease for application/json ContentType.
-type SoloReleaseJSONRequestBody = SoloReleaseRequest
-
-// SoloRenewJSONRequestBody defines body for SoloRenew for application/json ContentType.
-type SoloRenewJSONRequestBody = SoloRenewRequest
-
-// SoloUnblockAllJSONRequestBody defines body for SoloUnblockAll for application/json ContentType.
-type SoloUnblockAllJSONRequestBody = SoloUnblockAllRequest
 
 // AddSpecDeferralJSONRequestBody defines body for AddSpecDeferral for application/json ContentType.
 type AddSpecDeferralJSONRequestBody = AddSpecDeferralRequest
@@ -6756,6 +6756,53 @@ type ClientInterface interface {
 
 	// GetConfig request
 	GetConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentClaimWithBody request with any body
+	AgentClaimWithBody(ctx context.Context, params *AgentClaimParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AgentClaim(ctx context.Context, params *AgentClaimParams, body AgentClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentClaimAnyWithBody request with any body
+	AgentClaimAnyWithBody(ctx context.Context, params *AgentClaimAnyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AgentClaimAny(ctx context.Context, params *AgentClaimAnyParams, body AgentClaimAnyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentListClaims request
+	AgentListClaims(ctx context.Context, params *AgentListClaimsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentHealth request
+	AgentHealth(ctx context.Context, params *AgentHealthParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAgentQueue request
+	ListAgentQueue(ctx context.Context, params *ListAgentQueueParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentApplyWithBody request with any body
+	AgentApplyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AgentApply(ctx context.Context, body AgentApplyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentEvaluateWithBody request with any body
+	AgentEvaluateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AgentEvaluate(ctx context.Context, body AgentEvaluateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentUnblockAllWithBody request with any body
+	AgentUnblockAllWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AgentUnblockAll(ctx context.Context, body AgentUnblockAllJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentReleaseWithBody request with any body
+	AgentReleaseWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AgentRelease(ctx context.Context, body AgentReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentRenewWithBody request with any body
+	AgentRenewWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AgentRenew(ctx context.Context, body AgentRenewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AgentListReservations request
+	AgentListReservations(ctx context.Context, params *AgentListReservationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CloseAgentSessionWithBody request with any body
 	CloseAgentSessionWithBody(ctx context.Context, sid string, params *CloseAgentSessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -7454,53 +7501,6 @@ type ClientInterface interface {
 	ReportSlowQueryWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	ReportSlowQuery(ctx context.Context, body ReportSlowQueryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// ListSoloQueue request
-	ListSoloQueue(ctx context.Context, params *ListSoloQueueParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SoloApplyWithBody request with any body
-	SoloApplyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	SoloApply(ctx context.Context, body SoloApplyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SoloClaimWithBody request with any body
-	SoloClaimWithBody(ctx context.Context, params *SoloClaimParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	SoloClaim(ctx context.Context, params *SoloClaimParams, body SoloClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SoloClaimAnyWithBody request with any body
-	SoloClaimAnyWithBody(ctx context.Context, params *SoloClaimAnyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	SoloClaimAny(ctx context.Context, params *SoloClaimAnyParams, body SoloClaimAnyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SoloListClaims request
-	SoloListClaims(ctx context.Context, params *SoloListClaimsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SoloEvaluateWithBody request with any body
-	SoloEvaluateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	SoloEvaluate(ctx context.Context, body SoloEvaluateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SoloHealth request
-	SoloHealth(ctx context.Context, params *SoloHealthParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SoloReleaseWithBody request with any body
-	SoloReleaseWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	SoloRelease(ctx context.Context, body SoloReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SoloRenewWithBody request with any body
-	SoloRenewWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	SoloRenew(ctx context.Context, body SoloRenewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SoloListReservations request
-	SoloListReservations(ctx context.Context, params *SoloListReservationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// SoloUnblockAllWithBody request with any body
-	SoloUnblockAllWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	SoloUnblockAll(ctx context.Context, body SoloUnblockAllJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListSpecsBlockerResolved request
 	ListSpecsBlockerResolved(ctx context.Context, params *ListSpecsBlockerResolvedParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8863,6 +8863,222 @@ func (c *APIClient) AuthRegister(ctx context.Context, body AuthRegisterJSONReque
 
 func (c *APIClient) GetConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetConfigRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AgentClaimWithBody(ctx context.Context, params *AgentClaimParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentClaimRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AgentClaim(ctx context.Context, params *AgentClaimParams, body AgentClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentClaimRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AgentClaimAnyWithBody(ctx context.Context, params *AgentClaimAnyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentClaimAnyRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AgentClaimAny(ctx context.Context, params *AgentClaimAnyParams, body AgentClaimAnyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentClaimAnyRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AgentListClaims(ctx context.Context, params *AgentListClaimsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentListClaimsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AgentHealth(ctx context.Context, params *AgentHealthParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentHealthRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListAgentQueue(ctx context.Context, params *ListAgentQueueParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAgentQueueRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AgentApplyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentApplyRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AgentApply(ctx context.Context, body AgentApplyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentApplyRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AgentEvaluateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentEvaluateRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AgentEvaluate(ctx context.Context, body AgentEvaluateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentEvaluateRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AgentUnblockAllWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentUnblockAllRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AgentUnblockAll(ctx context.Context, body AgentUnblockAllJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentUnblockAllRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AgentReleaseWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentReleaseRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AgentRelease(ctx context.Context, body AgentReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentReleaseRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AgentRenewWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentRenewRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AgentRenew(ctx context.Context, body AgentRenewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentRenewRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AgentListReservations(ctx context.Context, params *AgentListReservationsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAgentListReservationsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -11983,222 +12199,6 @@ func (c *APIClient) ReportSlowQueryWithBody(ctx context.Context, contentType str
 
 func (c *APIClient) ReportSlowQuery(ctx context.Context, body ReportSlowQueryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewReportSlowQueryRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) ListSoloQueue(ctx context.Context, params *ListSoloQueueParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListSoloQueueRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) SoloApplyWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSoloApplyRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) SoloApply(ctx context.Context, body SoloApplyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSoloApplyRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) SoloClaimWithBody(ctx context.Context, params *SoloClaimParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSoloClaimRequestWithBody(c.Server, params, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) SoloClaim(ctx context.Context, params *SoloClaimParams, body SoloClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSoloClaimRequest(c.Server, params, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) SoloClaimAnyWithBody(ctx context.Context, params *SoloClaimAnyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSoloClaimAnyRequestWithBody(c.Server, params, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) SoloClaimAny(ctx context.Context, params *SoloClaimAnyParams, body SoloClaimAnyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSoloClaimAnyRequest(c.Server, params, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) SoloListClaims(ctx context.Context, params *SoloListClaimsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSoloListClaimsRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) SoloEvaluateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSoloEvaluateRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) SoloEvaluate(ctx context.Context, body SoloEvaluateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSoloEvaluateRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) SoloHealth(ctx context.Context, params *SoloHealthParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSoloHealthRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) SoloReleaseWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSoloReleaseRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) SoloRelease(ctx context.Context, body SoloReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSoloReleaseRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) SoloRenewWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSoloRenewRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) SoloRenew(ctx context.Context, body SoloRenewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSoloRenewRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) SoloListReservations(ctx context.Context, params *SoloListReservationsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSoloListReservationsRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) SoloUnblockAllWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSoloUnblockAllRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) SoloUnblockAll(ctx context.Context, body SoloUnblockAllJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSoloUnblockAllRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -16584,6 +16584,620 @@ func NewGetConfigRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAgentClaimRequest calls the generic AgentClaim builder with application/json body
+func NewAgentClaimRequest(server string, params *AgentClaimParams, body AgentClaimJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAgentClaimRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewAgentClaimRequestWithBody generates requests for AgentClaim with any type of body
+func NewAgentClaimRequestWithBody(server string, params *AgentClaimParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/agent/claim")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Debug != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "debug", *params.Debug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XAtlasDebug != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Atlas-Debug", *params.XAtlasDebug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Atlas-Debug", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewAgentClaimAnyRequest calls the generic AgentClaimAny builder with application/json body
+func NewAgentClaimAnyRequest(server string, params *AgentClaimAnyParams, body AgentClaimAnyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAgentClaimAnyRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewAgentClaimAnyRequestWithBody generates requests for AgentClaimAny with any type of body
+func NewAgentClaimAnyRequestWithBody(server string, params *AgentClaimAnyParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/agent/claim-any")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Debug != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "debug", *params.Debug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XAtlasDebug != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Atlas-Debug", *params.XAtlasDebug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Atlas-Debug", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewAgentListClaimsRequest generates requests for AgentListClaims
+func NewAgentListClaimsRequest(server string, params *AgentListClaimsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/agent/claims")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAgentHealthRequest generates requests for AgentHealth
+func NewAgentHealthRequest(server string, params *AgentHealthParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/agent/health")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListAgentQueueRequest generates requests for ListAgentQueue
+func NewListAgentQueueRequest(server string, params *ListAgentQueueParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/agent/queue")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.Issue != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "issue", *params.Issue, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Blocked != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "blocked", *params.Blocked, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAgentApplyRequest calls the generic AgentApply builder with application/json body
+func NewAgentApplyRequest(server string, body AgentApplyJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAgentApplyRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAgentApplyRequestWithBody generates requests for AgentApply with any type of body
+func NewAgentApplyRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/agent/queue/apply")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAgentEvaluateRequest calls the generic AgentEvaluate builder with application/json body
+func NewAgentEvaluateRequest(server string, body AgentEvaluateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAgentEvaluateRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAgentEvaluateRequestWithBody generates requests for AgentEvaluate with any type of body
+func NewAgentEvaluateRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/agent/queue/evaluate")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAgentUnblockAllRequest calls the generic AgentUnblockAll builder with application/json body
+func NewAgentUnblockAllRequest(server string, body AgentUnblockAllJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAgentUnblockAllRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAgentUnblockAllRequestWithBody generates requests for AgentUnblockAll with any type of body
+func NewAgentUnblockAllRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/agent/queue/unblock-all")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAgentReleaseRequest calls the generic AgentRelease builder with application/json body
+func NewAgentReleaseRequest(server string, body AgentReleaseJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAgentReleaseRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAgentReleaseRequestWithBody generates requests for AgentRelease with any type of body
+func NewAgentReleaseRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/agent/release")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAgentRenewRequest calls the generic AgentRenew builder with application/json body
+func NewAgentRenewRequest(server string, body AgentRenewJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAgentRenewRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAgentRenewRequestWithBody generates requests for AgentRenew with any type of body
+func NewAgentRenewRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/agent/renew")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewAgentListReservationsRequest generates requests for AgentListReservations
+func NewAgentListReservationsRequest(server string, params *AgentListReservationsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/agent/reservations")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.IssueId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "issue_id", *params.IssueId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -26363,620 +26977,6 @@ func NewReportSlowQueryRequestWithBody(server string, contentType string, body i
 	return req, nil
 }
 
-// NewListSoloQueueRequest generates requests for ListSoloQueue
-func NewListSoloQueueRequest(server string, params *ListSoloQueueParams) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/dx/solo")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
-
-		if params.Issue != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "issue", *params.Issue, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Blocked != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "blocked", *params.Blocked, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Status != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewSoloApplyRequest calls the generic SoloApply builder with application/json body
-func NewSoloApplyRequest(server string, body SoloApplyJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewSoloApplyRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewSoloApplyRequestWithBody generates requests for SoloApply with any type of body
-func NewSoloApplyRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/dx/solo/apply")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewSoloClaimRequest calls the generic SoloClaim builder with application/json body
-func NewSoloClaimRequest(server string, params *SoloClaimParams, body SoloClaimJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewSoloClaimRequestWithBody(server, params, "application/json", bodyReader)
-}
-
-// NewSoloClaimRequestWithBody generates requests for SoloClaim with any type of body
-func NewSoloClaimRequestWithBody(server string, params *SoloClaimParams, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/dx/solo/claim")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if params.Debug != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "debug", *params.Debug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	if params != nil {
-
-		if params.XAtlasDebug != nil {
-			var headerParam0 string
-
-			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Atlas-Debug", *params.XAtlasDebug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-			if err != nil {
-				return nil, err
-			}
-
-			req.Header.Set("X-Atlas-Debug", headerParam0)
-		}
-
-	}
-
-	return req, nil
-}
-
-// NewSoloClaimAnyRequest calls the generic SoloClaimAny builder with application/json body
-func NewSoloClaimAnyRequest(server string, params *SoloClaimAnyParams, body SoloClaimAnyJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewSoloClaimAnyRequestWithBody(server, params, "application/json", bodyReader)
-}
-
-// NewSoloClaimAnyRequestWithBody generates requests for SoloClaimAny with any type of body
-func NewSoloClaimAnyRequestWithBody(server string, params *SoloClaimAnyParams, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/dx/solo/claim-any")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if params.Debug != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "debug", *params.Debug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	if params != nil {
-
-		if params.XAtlasDebug != nil {
-			var headerParam0 string
-
-			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Atlas-Debug", *params.XAtlasDebug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
-			if err != nil {
-				return nil, err
-			}
-
-			req.Header.Set("X-Atlas-Debug", headerParam0)
-		}
-
-	}
-
-	return req, nil
-}
-
-// NewSoloListClaimsRequest generates requests for SoloListClaims
-func NewSoloListClaimsRequest(server string, params *SoloListClaimsParams) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/dx/solo/claims")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewSoloEvaluateRequest calls the generic SoloEvaluate builder with application/json body
-func NewSoloEvaluateRequest(server string, body SoloEvaluateJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewSoloEvaluateRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewSoloEvaluateRequestWithBody generates requests for SoloEvaluate with any type of body
-func NewSoloEvaluateRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/dx/solo/evaluate")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewSoloHealthRequest generates requests for SoloHealth
-func NewSoloHealthRequest(server string, params *SoloHealthParams) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/dx/solo/health")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewSoloReleaseRequest calls the generic SoloRelease builder with application/json body
-func NewSoloReleaseRequest(server string, body SoloReleaseJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewSoloReleaseRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewSoloReleaseRequestWithBody generates requests for SoloRelease with any type of body
-func NewSoloReleaseRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/dx/solo/release")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewSoloRenewRequest calls the generic SoloRenew builder with application/json body
-func NewSoloRenewRequest(server string, body SoloRenewJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewSoloRenewRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewSoloRenewRequestWithBody generates requests for SoloRenew with any type of body
-func NewSoloRenewRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/dx/solo/renew")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewSoloListReservationsRequest generates requests for SoloListReservations
-func NewSoloListReservationsRequest(server string, params *SoloListReservationsParams) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/dx/solo/reservations")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
-
-		if params.IssueId != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "issue_id", *params.IssueId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Limit != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewSoloUnblockAllRequest calls the generic SoloUnblockAll builder with application/json body
-func NewSoloUnblockAllRequest(server string, body SoloUnblockAllJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewSoloUnblockAllRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewSoloUnblockAllRequestWithBody generates requests for SoloUnblockAll with any type of body
-func NewSoloUnblockAllRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/dx/solo/unblock-all")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewListSpecsBlockerResolvedRequest generates requests for ListSpecsBlockerResolved
 func NewListSpecsBlockerResolvedRequest(server string, params *ListSpecsBlockerResolvedParams) (*http.Request, error) {
 	var err error
@@ -33845,6 +33845,53 @@ type ClientWithResponsesInterface interface {
 	// GetConfigWithResponse request
 	GetConfigWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedGetConfigResponse, error)
 
+	// AgentClaimWithBodyWithResponse request with any body
+	AgentClaimWithBodyWithResponse(ctx context.Context, params *AgentClaimParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentClaimResponse, error)
+
+	AgentClaimWithResponse(ctx context.Context, params *AgentClaimParams, body AgentClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentClaimResponse, error)
+
+	// AgentClaimAnyWithBodyWithResponse request with any body
+	AgentClaimAnyWithBodyWithResponse(ctx context.Context, params *AgentClaimAnyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentClaimAnyResponse, error)
+
+	AgentClaimAnyWithResponse(ctx context.Context, params *AgentClaimAnyParams, body AgentClaimAnyJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentClaimAnyResponse, error)
+
+	// AgentListClaimsWithResponse request
+	AgentListClaimsWithResponse(ctx context.Context, params *AgentListClaimsParams, reqEditors ...RequestEditorFn) (*ParsedAgentListClaimsResponse, error)
+
+	// AgentHealthWithResponse request
+	AgentHealthWithResponse(ctx context.Context, params *AgentHealthParams, reqEditors ...RequestEditorFn) (*ParsedAgentHealthResponse, error)
+
+	// ListAgentQueueWithResponse request
+	ListAgentQueueWithResponse(ctx context.Context, params *ListAgentQueueParams, reqEditors ...RequestEditorFn) (*ListAgentQueueResponse, error)
+
+	// AgentApplyWithBodyWithResponse request with any body
+	AgentApplyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentApplyResponse, error)
+
+	AgentApplyWithResponse(ctx context.Context, body AgentApplyJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentApplyResponse, error)
+
+	// AgentEvaluateWithBodyWithResponse request with any body
+	AgentEvaluateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentEvaluateResponse, error)
+
+	AgentEvaluateWithResponse(ctx context.Context, body AgentEvaluateJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentEvaluateResponse, error)
+
+	// AgentUnblockAllWithBodyWithResponse request with any body
+	AgentUnblockAllWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedAgentUnblockAllResponse, error)
+
+	AgentUnblockAllWithResponse(ctx context.Context, body AgentUnblockAllJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedAgentUnblockAllResponse, error)
+
+	// AgentReleaseWithBodyWithResponse request with any body
+	AgentReleaseWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedAgentReleaseResponse, error)
+
+	AgentReleaseWithResponse(ctx context.Context, body AgentReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedAgentReleaseResponse, error)
+
+	// AgentRenewWithBodyWithResponse request with any body
+	AgentRenewWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentRenewResponse, error)
+
+	AgentRenewWithResponse(ctx context.Context, body AgentRenewJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentRenewResponse, error)
+
+	// AgentListReservationsWithResponse request
+	AgentListReservationsWithResponse(ctx context.Context, params *AgentListReservationsParams, reqEditors ...RequestEditorFn) (*ParsedAgentListReservationsResponse, error)
+
 	// CloseAgentSessionWithBodyWithResponse request with any body
 	CloseAgentSessionWithBodyWithResponse(ctx context.Context, sid string, params *CloseAgentSessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedCloseAgentSessionResponse, error)
 
@@ -34542,53 +34589,6 @@ type ClientWithResponsesInterface interface {
 	ReportSlowQueryWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReportSlowQueryResponse, error)
 
 	ReportSlowQueryWithResponse(ctx context.Context, body ReportSlowQueryJSONRequestBody, reqEditors ...RequestEditorFn) (*ReportSlowQueryResponse, error)
-
-	// ListSoloQueueWithResponse request
-	ListSoloQueueWithResponse(ctx context.Context, params *ListSoloQueueParams, reqEditors ...RequestEditorFn) (*ListSoloQueueResponse, error)
-
-	// SoloApplyWithBodyWithResponse request with any body
-	SoloApplyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloApplyResponse, error)
-
-	SoloApplyWithResponse(ctx context.Context, body SoloApplyJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloApplyResponse, error)
-
-	// SoloClaimWithBodyWithResponse request with any body
-	SoloClaimWithBodyWithResponse(ctx context.Context, params *SoloClaimParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloClaimResponse, error)
-
-	SoloClaimWithResponse(ctx context.Context, params *SoloClaimParams, body SoloClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloClaimResponse, error)
-
-	// SoloClaimAnyWithBodyWithResponse request with any body
-	SoloClaimAnyWithBodyWithResponse(ctx context.Context, params *SoloClaimAnyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloClaimAnyResponse, error)
-
-	SoloClaimAnyWithResponse(ctx context.Context, params *SoloClaimAnyParams, body SoloClaimAnyJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloClaimAnyResponse, error)
-
-	// SoloListClaimsWithResponse request
-	SoloListClaimsWithResponse(ctx context.Context, params *SoloListClaimsParams, reqEditors ...RequestEditorFn) (*ParsedSoloListClaimsResponse, error)
-
-	// SoloEvaluateWithBodyWithResponse request with any body
-	SoloEvaluateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloEvaluateResponse, error)
-
-	SoloEvaluateWithResponse(ctx context.Context, body SoloEvaluateJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloEvaluateResponse, error)
-
-	// SoloHealthWithResponse request
-	SoloHealthWithResponse(ctx context.Context, params *SoloHealthParams, reqEditors ...RequestEditorFn) (*ParsedSoloHealthResponse, error)
-
-	// SoloReleaseWithBodyWithResponse request with any body
-	SoloReleaseWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSoloReleaseResponse, error)
-
-	SoloReleaseWithResponse(ctx context.Context, body SoloReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSoloReleaseResponse, error)
-
-	// SoloRenewWithBodyWithResponse request with any body
-	SoloRenewWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloRenewResponse, error)
-
-	SoloRenewWithResponse(ctx context.Context, body SoloRenewJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloRenewResponse, error)
-
-	// SoloListReservationsWithResponse request
-	SoloListReservationsWithResponse(ctx context.Context, params *SoloListReservationsParams, reqEditors ...RequestEditorFn) (*ParsedSoloListReservationsResponse, error)
-
-	// SoloUnblockAllWithBodyWithResponse request with any body
-	SoloUnblockAllWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSoloUnblockAllResponse, error)
-
-	SoloUnblockAllWithResponse(ctx context.Context, body SoloUnblockAllJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSoloUnblockAllResponse, error)
 
 	// ListSpecsBlockerResolvedWithResponse request
 	ListSpecsBlockerResolvedWithResponse(ctx context.Context, params *ListSpecsBlockerResolvedParams, reqEditors ...RequestEditorFn) (*ParsedListSpecsBlockerResolvedResponse, error)
@@ -36245,6 +36245,259 @@ func (r ParsedGetConfigResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedGetConfigResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AgentClaimResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *AgentClaimBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentClaimResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentClaimResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AgentClaimAnyResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *AgentClaimBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentClaimAnyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentClaimAnyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedAgentListClaimsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *AgentListClaimsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedAgentListClaimsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedAgentListClaimsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedAgentHealthResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *AgentHealthResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedAgentHealthResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedAgentHealthResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListAgentQueueResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *[]TodoItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ListAgentQueueResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListAgentQueueResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AgentApplyResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentApplyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentApplyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AgentEvaluateResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *EvaluateDiff
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentEvaluateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentEvaluateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedAgentUnblockAllResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *AgentUnblockAllResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedAgentUnblockAllResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedAgentUnblockAllResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedAgentReleaseResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *AgentReleaseResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedAgentReleaseResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedAgentReleaseResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AgentRenewResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r AgentRenewResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AgentRenewResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedAgentListReservationsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *AgentListReservationsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedAgentListReservationsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedAgentListReservationsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -40339,259 +40592,6 @@ func (r ReportSlowQueryResponse) StatusCode() int {
 	return 0
 }
 
-type ListSoloQueueResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *[]TodoItem
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r ListSoloQueueResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListSoloQueueResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type SoloApplyResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKBody
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r SoloApplyResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r SoloApplyResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type SoloClaimResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *SoloClaimBody
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r SoloClaimResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r SoloClaimResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type SoloClaimAnyResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *SoloClaimBody
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r SoloClaimAnyResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r SoloClaimAnyResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ParsedSoloListClaimsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *SoloListClaimsResponse
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r ParsedSoloListClaimsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ParsedSoloListClaimsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type SoloEvaluateResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *EvaluateDiff
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r SoloEvaluateResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r SoloEvaluateResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ParsedSoloHealthResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *SoloHealthResponse
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r ParsedSoloHealthResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ParsedSoloHealthResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ParsedSoloReleaseResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *SoloReleaseResponse
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r ParsedSoloReleaseResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ParsedSoloReleaseResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type SoloRenewResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKBody
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r SoloRenewResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r SoloRenewResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ParsedSoloListReservationsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *SoloListReservationsResponse
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r ParsedSoloListReservationsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ParsedSoloListReservationsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ParsedSoloUnblockAllResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *SoloUnblockAllResponse
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r ParsedSoloUnblockAllResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ParsedSoloUnblockAllResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type ParsedListSpecsBlockerResolvedResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -44223,6 +44223,161 @@ func (c *ClientWithResponses) GetConfigWithResponse(ctx context.Context, reqEdit
 	return ParseParsedGetConfigResponse(rsp)
 }
 
+// AgentClaimWithBodyWithResponse request with arbitrary body returning *AgentClaimResponse
+func (c *ClientWithResponses) AgentClaimWithBodyWithResponse(ctx context.Context, params *AgentClaimParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentClaimResponse, error) {
+	rsp, err := c.AgentClaimWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentClaimResponse(rsp)
+}
+
+func (c *ClientWithResponses) AgentClaimWithResponse(ctx context.Context, params *AgentClaimParams, body AgentClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentClaimResponse, error) {
+	rsp, err := c.AgentClaim(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentClaimResponse(rsp)
+}
+
+// AgentClaimAnyWithBodyWithResponse request with arbitrary body returning *AgentClaimAnyResponse
+func (c *ClientWithResponses) AgentClaimAnyWithBodyWithResponse(ctx context.Context, params *AgentClaimAnyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentClaimAnyResponse, error) {
+	rsp, err := c.AgentClaimAnyWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentClaimAnyResponse(rsp)
+}
+
+func (c *ClientWithResponses) AgentClaimAnyWithResponse(ctx context.Context, params *AgentClaimAnyParams, body AgentClaimAnyJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentClaimAnyResponse, error) {
+	rsp, err := c.AgentClaimAny(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentClaimAnyResponse(rsp)
+}
+
+// AgentListClaimsWithResponse request returning *ParsedAgentListClaimsResponse
+func (c *ClientWithResponses) AgentListClaimsWithResponse(ctx context.Context, params *AgentListClaimsParams, reqEditors ...RequestEditorFn) (*ParsedAgentListClaimsResponse, error) {
+	rsp, err := c.AgentListClaims(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedAgentListClaimsResponse(rsp)
+}
+
+// AgentHealthWithResponse request returning *ParsedAgentHealthResponse
+func (c *ClientWithResponses) AgentHealthWithResponse(ctx context.Context, params *AgentHealthParams, reqEditors ...RequestEditorFn) (*ParsedAgentHealthResponse, error) {
+	rsp, err := c.AgentHealth(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedAgentHealthResponse(rsp)
+}
+
+// ListAgentQueueWithResponse request returning *ListAgentQueueResponse
+func (c *ClientWithResponses) ListAgentQueueWithResponse(ctx context.Context, params *ListAgentQueueParams, reqEditors ...RequestEditorFn) (*ListAgentQueueResponse, error) {
+	rsp, err := c.ListAgentQueue(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListAgentQueueResponse(rsp)
+}
+
+// AgentApplyWithBodyWithResponse request with arbitrary body returning *AgentApplyResponse
+func (c *ClientWithResponses) AgentApplyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentApplyResponse, error) {
+	rsp, err := c.AgentApplyWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentApplyResponse(rsp)
+}
+
+func (c *ClientWithResponses) AgentApplyWithResponse(ctx context.Context, body AgentApplyJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentApplyResponse, error) {
+	rsp, err := c.AgentApply(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentApplyResponse(rsp)
+}
+
+// AgentEvaluateWithBodyWithResponse request with arbitrary body returning *AgentEvaluateResponse
+func (c *ClientWithResponses) AgentEvaluateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentEvaluateResponse, error) {
+	rsp, err := c.AgentEvaluateWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentEvaluateResponse(rsp)
+}
+
+func (c *ClientWithResponses) AgentEvaluateWithResponse(ctx context.Context, body AgentEvaluateJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentEvaluateResponse, error) {
+	rsp, err := c.AgentEvaluate(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentEvaluateResponse(rsp)
+}
+
+// AgentUnblockAllWithBodyWithResponse request with arbitrary body returning *ParsedAgentUnblockAllResponse
+func (c *ClientWithResponses) AgentUnblockAllWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedAgentUnblockAllResponse, error) {
+	rsp, err := c.AgentUnblockAllWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedAgentUnblockAllResponse(rsp)
+}
+
+func (c *ClientWithResponses) AgentUnblockAllWithResponse(ctx context.Context, body AgentUnblockAllJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedAgentUnblockAllResponse, error) {
+	rsp, err := c.AgentUnblockAll(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedAgentUnblockAllResponse(rsp)
+}
+
+// AgentReleaseWithBodyWithResponse request with arbitrary body returning *ParsedAgentReleaseResponse
+func (c *ClientWithResponses) AgentReleaseWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedAgentReleaseResponse, error) {
+	rsp, err := c.AgentReleaseWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedAgentReleaseResponse(rsp)
+}
+
+func (c *ClientWithResponses) AgentReleaseWithResponse(ctx context.Context, body AgentReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedAgentReleaseResponse, error) {
+	rsp, err := c.AgentRelease(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedAgentReleaseResponse(rsp)
+}
+
+// AgentRenewWithBodyWithResponse request with arbitrary body returning *AgentRenewResponse
+func (c *ClientWithResponses) AgentRenewWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentRenewResponse, error) {
+	rsp, err := c.AgentRenewWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentRenewResponse(rsp)
+}
+
+func (c *ClientWithResponses) AgentRenewWithResponse(ctx context.Context, body AgentRenewJSONRequestBody, reqEditors ...RequestEditorFn) (*AgentRenewResponse, error) {
+	rsp, err := c.AgentRenew(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAgentRenewResponse(rsp)
+}
+
+// AgentListReservationsWithResponse request returning *ParsedAgentListReservationsResponse
+func (c *ClientWithResponses) AgentListReservationsWithResponse(ctx context.Context, params *AgentListReservationsParams, reqEditors ...RequestEditorFn) (*ParsedAgentListReservationsResponse, error) {
+	rsp, err := c.AgentListReservations(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedAgentListReservationsResponse(rsp)
+}
+
 // CloseAgentSessionWithBodyWithResponse request with arbitrary body returning *ParsedCloseAgentSessionResponse
 func (c *ClientWithResponses) CloseAgentSessionWithBodyWithResponse(ctx context.Context, sid string, params *CloseAgentSessionParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedCloseAgentSessionResponse, error) {
 	rsp, err := c.CloseAgentSessionWithBody(ctx, sid, params, contentType, body, reqEditors...)
@@ -46479,161 +46634,6 @@ func (c *ClientWithResponses) ReportSlowQueryWithResponse(ctx context.Context, b
 		return nil, err
 	}
 	return ParseReportSlowQueryResponse(rsp)
-}
-
-// ListSoloQueueWithResponse request returning *ListSoloQueueResponse
-func (c *ClientWithResponses) ListSoloQueueWithResponse(ctx context.Context, params *ListSoloQueueParams, reqEditors ...RequestEditorFn) (*ListSoloQueueResponse, error) {
-	rsp, err := c.ListSoloQueue(ctx, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListSoloQueueResponse(rsp)
-}
-
-// SoloApplyWithBodyWithResponse request with arbitrary body returning *SoloApplyResponse
-func (c *ClientWithResponses) SoloApplyWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloApplyResponse, error) {
-	rsp, err := c.SoloApplyWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSoloApplyResponse(rsp)
-}
-
-func (c *ClientWithResponses) SoloApplyWithResponse(ctx context.Context, body SoloApplyJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloApplyResponse, error) {
-	rsp, err := c.SoloApply(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSoloApplyResponse(rsp)
-}
-
-// SoloClaimWithBodyWithResponse request with arbitrary body returning *SoloClaimResponse
-func (c *ClientWithResponses) SoloClaimWithBodyWithResponse(ctx context.Context, params *SoloClaimParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloClaimResponse, error) {
-	rsp, err := c.SoloClaimWithBody(ctx, params, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSoloClaimResponse(rsp)
-}
-
-func (c *ClientWithResponses) SoloClaimWithResponse(ctx context.Context, params *SoloClaimParams, body SoloClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloClaimResponse, error) {
-	rsp, err := c.SoloClaim(ctx, params, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSoloClaimResponse(rsp)
-}
-
-// SoloClaimAnyWithBodyWithResponse request with arbitrary body returning *SoloClaimAnyResponse
-func (c *ClientWithResponses) SoloClaimAnyWithBodyWithResponse(ctx context.Context, params *SoloClaimAnyParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloClaimAnyResponse, error) {
-	rsp, err := c.SoloClaimAnyWithBody(ctx, params, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSoloClaimAnyResponse(rsp)
-}
-
-func (c *ClientWithResponses) SoloClaimAnyWithResponse(ctx context.Context, params *SoloClaimAnyParams, body SoloClaimAnyJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloClaimAnyResponse, error) {
-	rsp, err := c.SoloClaimAny(ctx, params, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSoloClaimAnyResponse(rsp)
-}
-
-// SoloListClaimsWithResponse request returning *ParsedSoloListClaimsResponse
-func (c *ClientWithResponses) SoloListClaimsWithResponse(ctx context.Context, params *SoloListClaimsParams, reqEditors ...RequestEditorFn) (*ParsedSoloListClaimsResponse, error) {
-	rsp, err := c.SoloListClaims(ctx, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseParsedSoloListClaimsResponse(rsp)
-}
-
-// SoloEvaluateWithBodyWithResponse request with arbitrary body returning *SoloEvaluateResponse
-func (c *ClientWithResponses) SoloEvaluateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloEvaluateResponse, error) {
-	rsp, err := c.SoloEvaluateWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSoloEvaluateResponse(rsp)
-}
-
-func (c *ClientWithResponses) SoloEvaluateWithResponse(ctx context.Context, body SoloEvaluateJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloEvaluateResponse, error) {
-	rsp, err := c.SoloEvaluate(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSoloEvaluateResponse(rsp)
-}
-
-// SoloHealthWithResponse request returning *ParsedSoloHealthResponse
-func (c *ClientWithResponses) SoloHealthWithResponse(ctx context.Context, params *SoloHealthParams, reqEditors ...RequestEditorFn) (*ParsedSoloHealthResponse, error) {
-	rsp, err := c.SoloHealth(ctx, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseParsedSoloHealthResponse(rsp)
-}
-
-// SoloReleaseWithBodyWithResponse request with arbitrary body returning *ParsedSoloReleaseResponse
-func (c *ClientWithResponses) SoloReleaseWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSoloReleaseResponse, error) {
-	rsp, err := c.SoloReleaseWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseParsedSoloReleaseResponse(rsp)
-}
-
-func (c *ClientWithResponses) SoloReleaseWithResponse(ctx context.Context, body SoloReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSoloReleaseResponse, error) {
-	rsp, err := c.SoloRelease(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseParsedSoloReleaseResponse(rsp)
-}
-
-// SoloRenewWithBodyWithResponse request with arbitrary body returning *SoloRenewResponse
-func (c *ClientWithResponses) SoloRenewWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloRenewResponse, error) {
-	rsp, err := c.SoloRenewWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSoloRenewResponse(rsp)
-}
-
-func (c *ClientWithResponses) SoloRenewWithResponse(ctx context.Context, body SoloRenewJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloRenewResponse, error) {
-	rsp, err := c.SoloRenew(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSoloRenewResponse(rsp)
-}
-
-// SoloListReservationsWithResponse request returning *ParsedSoloListReservationsResponse
-func (c *ClientWithResponses) SoloListReservationsWithResponse(ctx context.Context, params *SoloListReservationsParams, reqEditors ...RequestEditorFn) (*ParsedSoloListReservationsResponse, error) {
-	rsp, err := c.SoloListReservations(ctx, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseParsedSoloListReservationsResponse(rsp)
-}
-
-// SoloUnblockAllWithBodyWithResponse request with arbitrary body returning *ParsedSoloUnblockAllResponse
-func (c *ClientWithResponses) SoloUnblockAllWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSoloUnblockAllResponse, error) {
-	rsp, err := c.SoloUnblockAllWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseParsedSoloUnblockAllResponse(rsp)
-}
-
-func (c *ClientWithResponses) SoloUnblockAllWithResponse(ctx context.Context, body SoloUnblockAllJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSoloUnblockAllResponse, error) {
-	rsp, err := c.SoloUnblockAll(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseParsedSoloUnblockAllResponse(rsp)
 }
 
 // ListSpecsBlockerResolvedWithResponse request returning *ParsedListSpecsBlockerResolvedResponse
@@ -49945,6 +49945,369 @@ func ParseParsedGetConfigResponse(rsp *http.Response) (*ParsedGetConfigResponse,
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest GetConfigResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAgentClaimResponse parses an HTTP response from a AgentClaimWithResponse call
+func ParseAgentClaimResponse(rsp *http.Response) (*AgentClaimResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentClaimResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AgentClaimBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAgentClaimAnyResponse parses an HTTP response from a AgentClaimAnyWithResponse call
+func ParseAgentClaimAnyResponse(rsp *http.Response) (*AgentClaimAnyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentClaimAnyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AgentClaimBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedAgentListClaimsResponse parses an HTTP response from a AgentListClaimsWithResponse call
+func ParseParsedAgentListClaimsResponse(rsp *http.Response) (*ParsedAgentListClaimsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedAgentListClaimsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AgentListClaimsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedAgentHealthResponse parses an HTTP response from a AgentHealthWithResponse call
+func ParseParsedAgentHealthResponse(rsp *http.Response) (*ParsedAgentHealthResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedAgentHealthResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AgentHealthResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListAgentQueueResponse parses an HTTP response from a ListAgentQueueWithResponse call
+func ParseListAgentQueueResponse(rsp *http.Response) (*ListAgentQueueResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListAgentQueueResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []TodoItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAgentApplyResponse parses an HTTP response from a AgentApplyWithResponse call
+func ParseAgentApplyResponse(rsp *http.Response) (*AgentApplyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentApplyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAgentEvaluateResponse parses an HTTP response from a AgentEvaluateWithResponse call
+func ParseAgentEvaluateResponse(rsp *http.Response) (*AgentEvaluateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentEvaluateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EvaluateDiff
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedAgentUnblockAllResponse parses an HTTP response from a AgentUnblockAllWithResponse call
+func ParseParsedAgentUnblockAllResponse(rsp *http.Response) (*ParsedAgentUnblockAllResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedAgentUnblockAllResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AgentUnblockAllResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedAgentReleaseResponse parses an HTTP response from a AgentReleaseWithResponse call
+func ParseParsedAgentReleaseResponse(rsp *http.Response) (*ParsedAgentReleaseResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedAgentReleaseResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AgentReleaseResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAgentRenewResponse parses an HTTP response from a AgentRenewWithResponse call
+func ParseAgentRenewResponse(rsp *http.Response) (*AgentRenewResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AgentRenewResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedAgentListReservationsResponse parses an HTTP response from a AgentListReservationsWithResponse call
+func ParseParsedAgentListReservationsResponse(rsp *http.Response) (*ParsedAgentListReservationsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedAgentListReservationsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AgentListReservationsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -55777,369 +56140,6 @@ func ParseReportSlowQueryResponse(rsp *http.Response) (*ReportSlowQueryResponse,
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest SlowQueryItem
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseListSoloQueueResponse parses an HTTP response from a ListSoloQueueWithResponse call
-func ParseListSoloQueueResponse(rsp *http.Response) (*ListSoloQueueResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListSoloQueueResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []TodoItem
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseSoloApplyResponse parses an HTTP response from a SoloApplyWithResponse call
-func ParseSoloApplyResponse(rsp *http.Response) (*SoloApplyResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &SoloApplyResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest OKBody
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseSoloClaimResponse parses an HTTP response from a SoloClaimWithResponse call
-func ParseSoloClaimResponse(rsp *http.Response) (*SoloClaimResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &SoloClaimResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest SoloClaimBody
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseSoloClaimAnyResponse parses an HTTP response from a SoloClaimAnyWithResponse call
-func ParseSoloClaimAnyResponse(rsp *http.Response) (*SoloClaimAnyResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &SoloClaimAnyResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest SoloClaimBody
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseParsedSoloListClaimsResponse parses an HTTP response from a SoloListClaimsWithResponse call
-func ParseParsedSoloListClaimsResponse(rsp *http.Response) (*ParsedSoloListClaimsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ParsedSoloListClaimsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest SoloListClaimsResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseSoloEvaluateResponse parses an HTTP response from a SoloEvaluateWithResponse call
-func ParseSoloEvaluateResponse(rsp *http.Response) (*SoloEvaluateResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &SoloEvaluateResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest EvaluateDiff
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseParsedSoloHealthResponse parses an HTTP response from a SoloHealthWithResponse call
-func ParseParsedSoloHealthResponse(rsp *http.Response) (*ParsedSoloHealthResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ParsedSoloHealthResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest SoloHealthResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseParsedSoloReleaseResponse parses an HTTP response from a SoloReleaseWithResponse call
-func ParseParsedSoloReleaseResponse(rsp *http.Response) (*ParsedSoloReleaseResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ParsedSoloReleaseResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest SoloReleaseResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseSoloRenewResponse parses an HTTP response from a SoloRenewWithResponse call
-func ParseSoloRenewResponse(rsp *http.Response) (*SoloRenewResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &SoloRenewResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest OKBody
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseParsedSoloListReservationsResponse parses an HTTP response from a SoloListReservationsWithResponse call
-func ParseParsedSoloListReservationsResponse(rsp *http.Response) (*ParsedSoloListReservationsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ParsedSoloListReservationsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest SoloListReservationsResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseParsedSoloUnblockAllResponse parses an HTTP response from a SoloUnblockAllWithResponse call
-func ParseParsedSoloUnblockAllResponse(rsp *http.Response) (*ParsedSoloUnblockAllResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ParsedSoloUnblockAllResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest SoloUnblockAllResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

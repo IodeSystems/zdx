@@ -3206,14 +3206,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/dx/solo": {
+    "/api/dx/agent/queue": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["list-solo-queue"];
+        get: operations["list-agent-queue"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3222,7 +3222,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/dx/solo/apply": {
+    "/api/dx/agent/queue/apply": {
         parameters: {
             query?: never;
             header?: never;
@@ -3231,14 +3231,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["solo-apply"];
+        post: operations["agent-apply"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/dx/solo/claim": {
+    "/api/dx/agent/claim": {
         parameters: {
             query?: never;
             header?: never;
@@ -3247,14 +3247,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["solo-claim"];
+        post: operations["agent-claim"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/dx/solo/claim-any": {
+    "/api/dx/agent/claim-any": {
         parameters: {
             query?: never;
             header?: never;
@@ -3263,21 +3263,21 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["solo-claim-any"];
+        post: operations["agent-claim-any"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/dx/solo/claims": {
+    "/api/dx/agent/claims": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["solo-list-claims"];
+        get: operations["agent-list-claims"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3286,7 +3286,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/dx/solo/evaluate": {
+    "/api/dx/agent/queue/evaluate": {
         parameters: {
             query?: never;
             header?: never;
@@ -3295,21 +3295,21 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["solo-evaluate"];
+        post: operations["agent-evaluate"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/dx/solo/health": {
+    "/api/dx/agent/health": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["solo-health"];
+        get: operations["agent-health"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3318,7 +3318,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/dx/solo/release": {
+    "/api/dx/agent/release": {
         parameters: {
             query?: never;
             header?: never;
@@ -3327,14 +3327,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["solo-release"];
+        post: operations["agent-release"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/dx/solo/renew": {
+    "/api/dx/agent/renew": {
         parameters: {
             query?: never;
             header?: never;
@@ -3343,21 +3343,21 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["solo-renew"];
+        post: operations["agent-renew"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/dx/solo/reservations": {
+    "/api/dx/agent/reservations": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["solo-list-reservations"];
+        get: operations["agent-list-reservations"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3366,7 +3366,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/dx/solo/unblock-all": {
+    "/api/dx/agent/queue/unblock-all": {
         parameters: {
             query?: never;
             header?: never;
@@ -3375,7 +3375,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["solo-unblock-all"];
+        post: operations["agent-unblock-all"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7225,7 +7225,7 @@ export interface components {
             stack_trace: string;
         };
         EvaluateChange: {
-            after: components["schemas"]["SoloQueueItem"];
+            after: components["schemas"]["AgentQueueItem"];
             before: components["schemas"]["TodoItem"];
         };
         EvaluateDiff: {
@@ -7235,10 +7235,10 @@ export interface components {
              * @example https://example.com/schemas/EvaluateDiff.json
              */
             readonly $schema?: string;
-            added: components["schemas"]["SoloQueueItem"][] | null;
+            added: components["schemas"]["AgentQueueItem"][] | null;
             changed: components["schemas"]["EvaluateChange"][] | null;
             removed: components["schemas"]["TodoItem"][] | null;
-            unchanged: components["schemas"]["SoloQueueItem"][] | null;
+            unchanged: components["schemas"]["AgentQueueItem"][] | null;
         };
         EventItem: {
             /**
@@ -10413,17 +10413,17 @@ export interface components {
             slug: string;
             snoozed_until: string;
         };
-        "Solo-applyRequest": {
+        "Agent-applyRequest": {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
              * @example https://example.com/schemas/Solo-applyRequest.json
              */
             readonly $schema?: string;
-            items: components["schemas"]["SoloQueueItem"][] | null;
+            items: components["schemas"]["AgentQueueItem"][] | null;
             slug: string;
         };
-        "Solo-claim-anyRequest": {
+        "Agent-claim-anyRequest": {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
@@ -10435,7 +10435,7 @@ export interface components {
             lease_minutes?: number;
             mode?: string;
         };
-        "Solo-claimRequest": {
+        "Agent-claimRequest": {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
@@ -10448,7 +10448,7 @@ export interface components {
             mode?: string;
             slug: string;
         };
-        "Solo-evaluateRequest": {
+        "Agent-evaluateRequest": {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
@@ -10458,7 +10458,7 @@ export interface components {
             issue: string;
             slug: string;
         };
-        "Solo-healthResponse": {
+        "Agent-healthResponse": {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
@@ -10472,7 +10472,7 @@ export interface components {
             owner_journal_date: string;
             tech_journal_date: string;
         };
-        "Solo-list-claimsResponse": {
+        "Agent-list-claimsResponse": {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
@@ -10482,7 +10482,7 @@ export interface components {
             tasks: components["schemas"]["AgentTaskItem"][] | null;
             todos: components["schemas"]["TodoItem"][] | null;
         };
-        "Solo-list-reservationsResponse": {
+        "Agent-list-reservationsResponse": {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
@@ -10491,7 +10491,7 @@ export interface components {
             readonly $schema?: string;
             reservations: components["schemas"]["ReservationItem"][] | null;
         };
-        "Solo-releaseRequest": {
+        "Agent-releaseRequest": {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
@@ -10506,7 +10506,7 @@ export interface components {
             resolve?: boolean;
             session_id?: string;
         };
-        "Solo-releaseResponse": {
+        "Agent-releaseResponse": {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
@@ -10517,7 +10517,7 @@ export interface components {
             cycle_detected?: boolean;
             ok: boolean;
         };
-        "Solo-renewRequest": {
+        "Agent-renewRequest": {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
@@ -10530,7 +10530,7 @@ export interface components {
             /** Format: int32 */
             lease_minutes?: number;
         };
-        "Solo-unblock-allRequest": {
+        "Agent-unblock-allRequest": {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
@@ -10539,7 +10539,7 @@ export interface components {
             readonly $schema?: string;
             slug: string;
         };
-        "Solo-unblock-allResponse": {
+        "Agent-unblock-allResponse": {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
@@ -10548,7 +10548,7 @@ export interface components {
             readonly $schema?: string;
             ok: boolean;
         };
-        SoloClaimBody: {
+        AgentClaimBody: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
@@ -10587,7 +10587,7 @@ export interface components {
             text: string;
             title?: string;
         };
-        SoloQueueItem: {
+        AgentQueueItem: {
             blocked: boolean;
             blocked_reason?: string;
             description?: string;
@@ -18902,7 +18902,7 @@ export interface operations {
             };
         };
     };
-    "list-solo-queue": {
+    "list-agent-queue": {
         parameters: {
             query: {
                 slug: string;
@@ -18936,7 +18936,7 @@ export interface operations {
             };
         };
     };
-    "solo-apply": {
+    "agent-apply": {
         parameters: {
             query?: never;
             header?: never;
@@ -18945,7 +18945,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Solo-applyRequest"];
+                "application/json": components["schemas"]["Agent-applyRequest"];
             };
         };
         responses: {
@@ -18969,7 +18969,7 @@ export interface operations {
             };
         };
     };
-    "solo-claim": {
+    "agent-claim": {
         parameters: {
             query?: {
                 debug?: string;
@@ -18982,7 +18982,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Solo-claimRequest"];
+                "application/json": components["schemas"]["Agent-claimRequest"];
             };
         };
         responses: {
@@ -18992,7 +18992,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SoloClaimBody"];
+                    "application/json": components["schemas"]["AgentClaimBody"];
                 };
             };
             /** @description Error */
@@ -19006,7 +19006,7 @@ export interface operations {
             };
         };
     };
-    "solo-claim-any": {
+    "agent-claim-any": {
         parameters: {
             query?: {
                 debug?: string;
@@ -19019,7 +19019,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Solo-claim-anyRequest"];
+                "application/json": components["schemas"]["Agent-claim-anyRequest"];
             };
         };
         responses: {
@@ -19029,7 +19029,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SoloClaimBody"];
+                    "application/json": components["schemas"]["AgentClaimBody"];
                 };
             };
             /** @description Error */
@@ -19043,7 +19043,7 @@ export interface operations {
             };
         };
     };
-    "solo-list-claims": {
+    "agent-list-claims": {
         parameters: {
             query: {
                 slug: string;
@@ -19060,7 +19060,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Solo-list-claimsResponse"];
+                    "application/json": components["schemas"]["Agent-list-claimsResponse"];
                 };
             };
             /** @description Error */
@@ -19074,7 +19074,7 @@ export interface operations {
             };
         };
     };
-    "solo-evaluate": {
+    "agent-evaluate": {
         parameters: {
             query?: never;
             header?: never;
@@ -19083,7 +19083,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Solo-evaluateRequest"];
+                "application/json": components["schemas"]["Agent-evaluateRequest"];
             };
         };
         responses: {
@@ -19107,7 +19107,7 @@ export interface operations {
             };
         };
     };
-    "solo-health": {
+    "agent-health": {
         parameters: {
             query: {
                 slug: string;
@@ -19124,7 +19124,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Solo-healthResponse"];
+                    "application/json": components["schemas"]["Agent-healthResponse"];
                 };
             };
             /** @description Error */
@@ -19138,7 +19138,7 @@ export interface operations {
             };
         };
     };
-    "solo-release": {
+    "agent-release": {
         parameters: {
             query?: never;
             header?: never;
@@ -19147,7 +19147,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Solo-releaseRequest"];
+                "application/json": components["schemas"]["Agent-releaseRequest"];
             };
         };
         responses: {
@@ -19157,7 +19157,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Solo-releaseResponse"];
+                    "application/json": components["schemas"]["Agent-releaseResponse"];
                 };
             };
             /** @description Error */
@@ -19171,7 +19171,7 @@ export interface operations {
             };
         };
     };
-    "solo-renew": {
+    "agent-renew": {
         parameters: {
             query?: never;
             header?: never;
@@ -19180,7 +19180,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Solo-renewRequest"];
+                "application/json": components["schemas"]["Agent-renewRequest"];
             };
         };
         responses: {
@@ -19204,7 +19204,7 @@ export interface operations {
             };
         };
     };
-    "solo-list-reservations": {
+    "agent-list-reservations": {
         parameters: {
             query: {
                 slug: string;
@@ -19223,7 +19223,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Solo-list-reservationsResponse"];
+                    "application/json": components["schemas"]["Agent-list-reservationsResponse"];
                 };
             };
             /** @description Error */
@@ -19237,7 +19237,7 @@ export interface operations {
             };
         };
     };
-    "solo-unblock-all": {
+    "agent-unblock-all": {
         parameters: {
             query?: never;
             header?: never;
@@ -19246,7 +19246,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["Solo-unblock-allRequest"];
+                "application/json": components["schemas"]["Agent-unblock-allRequest"];
             };
         };
         responses: {
@@ -19256,7 +19256,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Solo-unblock-allResponse"];
+                    "application/json": components["schemas"]["Agent-unblock-allResponse"];
                 };
             };
             /** @description Error */

@@ -93,7 +93,7 @@ type Querier interface {
 	// Count how many times a todo has been claimed (reservation count).
 	CountReservationsForTodo(ctx context.Context, arg CountReservationsForTodoParams) (int32, error)
 	// Count how many revisions were recorded by a given agent session.
-	// Used by /api/dx/solo/release to detect sessions that exited cleanly but
+	// Used by /api/dx/agent/release to detect sessions that exited cleanly but
 	// didn't apply any durable mutation — those release without marking resolved.
 	CountRevisionsBySession(ctx context.Context, arg CountRevisionsBySessionParams) (int64, error)
 	CountStaleOpenClaudeSessions(ctx context.Context, arg CountStaleOpenClaudeSessionsParams) (int64, error)
@@ -186,7 +186,7 @@ type Querier interface {
 	FindOpenIssueByTitle(ctx context.Context, arg FindOpenIssueByTitleParams) (string, error)
 	FlagStaleTasks(ctx context.Context, arg FlagStaleTasksParams) ([]FlagStaleTasksRow, error)
 	// Flip snoozed items whose snooze_until has passed back to 'open' so they
-	// resurface in the solo queue.
+	// resurface in the agent queue.
 	FlipExpiredMaturityItems(ctx context.Context, projectID int32) error
 	GetActiveBudgetPause(ctx context.Context, agentID string) (ZdxBudgetPause, error)
 	// Return the active (unreleased, unexpired) reservation for a specific issue, if any.
@@ -402,7 +402,7 @@ type Querier interface {
 	ListDiscussionMessages(ctx context.Context, discussionID int32) ([]ZdxDiscussionMessage, error)
 	ListDiscussions(ctx context.Context, arg ListDiscussionsParams) ([]ZdxDiscussion, error)
 	// Active discussions whose most-recent message is from the user — i.e. the
-	// assistant has not yet replied. Drives a solo-queue todo so an agent can pick
+	// assistant has not yet replied. Drives an agent-queue todo so an agent can pick
 	// up the dangling thread (typically left over from a failed LLM send).
 	ListDiscussionsAwaitingResponse(ctx context.Context, projectID int32) ([]ListDiscussionsAwaitingResponseRow, error)
 	ListDoctorDeferrals(ctx context.Context, projectID int32) ([]ZdxDoctorDeferral, error)
@@ -487,7 +487,7 @@ type Querier interface {
 	// (case-insensitive). Used to detect templated-title duplicates such as
 	// "Test spec N: ..." across sessions.
 	ListOpenTasksByTitlePrefix(ctx context.Context, arg ListOpenTasksByTitlePrefixParams) ([]ListOpenTasksByTitlePrefixRow, error)
-	// Ready tasks with no parent issue — invisible to the normal solo queue.
+	// Ready tasks with no parent issue — invisible to the normal agent queue.
 	ListOrphanReadyTasks(ctx context.Context, projectID int32) ([]ListOrphanReadyTasksRow, error)
 	ListPatterns(ctx context.Context, projectID int32) ([]ZdxPattern, error)
 	ListPendingBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
@@ -499,7 +499,7 @@ type Querier interface {
 	ListPlansByIssue(ctx context.Context, issueID pgtype.Text) ([]ListPlansByIssueRow, error)
 	ListProjectGoals(ctx context.Context, projectID int32) ([]ListProjectGoalsRow, error)
 	ListProjects(ctx context.Context) ([]ZdxProject, error)
-	// Used by the cross-project claim path so generateSoloQueue runs first
+	// Used by the cross-project claim path so generateAgentQueue runs first
 	// against the highest-priority project and the persisted queue is
 	// freshest where it matters most. Tie-break by name for stable order.
 	ListProjectsByPriority(ctx context.Context) ([]ZdxProject, error)
@@ -561,7 +561,7 @@ type Querier interface {
 	ListStaleTasksByIssue(ctx context.Context, arg ListStaleTasksByIssueParams) ([]ListStaleTasksByIssueRow, error)
 	ListTargetsWithComments(ctx context.Context, projectID int32) ([]ListTargetsWithCommentsRow, error)
 	// Targets with a comment newer than the seen high-water mark. Used by the
-	// solo-queue regenerator to emit the synthetic read:comments todo only when
+	// agent-queue regenerator to emit the synthetic read:comments todo only when
 	// there is actually unread content to surface — otherwise the todo would
 	// regenerate every loop iteration even after the agent claims and "reads"
 	// it, producing the cycle observed in IS-1040.

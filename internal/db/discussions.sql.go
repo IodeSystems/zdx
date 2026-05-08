@@ -211,7 +211,7 @@ type ListDiscussionsAwaitingResponseRow struct {
 }
 
 // Active discussions whose most-recent message is from the user — i.e. the
-// assistant has not yet replied. Drives a solo-queue todo so an agent can pick
+// assistant has not yet replied. Drives an agent-queue todo so an agent can pick
 // up the dangling thread (typically left over from a failed LLM send).
 func (q *Queries) ListDiscussionsAwaitingResponse(ctx context.Context, projectID int32) ([]ListDiscussionsAwaitingResponseRow, error) {
 	rows, err := q.db.Query(ctx, listDiscussionsAwaitingResponse, projectID)

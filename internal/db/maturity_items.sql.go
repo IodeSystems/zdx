@@ -23,7 +23,7 @@ WHERE project_id = $1
 `
 
 // Flip snoozed items whose snooze_until has passed back to 'open' so they
-// resurface in the solo queue.
+// resurface in the agent queue.
 func (q *Queries) FlipExpiredMaturityItems(ctx context.Context, projectID int32) error {
 	_, err := q.db.Exec(ctx, flipExpiredMaturityItems, projectID)
 	return err

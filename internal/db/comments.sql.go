@@ -106,7 +106,7 @@ type CountRevisionsBySessionParams struct {
 }
 
 // Count how many revisions were recorded by a given agent session.
-// Used by /api/dx/solo/release to detect sessions that exited cleanly but
+// Used by /api/dx/agent/release to detect sessions that exited cleanly but
 // didn't apply any durable mutation — those release without marking resolved.
 func (q *Queries) CountRevisionsBySession(ctx context.Context, arg CountRevisionsBySessionParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countRevisionsBySession, arg.ProjectID, arg.SessionID)
@@ -511,7 +511,7 @@ type ListTargetsWithUnreadCommentsRow struct {
 }
 
 // Targets with a comment newer than the seen high-water mark. Used by the
-// solo-queue regenerator to emit the synthetic read:comments todo only when
+// agent-queue regenerator to emit the synthetic read:comments todo only when
 // there is actually unread content to surface — otherwise the todo would
 // regenerate every loop iteration even after the agent claims and "reads"
 // it, producing the cycle observed in IS-1040.
