@@ -9,7 +9,11 @@ services:
       POSTGRES_PASSWORD: zdx
       POSTGRES_DB: zdx
     volumes:
-      - ./home/data/postgres:/var/lib/postgresql/data
+      # Mount the parent dir so pg18 (and future majors) can lay out
+      # /var/lib/postgresql/<MAJOR>/docker/ — this is the structure the
+      # postgres:18 image uses by default, and it leaves room for a
+      # future side-by-side pg_upgrade --link.
+      - ./home/data/postgres:/var/lib/postgresql
 
   valkey:
     image: valkey/valkey:8
