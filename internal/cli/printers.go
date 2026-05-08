@@ -35,6 +35,19 @@ func PrintIssueItem(iss clitypes.IssueItem) {
 	if iss.InteractiveOnly {
 		fmt.Printf("Interactive only: yes  (hidden from autonomous agent loop)\n")
 	}
+	if iss.CompletedInSha != "" {
+		short := iss.CompletedInSha
+		if len(short) > 12 {
+			short = short[:12]
+		}
+		dirtyTag := ""
+		if iss.ClosedDirty {
+			dirtyTag = "  [closed_dirty=true]"
+		}
+		fmt.Printf("Completed: %s%s\n", short, dirtyTag)
+	} else if iss.ClosedDirty {
+		fmt.Printf("Completed: (no sha)  [closed_dirty=true]\n")
+	}
 	if len(iss.BlockedByDetail) > 0 {
 		var openBlock, closedBlock, openChild, closedChild []string
 		for _, b := range iss.BlockedByDetail {

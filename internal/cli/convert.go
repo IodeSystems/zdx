@@ -114,6 +114,12 @@ func IssueToCli(iss dxclient.IssueItem) clitypes.IssueItem {
 	if iss.InteractiveOnly != nil {
 		out.InteractiveOnly = *iss.InteractiveOnly
 	}
+	if iss.CompletedInSha != nil {
+		out.CompletedInSha = *iss.CompletedInSha
+	}
+	if iss.ClosedDirty != nil {
+		out.ClosedDirty = *iss.ClosedDirty
+	}
 	return out
 }
 

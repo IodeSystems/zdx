@@ -2,10 +2,65 @@ package project
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 )
+
+// TestIsWorkingTreeDirty covers the IS-1062 clean-tree gate primitive:
+// `dx issue close` for impl/ops issues calls this and refuses on a non-empty
+// `git status --porcelain` unless --force or --commit=<sha> is passed.
+func TestIsWorkingTreeDirty(t *testing.T) {
+	dir := t.TempDir()
+
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
+			"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com",
+		)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+
+	run("init", "--initial-branch=main")
+	run("config", "commit.gpgsign", "false")
+
+	// chdir into the temp repo: isWorkingTreeDirty/gitHEAD shell out to git
+	// against the cwd (mirrors how `dx issue close` invokes them from the
+	// operator's working directory).
+	prev, _ := os.Getwd()
+	t.Cleanup(func() { _ = os.Chdir(prev) })
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+
+	if dirty, err := isWorkingTreeDirty(); err != nil || dirty {
+		t.Fatalf("empty repo: want clean+nil, got dirty=%v err=%v", dirty, err)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("x"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if dirty, err := isWorkingTreeDirty(); err != nil || !dirty {
+		t.Fatalf("untracked file: want dirty+nil, got dirty=%v err=%v", dirty, err)
+	}
+
+	run("add", "a.txt")
+	run("commit", "-m", "init")
+	if dirty, err := isWorkingTreeDirty(); err != nil || dirty {
+		t.Fatalf("post-commit: want clean+nil, got dirty=%v err=%v", dirty, err)
+	}
+	if sha := gitHEAD(); sha == "" {
+		t.Fatal("gitHEAD post-commit: want non-empty SHA, got empty")
+	}
+}
 
 func TestDecodeEscapes(t *testing.T) {
 	cases := []struct {

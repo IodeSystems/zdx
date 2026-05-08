@@ -67,7 +67,8 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 
 	type ListIssuesInput struct {
 		PaginatedSlugInput
-		Component string `query:"component"`
+		Component   string `query:"component"`
+		ClosedDirty bool   `query:"closed_dirty" doc:"Filter to issues that were force-closed against an unclean working tree (IS-1062)."`
 	}
 	huma.Register(api, huma.Operation{OperationID: "list-issues", Method: http.MethodGet, Path: "/api/dx/todo/issue/list"},
 		func(ctx context.Context, in *ListIssuesInput) (*struct {
@@ -88,6 +89,9 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			}
 			if in.Status != "" {
 				b = b.Where("status", metaquery.OpEq, in.Status)
+			}
+			if in.ClosedDirty {
+				b = b.Where("closed_dirty", metaquery.OpEq, true)
 			}
 			b = b.ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
 			res, err := mqpgx.Scan[db.ZdxIssue](ctx, h.Pool, b)
@@ -463,14 +467,16 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "close-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/close"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug        string       `json:"slug"`
-				ID          int32        `json:"id"`
-				Reason      *string      `json:"reason,omitempty"`
-				Force       *bool        `json:"force,omitempty"`
-				Notes       *string      `json:"notes,omitempty"`
-				DuplicateOf *string      `json:"duplicate_of,omitempty"`
-				LinkOf      *string      `json:"link_of,omitempty"`
-				BranchState *BranchState `json:"branch_state,omitempty" required:"false"`
+				Slug           string       `json:"slug"`
+				ID             int32        `json:"id"`
+				Reason         *string      `json:"reason,omitempty"`
+				Force          *bool        `json:"force,omitempty"`
+				Notes          *string      `json:"notes,omitempty"`
+				DuplicateOf    *string      `json:"duplicate_of,omitempty"`
+				LinkOf         *string      `json:"link_of,omitempty"`
+				BranchState    *BranchState `json:"branch_state,omitempty" required:"false"`
+				CompletedInSha *string      `json:"completed_in_sha,omitempty" doc:"Commit SHA that completed the issue (HEAD or operator-asserted via dx issue close --commit). Recorded on the row for auditability (IS-1062)."`
+				ClosedDirty    *bool        `json:"closed_dirty,omitempty" doc:"True when the close occurred against an unclean working tree — the CLI sets this when --force overrides the clean-tree gate (IS-1062)."`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
@@ -580,7 +586,15 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			if force {
 				closeReason = reason
 			}
-			if err := h.Q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID, DuplicateOf: duplicateOf, LinkOf: linkOf, CloseReason: closeReason}); err != nil {
+			completedInSha := pgtype.Text{}
+			if s := ptrStr(in.Body.CompletedInSha); s != "" {
+				completedInSha = pgtype.Text{String: s, Valid: true}
+			}
+			closedDirty := pgtype.Bool{}
+			if in.Body.ClosedDirty != nil {
+				closedDirty = pgtype.Bool{Bool: *in.Body.ClosedDirty, Valid: true}
+			}
+			if err := h.Q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID, DuplicateOf: duplicateOf, LinkOf: linkOf, CloseReason: closeReason, CompletedInSha: completedInSha, ClosedDirty: closedDirty}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			h.recordRevision(ctx, p.ID, "issue", issueID, "status", prevStatus, "closed")
@@ -1589,6 +1603,14 @@ func toIssueItem(r db.ZdxIssue) IssueItem {
 	if r.NodeRef.Valid {
 		nodeRef = r.NodeRef.String
 	}
+	completedInSha := ""
+	if r.CompletedInSha.Valid {
+		completedInSha = r.CompletedInSha.String
+	}
+	closedDirty := false
+	if r.ClosedDirty.Valid {
+		closedDirty = r.ClosedDirty.Bool
+	}
 	return IssueItem{
 		ID:              issueIntID(r.ID),
 		Title:           r.Title,
@@ -1605,6 +1627,8 @@ func toIssueItem(r db.ZdxIssue) IssueItem {
 		TargetBranch:    r.TargetBranch,
 		URL:             r.Url,
 		NodeRef:         nodeRef,
+		CompletedInSha:  completedInSha,
+		ClosedDirty:     closedDirty,
 		CreatedAt:       fmtTS(r.CreatedAt),
 		UpdatedAt:       fmtTS(r.UpdatedAt),
 		BlockedBy:       []string{},

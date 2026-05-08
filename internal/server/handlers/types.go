@@ -22,6 +22,8 @@ type IssueItem struct {
 	TargetBranch    string            `json:"target_branch,omitempty"`
 	URL             string            `json:"url"`
 	NodeRef         string            `json:"node_ref,omitempty" doc:"Atlas node this issue is filed against, formatted as kind:slug; empty when not filed against a node"`
+	CompletedInSha  string            `json:"completed_in_sha,omitempty" doc:"Commit (HEAD or operator-asserted via --commit) that completed the issue. Set on close; null for historical pre-IS-1062 closes."`
+	ClosedDirty     bool              `json:"closed_dirty,omitempty" doc:"True only when the issue was force-closed against an unclean working tree (audit hook)."`
 	CreatedAt       string            `json:"created_at"`
 	UpdatedAt       string            `json:"updated_at"`
 }

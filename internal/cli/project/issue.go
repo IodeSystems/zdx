@@ -1,6 +1,7 @@
 package project
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -77,13 +78,18 @@ func decodeEscapes(s string) string {
 
 func issueListCmd() *cobra.Command {
 	var status, branch string
+	var closedDirty bool
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List issues",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			slug := c.SlugOrDie()
-			resp, err := c.ListIssuesWithResponse(cmd.Context(), &dxclient.ListIssuesParams{Slug: slug})
+			params := &dxclient.ListIssuesParams{Slug: slug}
+			if closedDirty {
+				params.ClosedDirty = &closedDirty
+			}
+			resp, err := c.ListIssuesWithResponse(cmd.Context(), params)
 			if err != nil {
 				return err
 			}
@@ -140,6 +146,7 @@ func issueListCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&status, "status", "", "filter by status (open, closed)")
 	cmd.Flags().StringVar(&branch, "branch", "", "show resolution state on this branch")
+	cmd.Flags().BoolVar(&closedDirty, "closed-dirty", false, "filter to issues that were force-closed against an unclean working tree (IS-1062 audit hook)")
 	return cmd
 }
 
@@ -384,6 +391,7 @@ func issueCloseCmd() *cobra.Command {
 	var force bool
 	var duplicateOf string
 	var linkOf string
+	var commitFlag string
 	cmd := &cobra.Command{
 		Use:   "close <IS-N>",
 		Short: "Close an issue",
@@ -412,27 +420,47 @@ func issueCloseCmd() *cobra.Command {
 			}
 			c := cli.MustClient()
 
+			// IS-1062: gate impl/ops closes on a clean working tree. Bypassable
+			// with --force or --commit=<sha>; in either case, mark the row
+			// closed_dirty=true so audits can grep them. Determine issue type
+			// up front so we can both gate cleanliness and skip the
+			// decomposition/spec/test gates for non-code issue types in one pass.
+			var issueType, issueContext, issueTitle string
+			showResp, showErr := c.ShowIssueWithResponse(cmd.Context(), &dxclient.ShowIssueParams{Slug: c.SlugOrDie(), Id: id})
+			if showErr == nil && showResp.JSON200 != nil {
+				issueType = showResp.JSON200.Issue.IssueType
+				issueContext = showResp.JSON200.Issue.Context
+				issueTitle = showResp.JSON200.Issue.Title
+			}
+			treeDirty, dirtyErr := isWorkingTreeDirty()
+			if dirtyErr != nil {
+				return fmt.Errorf("check working tree: %w", dirtyErr)
+			}
+			requireClean := issueType == "impl" || issueType == "ops"
+			if requireClean && treeDirty && commitFlag == "" && !force {
+				return fmt.Errorf("working tree is dirty; commit or stash before close, or pass --force or --commit=<sha>")
+			}
+			closedDirty := treeDirty && (force || commitFlag != "")
+			completedInSha := commitFlag
+			if completedInSha == "" {
+				completedInSha = gitHEAD()
+			}
+
 			// Test gate: run targeted tests before closing as "done".
 			// Skip for force-close reasons (bypass gate) and for
 			// tracker/ops issues that don't have code-level tests.
-			if !force && reason != "link" {
-				showResp, err := c.ShowIssueWithResponse(cmd.Context(), &dxclient.ShowIssueParams{Slug: c.SlugOrDie(), Id: id})
-				if err == nil && showResp.JSON200 != nil {
-					issueType := showResp.JSON200.Issue.IssueType
-					if issueType != "tracker" && issueType != "ops" {
-						if err := runDecompositionPathGate(cmd, c, id, showResp.JSON200.Issue.Context, showResp.JSON200.Issue.Title); err != nil {
-							return err
-						}
-						if err := runSpecCoverageGate(cmd, c, id); err != nil {
-							return err
-						}
-						if err := runMustSpecDemoGate(cmd, c, id); err != nil {
-							return err
-						}
-						if err := runIssueTestGate(cmd, c, id); err != nil {
-							return err
-						}
-					}
+			if !force && reason != "link" && issueType != "" && issueType != "tracker" && issueType != "ops" {
+				if err := runDecompositionPathGate(cmd, c, id, issueContext, issueTitle); err != nil {
+					return err
+				}
+				if err := runSpecCoverageGate(cmd, c, id); err != nil {
+					return err
+				}
+				if err := runMustSpecDemoGate(cmd, c, id); err != nil {
+					return err
+				}
+				if err := runIssueTestGate(cmd, c, id); err != nil {
+					return err
 				}
 			}
 			slug := c.SlugOrDie()
@@ -461,6 +489,12 @@ func issueCloseCmd() *cobra.Command {
 			if linkOf != "" {
 				body.LinkOf = &linkOf
 			}
+			if completedInSha != "" {
+				body.CompletedInSha = &completedInSha
+			}
+			if closedDirty {
+				body.ClosedDirty = &closedDirty
+			}
 			resp, err := c.CloseIssueWithResponse(cmd.Context(), body)
 			if err != nil {
 				return err
@@ -481,10 +515,33 @@ func issueCloseCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&reason, "reason", "", "close reason (done|duplicate|link|wontfix|superseded)")
-	cmd.Flags().BoolVar(&force, "force", false, "bypass close gate (required with --reason=duplicate|wontfix|superseded; optional with --reason=done)")
+	cmd.Flags().BoolVar(&force, "force", false, "bypass close gate (required with --reason=duplicate|wontfix|superseded; optional with --reason=done; also overrides the IS-1062 clean-tree gate and marks closed_dirty=true if dirty)")
 	cmd.Flags().StringVar(&duplicateOf, "duplicate-of", "", "issue ID this duplicates (required when --reason=duplicate)")
 	cmd.Flags().StringVar(&linkOf, "link-of", "", "issue ID this is a narrow-slice link of (required when --reason=link; cascade-closes with target, no reopen-cascade)")
+	cmd.Flags().StringVar(&commitFlag, "commit", "", "commit SHA that completed the issue; bypasses clean-tree gate, sets completed_in_sha=<sha>; defaults to HEAD when omitted (IS-1062)")
 	return cmd
+}
+
+// isWorkingTreeDirty reports whether `git status --porcelain` has any output.
+// Used by `dx issue close` to gate impl/ops closes (IS-1062). Returns false
+// (clean) on any git error so non-git workspaces don't block legitimate
+// closes.
+func isWorkingTreeDirty() (bool, error) {
+	out, err := exec.Command("git", "status", "--porcelain").Output()
+	if err != nil {
+		return false, nil
+	}
+	return len(bytes.TrimSpace(out)) > 0, nil
+}
+
+// gitHEAD returns the current HEAD commit SHA, or "" when not in a git
+// repo. Used to record completed_in_sha on close (IS-1062).
+func gitHEAD() string {
+	out, err := exec.Command("git", "rev-parse", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // parseUnresolvedBranchesError extracts the unresolved branch list from a
