@@ -19,8 +19,8 @@ import (
 // items_B remain open.
 func TestDemoAPI_AgentApplyUpsertsAndResolvesStale(t *testing.T) {
 	rec := newApiRecorder(t, "agent-apply-upsert-stale")
-	rec.AddCoderef(coderef{FilePath: "test/e2e/demo_api_solo_apply_upsert_test.go", Note: "agent-apply-upsert-stale demo source"})
-	rec.AddCoderef(coderef{FilePath: "internal/server/handlers/handlers_solo.go", LineStart: 872, LineEnd: 919, Note: "POST /api/dx/agent/apply upserts proposed items and resolves stale"})
+	rec.AddCoderef(coderef{FilePath: "test/e2e/demo_api_agent_apply_upsert_test.go", Note: "agent-apply-upsert-stale demo source"})
+	rec.AddCoderef(coderef{FilePath: "internal/server/handlers/handlers_agent_queue.go", LineStart: 965, LineEnd: 1016, Note: "POST /api/dx/agent/queue/apply upserts proposed items and resolves stale"})
 	t.Cleanup(rec.Save)
 
 	const slug = "demo-apply-upsert"
@@ -51,7 +51,7 @@ func TestDemoAPI_AgentApplyUpsertsAndResolvesStale(t *testing.T) {
 		Added     []AgentQueueItem `json:"added"`
 		Unchanged []AgentQueueItem `json:"unchanged"`
 	}
-	mustOK(t, rec.Do(http.MethodPost, "/api/dx/agent/evaluate", map[string]any{
+	mustOK(t, rec.Do(http.MethodPost, "/api/dx/agent/queue/evaluate", map[string]any{
 		"slug": slug, "issue": "",
 	}, &evalResp))
 
@@ -62,7 +62,7 @@ func TestDemoAPI_AgentApplyUpsertsAndResolvesStale(t *testing.T) {
 	}
 
 	// Step 2: Apply items_A — all upserted as open.
-	mustOK(t, rec.Do(http.MethodPost, "/api/dx/agent/apply", map[string]any{
+	mustOK(t, rec.Do(http.MethodPost, "/api/dx/agent/queue/apply", map[string]any{
 		"slug": slug, "items": itemsA,
 	}, nil))
 
@@ -96,7 +96,7 @@ func TestDemoAPI_AgentApplyUpsertsAndResolvesStale(t *testing.T) {
 	}
 
 	// Step 6: Apply items_B — issue 2's items must be resolved atomically.
-	mustOK(t, rec.Do(http.MethodPost, "/api/dx/agent/apply", map[string]any{
+	mustOK(t, rec.Do(http.MethodPost, "/api/dx/agent/queue/apply", map[string]any{
 		"slug": slug, "items": itemsB,
 	}, nil))
 

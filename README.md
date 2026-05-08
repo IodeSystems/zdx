@@ -44,7 +44,7 @@ The server listens on `:7600` by default.
 ## Key commands
 
 ```bash
-./bin/dx todo solo           # grab the next work item
+./bin/dx todo take           # claim the next work item
 ./bin/dx issue add           # file an issue
 ./bin/dx feature list        # list features
 ./bin/dx goal list           # list project goals

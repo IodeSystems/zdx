@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// TestDemoAPI_SoloBackportTargetBranch is the demo for spec 177 on feature
+// TestDemoAPI_AgentBackportTargetBranch is the demo for spec 177 on feature
 // dx-todo-queue: given backport tasks for supported version branches, when the
 // agent queue evaluates, then backport tasks surface with the target branch name
 // and version context so agents know which branch to work on.
@@ -16,10 +16,10 @@ import (
 // then evaluate scoped to that issue and confirm the dev item carries
 // target_branch="v1.2". A second project covers the negative path: an issue
 // triaged without an explicit branch defaults to "dev".
-func TestDemoAPI_SoloBackportTargetBranch(t *testing.T) {
+func TestDemoAPI_AgentBackportTargetBranch(t *testing.T) {
 	rec := newApiRecorder(t, "agent-backport-target-branch")
-	rec.AddCoderef(coderef{FilePath: "test/e2e/demo_api_solo_backport_branch_test.go", Note: "spec 177 demo source"})
-	rec.AddCoderef(coderef{FilePath: "internal/server/handlers/handlers_solo.go", LineStart: 591, LineEnd: 612, Note: "dev candidate inherits TargetBranch from parent issue"})
+	rec.AddCoderef(coderef{FilePath: "test/e2e/demo_api_agent_backport_branch_test.go", Note: "spec 177 demo source"})
+	rec.AddCoderef(coderef{FilePath: "internal/server/handlers/handlers_agent_queue.go", LineStart: 595, LineEnd: 615, Note: "dev candidate inherits TargetBranch from parent issue"})
 	rec.AddCoderef(coderef{FilePath: "internal/server/handlers/handlers_issues.go", Note: "POST /api/dx/todo/owner/triage accepts target_branch"})
 	t.Cleanup(rec.Save)
 
@@ -109,12 +109,12 @@ func TestDemoAPI_SoloBackportTargetBranch(t *testing.T) {
 	}
 }
 
-// evaluateDevItem POSTs /api/dx/agent/evaluate scoped to issueRef and returns
+// evaluateDevItem POSTs /api/dx/agent/queue/evaluate scoped to issueRef and returns
 // the dev item from whichever diff bucket carries it (Added/Unchanged/Changed).
 func evaluateDevItem(t *testing.T, rec *ApiDemoRecorder, slug, issueRef string) AgentQueueItem {
 	t.Helper()
 	var diff EvaluateDiffResult
-	mustOK(t, rec.Do(http.MethodPost, "/api/dx/agent/evaluate", map[string]any{
+	mustOK(t, rec.Do(http.MethodPost, "/api/dx/agent/queue/evaluate", map[string]any{
 		"slug":  slug,
 		"issue": issueRef,
 	}, &diff))

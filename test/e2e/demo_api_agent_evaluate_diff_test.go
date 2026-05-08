@@ -9,19 +9,19 @@ import (
 
 // TestDemoAPI_AgentEvaluateDiff is the demo for spec 66 on feature
 // dx-todo-persistence: given an existing persisted queue, when
-// /api/dx/agent/evaluate runs, then a diff is returned with four buckets
+// /api/dx/agent/queue/evaluate runs, then a diff is returned with four buckets
 // (added/removed/changed/unchanged) comparing the persisted todos to a freshly
 // generated queue.
 //
 // Strategy mirrors the integration test (TestAgentEvaluateDiff): seed three
 // untriaged issues so the generator proposes triage-IS-N candidates, persist a
-// deliberately divergent snapshot via /api/dx/agent/apply (one exact, one with
+// deliberately divergent snapshot via /api/dx/agent/queue/apply (one exact, one with
 // a wrong priority, one omitted, one fabricated), then evaluate and inspect
 // each bucket.
 func TestDemoAPI_AgentEvaluateDiff(t *testing.T) {
 	rec := newApiRecorder(t, "agent-evaluate-diff")
-	rec.AddCoderef(coderef{FilePath: "test/e2e/demo_api_solo_evaluate_diff_test.go", Note: "agent-evaluate-diff demo source"})
-	rec.AddCoderef(coderef{FilePath: "internal/server/handlers/handlers_solo.go", LineStart: 809, LineEnd: 870, Note: "POST /api/dx/agent/evaluate computes added/removed/changed/unchanged"})
+	rec.AddCoderef(coderef{FilePath: "test/e2e/demo_api_agent_evaluate_diff_test.go", Note: "agent-evaluate-diff demo source"})
+	rec.AddCoderef(coderef{FilePath: "internal/server/handlers/handlers_agent_queue.go", LineStart: 897, LineEnd: 963, Note: "POST /api/dx/agent/queue/evaluate computes added/removed/changed/unchanged"})
 	t.Cleanup(rec.Save)
 
 	const slug = "demo-evaluate-diff"
@@ -59,7 +59,7 @@ func TestDemoAPI_AgentEvaluateDiff(t *testing.T) {
 		Changed   []EvaluateChange `json:"changed"`
 		Unchanged []AgentQueueItem `json:"unchanged"`
 	}
-	mustOK(t, rec.Do(http.MethodPost, "/api/dx/agent/evaluate", map[string]any{
+	mustOK(t, rec.Do(http.MethodPost, "/api/dx/agent/queue/evaluate", map[string]any{
 		"slug": slug, "issue": "",
 	}, &initial))
 
@@ -96,14 +96,14 @@ func TestDemoAPI_AgentEvaluateDiff(t *testing.T) {
 		Priority: 50, Persona: "owner", Status: "open",
 	})
 
-	mustOK(t, rec.Do(http.MethodPost, "/api/dx/agent/apply", map[string]any{
+	mustOK(t, rec.Do(http.MethodPost, "/api/dx/agent/queue/apply", map[string]any{
 		"slug": slug, "items": applyItems,
 	}, nil))
 
 	// Evaluate again — the response is the diff between the persisted snapshot
 	// and the freshly generated proposal.
 	var diff EvaluateDiffResult
-	mustOK(t, rec.Do(http.MethodPost, "/api/dx/agent/evaluate", map[string]any{
+	mustOK(t, rec.Do(http.MethodPost, "/api/dx/agent/queue/evaluate", map[string]any{
 		"slug": slug, "issue": "",
 	}, &diff))
 

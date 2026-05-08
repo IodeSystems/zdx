@@ -398,7 +398,7 @@ func (d *ApiDriver) EvaluateQueue(issue string) []AgentQueueItem {
 		Changed   []EvaluateChange `json:"changed"`
 		Unchanged []AgentQueueItem `json:"unchanged"`
 	}
-	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/agent/evaluate", body, &resp))
+	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/agent/queue/evaluate", body, &resp))
 	var all []AgentQueueItem
 	all = append(all, resp.Added...)
 	all = append(all, resp.Unchanged...)
@@ -424,7 +424,7 @@ func (d *ApiDriver) EvaluateDiff(issue string) EvaluateDiffResult {
 	d.t.Helper()
 	body := map[string]any{"slug": d.Slug, "issue": issue}
 	var resp EvaluateDiffResult
-	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/agent/evaluate", body, &resp))
+	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/agent/queue/evaluate", body, &resp))
 	return resp
 }
 

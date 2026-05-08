@@ -36,7 +36,7 @@ func TestApi_TaskAdopt(t *testing.T) {
 	// Confirm the task starts orphan: agent queue shows orphan-<id>.
 	queue := apiEvaluateQueue(t, slug)
 	orphanKey := fmt.Sprintf("orphan-%s", taskRef)
-	if !containsSoloKey(queue, orphanKey) {
+	if !containsAgentKey(queue, orphanKey) {
 		t.Fatalf("expected %q in agent queue before adopt; got keys %v", orphanKey, queueKeys(queue))
 	}
 
@@ -56,7 +56,7 @@ func TestApi_TaskAdopt(t *testing.T) {
 
 	// Agent queue no longer surfaces the orphan nudge.
 	queue = apiEvaluateQueue(t, slug)
-	if containsSoloKey(queue, orphanKey) {
+	if containsAgentKey(queue, orphanKey) {
 		t.Fatalf("expected %q to be gone from agent queue after adopt; got keys %v", orphanKey, queueKeys(queue))
 	}
 
@@ -74,12 +74,12 @@ func apiEvaluateQueue(t *testing.T, slug string) []AgentQueueItem {
 		Added     []AgentQueueItem `json:"added"`
 		Unchanged []AgentQueueItem `json:"unchanged"`
 	}
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/evaluate",
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/queue/evaluate",
 		map[string]any{"slug": slug, "issue": ""}, &resp))
 	return append(append([]AgentQueueItem{}, resp.Added...), resp.Unchanged...)
 }
 
-func containsSoloKey(items []AgentQueueItem, key string) bool {
+func containsAgentKey(items []AgentQueueItem, key string) bool {
 	for _, it := range items {
 		if it.Key == key {
 			return true

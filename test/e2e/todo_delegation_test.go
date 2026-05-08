@@ -34,7 +34,7 @@ func agentClaimNext(t *testing.T, slug, agentID string) (TodoItem, int) {
 
 func agentApply(t *testing.T, slug string, items []AgentQueueItem) {
 	t.Helper()
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/apply",
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/queue/apply",
 		map[string]any{"slug": slug, "items": items}, nil))
 }
 
@@ -172,7 +172,7 @@ func TestTodoAgentApplyPersistsServerSide(t *testing.T) {
 		Added     []AgentQueueItem `json:"added"`
 		Unchanged []AgentQueueItem `json:"unchanged"`
 	}
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/evaluate",
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/queue/evaluate",
 		map[string]any{"slug": d.Slug, "issue": ""}, &evalResp))
 	if len(evalResp.Added) != 0 {
 		t.Errorf("after apply, expected 0 added items, got %d — server state not persisted", len(evalResp.Added))
@@ -238,7 +238,7 @@ func TestSharedTodoQueueSemantics(t *testing.T) {
 		Added     []AgentQueueItem `json:"added"`
 		Unchanged []AgentQueueItem `json:"unchanged"`
 	}
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/evaluate",
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/queue/evaluate",
 		map[string]any{"slug": d.Slug, "issue": ""}, &reEvalResp))
 
 	if len(reEvalResp.Added) != 0 {
@@ -350,7 +350,7 @@ func TestAgentApplyUpsertsAndResolvesStale(t *testing.T) {
 		Added     []AgentQueueItem `json:"added"`
 		Unchanged []AgentQueueItem `json:"unchanged"`
 	}
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/evaluate",
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/agent/queue/evaluate",
 		map[string]any{"slug": d.Slug, "issue": ""}, &reEvalResp))
 
 	reEvalKeySet := map[string]bool{}

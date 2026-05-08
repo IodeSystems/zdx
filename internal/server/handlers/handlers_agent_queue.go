@@ -893,7 +893,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 			return &struct{ Body []TodoItem }{Body: out}, nil
 		})
 
-	// POST /api/dx/agent/evaluate — regenerate queue, diff against persisted
+	// POST /api/dx/agent/queue/evaluate — regenerate queue, diff against persisted
 	huma.Register(api, huma.Operation{OperationID: "agent-evaluate", Method: http.MethodPost, Path: "/api/dx/agent/queue/evaluate"},
 		func(ctx context.Context, in *struct {
 			Body struct {
@@ -961,7 +961,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 			return &struct{ Body EvaluateDiff }{Body: diff}, nil
 		})
 
-	// POST /api/dx/agent/apply — apply an evaluated queue (upsert proposed, resolve stale)
+	// POST /api/dx/agent/queue/apply — apply an evaluated queue (upsert proposed, resolve stale)
 	huma.Register(api, huma.Operation{OperationID: "agent-apply", Method: http.MethodPost, Path: "/api/dx/agent/queue/apply"},
 		func(ctx context.Context, in *struct {
 			Body struct {
@@ -1468,7 +1468,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 			}{Todos: todos, Tasks: tasks}}, nil
 		})
 
-	// POST /api/dx/agent/unblock-all — clear blocked flag on all open blocked todos
+	// POST /api/dx/agent/queue/unblock-all — clear blocked flag on all open blocked todos
 	huma.Register(api, huma.Operation{OperationID: "agent-unblock-all", Method: http.MethodPost, Path: "/api/dx/agent/queue/unblock-all"},
 		func(ctx context.Context, in *struct {
 			Body struct {

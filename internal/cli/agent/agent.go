@@ -81,6 +81,14 @@ For the long-running work loop, use ` + "`dx agent loop --provider=X`" + `.`,
 			if oerr != nil {
 				return oerr
 			}
+			if mode != ContainerDocker {
+				// Local execution. enforceContainerExecution gates on
+				// DX_AGENT_FORCE_CONTAINER (spec 117) — operators can refuse
+				// host execution at the env level even when --container=local.
+				if err := enforceContainerExecution(false); err != nil {
+					return err
+				}
+			}
 			executor, eerr := PickExecutor(mode, provider, opts)
 			if eerr != nil {
 				return eerr

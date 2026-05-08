@@ -17,7 +17,7 @@ ORDER BY priority_hint, created_at, id;
 
 -- name: FlipExpiredMaturityItems :exec
 -- Flip snoozed items whose snooze_until has passed back to 'open' so they
--- resurface in the solo queue.
+-- resurface in the agent queue.
 UPDATE zdx_maturity_items
 SET status = 'open',
     snooze_until = NULL,

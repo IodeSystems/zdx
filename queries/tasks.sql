@@ -270,7 +270,7 @@ UPDATE zdx_tasks SET stale_since = NULL, updated_at = NOW() WHERE id = $1;
 
 
 -- name: ListOrphanReadyTasks :many
--- Ready tasks with no parent issue — invisible to the normal solo queue.
+-- Ready tasks with no parent issue — invisible to the normal agent queue.
 SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1

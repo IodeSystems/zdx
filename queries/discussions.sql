@@ -39,7 +39,7 @@ ORDER BY created_at ASC;
 
 -- name: ListDiscussionsAwaitingResponse :many
 -- Active discussions whose most-recent message is from the user — i.e. the
--- assistant has not yet replied. Drives a solo-queue todo so an agent can pick
+-- assistant has not yet replied. Drives an agent-queue todo so an agent can pick
 -- up the dangling thread (typically left over from a failed LLM send).
 SELECT d.id, d.title, m.id AS message_id, m.content
 FROM zdx_discussions d
