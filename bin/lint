@@ -49,7 +49,14 @@ run "gofmt" bash -c '
 
 run "govet" go vet ./...
 
-run "migrate-lint" ./bin/dx migrate lint
+# --intent mode skips the stale-schema staleness check (workers don't own
+# shipped.sql; the merge-train regenerates it). Duplicate / missing-pair /
+# gap checks still run.
+if [ -n "${SKIP_DRIFT:-}" ]; then
+  run "migrate-lint" ./bin/dx migrate lint --schema ""
+else
+  run "migrate-lint" ./bin/dx migrate lint
+fi
 
 run "sqlcvet" bash -c '
   SQLC=$(command -v sqlc || echo "$HOME/go/bin/sqlc")
