@@ -3,7 +3,7 @@
 --
 
 
--- Dumped from database version 18.3 (Debian 18.3-1.pgdg13+1)
+-- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -54,6 +54,38 @@ CREATE SEQUENCE public.zdx_agent_budgets_id_seq
 --
 
 ALTER SEQUENCE public.zdx_agent_budgets_id_seq OWNED BY public.zdx_agent_budgets.id;
+
+
+--
+-- Name: zdx_agent_event_compactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_agent_event_compactions (
+    id bigint NOT NULL,
+    event_id text NOT NULL,
+    strategy text NOT NULL,
+    compacted_content text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_agent_event_compactions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_agent_event_compactions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_agent_event_compactions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_agent_event_compactions_id_seq OWNED BY public.zdx_agent_event_compactions.id;
 
 
 --
@@ -1091,7 +1123,7 @@ CREATE TABLE public.zdx_incomplete_report_side_effects (
     id bigint NOT NULL,
     project_id integer NOT NULL,
     reason text NOT NULL,
-    evidence_fingerprint text CONSTRAINT zdx_incomplete_report_side_effect_evidence_fingerprint_not_null NOT NULL,
+    evidence_fingerprint text NOT NULL,
     action_type text NOT NULL,
     meta jsonb DEFAULT '{}'::jsonb NOT NULL,
     fired_at timestamp with time zone DEFAULT now() NOT NULL
@@ -2987,6 +3019,13 @@ ALTER TABLE ONLY public.zdx_agent_budgets ALTER COLUMN id SET DEFAULT nextval('p
 
 
 --
+-- Name: zdx_agent_event_compactions id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_agent_event_compactions ALTER COLUMN id SET DEFAULT nextval('public.zdx_agent_event_compactions_id_seq'::regclass);
+
+
+--
 -- Name: zdx_api_keys id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -3475,6 +3514,14 @@ ALTER TABLE ONLY public.zdx_work_log ALTER COLUMN id SET DEFAULT nextval('public
 
 ALTER TABLE ONLY public.zdx_agent_budgets
     ADD CONSTRAINT zdx_agent_budgets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_agent_event_compactions zdx_agent_event_compactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_agent_event_compactions
+    ADD CONSTRAINT zdx_agent_event_compactions_pkey PRIMARY KEY (id);
 
 
 --
@@ -4491,6 +4538,13 @@ ALTER TABLE ONLY public.zdx_version_branches
 
 ALTER TABLE ONLY public.zdx_work_log
     ADD CONSTRAINT zdx_work_log_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_agent_event_compactions_event_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_agent_event_compactions_event_id ON public.zdx_agent_event_compactions USING btree (event_id, created_at DESC);
 
 
 --

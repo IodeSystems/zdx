@@ -38,6 +38,14 @@ type ZdxAgentBudget struct {
 	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
+type ZdxAgentEventCompaction struct {
+	ID               int64              `db:"id" json:"id"`
+	EventID          string             `db:"event_id" json:"event_id"`
+	Strategy         string             `db:"strategy" json:"strategy"`
+	CompactedContent string             `db:"compacted_content" json:"compacted_content"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxApiKey struct {
 	ID           int32              `db:"id" json:"id"`
 	UserID       int32              `db:"user_id" json:"user_id"`
