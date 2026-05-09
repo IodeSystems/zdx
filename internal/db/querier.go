@@ -366,6 +366,10 @@ type Querier interface {
 	ListChildQuestions(ctx context.Context, arg ListChildQuestionsParams) ([]ZdxQuestion, error)
 	ListChurnSessions(ctx context.Context, arg ListChurnSessionsParams) ([]ListChurnSessionsRow, error)
 	ListClaudeEvents(ctx context.Context, sessionPk int64) ([]ZdxClaudeEvent, error)
+	// Tail-shaped query for `dx agent audit --follow`: returns events with
+	// seq > $2 in ascending order, capped at $3. The SSE handler polls this
+	// on a 1s tick to deliver new turns to a connected operator.
+	ListClaudeEventsSinceSeq(ctx context.Context, arg ListClaudeEventsSinceSeqParams) ([]ZdxClaudeEvent, error)
 	ListClaudeSessions(ctx context.Context, projectID int32) ([]ListClaudeSessionsRow, error)
 	ListClaudeSessionsByIssue(ctx context.Context, arg ListClaudeSessionsByIssueParams) ([]ListClaudeSessionsByIssueRow, error)
 	ListClaudeSessionsByTodoID(ctx context.Context, arg ListClaudeSessionsByTodoIDParams) ([]ListClaudeSessionsByTodoIDRow, error)
@@ -703,6 +707,11 @@ type Querier interface {
 	// Extend the lease on a claimed todo (heartbeat).
 	RenewTodoLease(ctx context.Context, arg RenewTodoLeaseParams) error
 	ReopenIssue(ctx context.Context, arg ReopenIssueParams) error
+	// Resolve a session by either its session_id text OR its agent alias
+	// (most-recent for that alias wins). Used by `dx agent audit <id>` so the
+	// operator can pass either the UUID-shaped session_id or the agent alias
+	// without having to know which they have.
+	ResolveClaudeSession(ctx context.Context, arg ResolveClaudeSessionParams) (ResolveClaudeSessionRow, error)
 	ResolveTodo(ctx context.Context, arg ResolveTodoParams) error
 	ResolveTodoByID(ctx context.Context, id int32) error
 	ResolveTodosNotInKeys(ctx context.Context, arg ResolveTodosNotInKeysParams) error

@@ -5126,6 +5126,12 @@ type ListAgentsParams struct {
 	Slug string `form:"slug" json:"slug"`
 }
 
+// ResolveAgentSessionParams defines parameters for ResolveAgentSession.
+type ResolveAgentSessionParams struct {
+	Slug string `form:"slug" json:"slug"`
+	Id   string `form:"id" json:"id"`
+}
+
 // AgentClaimParams defines parameters for AgentClaim.
 type AgentClaimParams struct {
 	Debug       *string `form:"debug,omitempty" json:"debug,omitempty"`
@@ -6864,6 +6870,9 @@ type ClientInterface interface {
 
 	// GetConfig request
 	GetConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ResolveAgentSession request
+	ResolveAgentSession(ctx context.Context, params *ResolveAgentSessionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AgentClaimWithBody request with any body
 	AgentClaimWithBody(ctx context.Context, params *AgentClaimParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8992,6 +9001,18 @@ func (c *APIClient) AuthRegister(ctx context.Context, body AuthRegisterJSONReque
 
 func (c *APIClient) GetConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetConfigRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ResolveAgentSession(ctx context.Context, params *ResolveAgentSessionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewResolveAgentSessionRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -16809,6 +16830,63 @@ func NewGetConfigRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewResolveAgentSessionRequest generates requests for ResolveAgentSession
+func NewResolveAgentSessionRequest(server string, params *ResolveAgentSessionParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/agent/audit/resolve")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "id", params.Id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -34304,6 +34382,9 @@ type ClientWithResponsesInterface interface {
 	// GetConfigWithResponse request
 	GetConfigWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedGetConfigResponse, error)
 
+	// ResolveAgentSessionWithResponse request
+	ResolveAgentSessionWithResponse(ctx context.Context, params *ResolveAgentSessionParams, reqEditors ...RequestEditorFn) (*ResolveAgentSessionResponse, error)
+
 	// AgentClaimWithBodyWithResponse request with any body
 	AgentClaimWithBodyWithResponse(ctx context.Context, params *AgentClaimParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentClaimResponse, error)
 
@@ -36725,6 +36806,29 @@ func (r ParsedGetConfigResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedGetConfigResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ResolveAgentSessionResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ClaudeSessionItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ResolveAgentSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ResolveAgentSessionResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -44818,6 +44922,15 @@ func (c *ClientWithResponses) GetConfigWithResponse(ctx context.Context, reqEdit
 	return ParseParsedGetConfigResponse(rsp)
 }
 
+// ResolveAgentSessionWithResponse request returning *ResolveAgentSessionResponse
+func (c *ClientWithResponses) ResolveAgentSessionWithResponse(ctx context.Context, params *ResolveAgentSessionParams, reqEditors ...RequestEditorFn) (*ResolveAgentSessionResponse, error) {
+	rsp, err := c.ResolveAgentSession(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseResolveAgentSessionResponse(rsp)
+}
+
 // AgentClaimWithBodyWithResponse request with arbitrary body returning *AgentClaimResponse
 func (c *ClientWithResponses) AgentClaimWithBodyWithResponse(ctx context.Context, params *AgentClaimParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AgentClaimResponse, error) {
 	rsp, err := c.AgentClaimWithBody(ctx, params, contentType, body, reqEditors...)
@@ -50609,6 +50722,39 @@ func ParseParsedGetConfigResponse(rsp *http.Response) (*ParsedGetConfigResponse,
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest GetConfigResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseResolveAgentSessionResponse parses an HTTP response from a ResolveAgentSessionWithResponse call
+func ParseResolveAgentSessionResponse(rsp *http.Response) (*ResolveAgentSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ResolveAgentSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ClaudeSessionItem
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

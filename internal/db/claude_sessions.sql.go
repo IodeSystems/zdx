@@ -531,6 +531,54 @@ func (q *Queries) ListClaudeEvents(ctx context.Context, sessionPk int64) ([]ZdxC
 	return items, nil
 }
 
+const listClaudeEventsSinceSeq = `-- name: ListClaudeEventsSinceSeq :many
+SELECT id, session_pk, seq, event_type, event_json, created_at, agent_id, is_sidechain, agent_type, agent_description
+FROM zdx_claude_events
+WHERE session_pk = $1 AND seq > $2
+ORDER BY seq
+LIMIT $3
+`
+
+type ListClaudeEventsSinceSeqParams struct {
+	SessionPk int64 `db:"session_pk" json:"session_pk"`
+	Seq       int32 `db:"seq" json:"seq"`
+	Limit     int32 `db:"limit" json:"limit"`
+}
+
+// Tail-shaped query for `dx agent audit --follow`: returns events with
+// seq > $2 in ascending order, capped at $3. The SSE handler polls this
+// on a 1s tick to deliver new turns to a connected operator.
+func (q *Queries) ListClaudeEventsSinceSeq(ctx context.Context, arg ListClaudeEventsSinceSeqParams) ([]ZdxClaudeEvent, error) {
+	rows, err := q.db.Query(ctx, listClaudeEventsSinceSeq, arg.SessionPk, arg.Seq, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxClaudeEvent
+	for rows.Next() {
+		var i ZdxClaudeEvent
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionPk,
+			&i.Seq,
+			&i.EventType,
+			&i.EventJson,
+			&i.CreatedAt,
+			&i.AgentID,
+			&i.IsSidechain,
+			&i.AgentType,
+			&i.AgentDescription,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listClaudeSessions = `-- name: ListClaudeSessions :many
 SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
        t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
@@ -855,6 +903,61 @@ func (q *Queries) ListStaleOpenClaudeSessions(ctx context.Context, arg ListStale
 		return nil, err
 	}
 	return items, nil
+}
+
+const resolveClaudeSession = `-- name: ResolveClaudeSession :one
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at, todo_id
+FROM zdx_claude_sessions
+WHERE project_id = $1
+  AND (session_id = $2 OR alias = $2)
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+type ResolveClaudeSessionParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	SessionID string `db:"session_id" json:"session_id"`
+}
+
+type ResolveClaudeSessionRow struct {
+	ID        int64              `db:"id" json:"id"`
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	IssueID   string             `db:"issue_id" json:"issue_id"`
+	SessionID string             `db:"session_id" json:"session_id"`
+	Title     string             `db:"title" json:"title"`
+	Alias     string             `db:"alias" json:"alias"`
+	Header    string             `db:"header" json:"header"`
+	Summary   string             `db:"summary" json:"summary"`
+	Status    string             `db:"status" json:"status"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	TodoID    pgtype.Int4        `db:"todo_id" json:"todo_id"`
+}
+
+// Resolve a session by either its session_id text OR its agent alias
+// (most-recent for that alias wins). Used by `dx agent audit <id>` so the
+// operator can pass either the UUID-shaped session_id or the agent alias
+// without having to know which they have.
+func (q *Queries) ResolveClaudeSession(ctx context.Context, arg ResolveClaudeSessionParams) (ResolveClaudeSessionRow, error) {
+	row := q.db.QueryRow(ctx, resolveClaudeSession, arg.ProjectID, arg.SessionID)
+	var i ResolveClaudeSessionRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.IssueID,
+		&i.SessionID,
+		&i.Title,
+		&i.Alias,
+		&i.Header,
+		&i.Summary,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ClosedAt,
+		&i.TodoID,
+	)
+	return i, err
 }
 
 const touchClaudeSession = `-- name: TouchClaudeSession :exec

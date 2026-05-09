@@ -613,6 +613,64 @@ var ListClaudeEventsCols = struct {
 	AgentDescription: metaquery.NewTextCol("agent_description"),
 }
 
+var MetaListClaudeEventsSinceSeq = metaquery.Query{
+	Name:   "ListClaudeEventsSinceSeq",
+	Cmd:    ":many",
+	Source: "claude_sessions.sql",
+	SQL: `SELECT id, session_pk, seq, event_type, event_json, created_at, agent_id, is_sidechain, agent_type, agent_description
+FROM zdx_claude_events
+WHERE session_pk = $1 AND seq > $2
+ORDER BY seq
+LIMIT $3`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_claude_events"},
+		{Name: "session_pk", OriginalName: "session_pk", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_claude_events"},
+		{Name: "seq", OriginalName: "seq", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_claude_events"},
+		{Name: "event_type", OriginalName: "event_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_claude_events"},
+		{Name: "event_json", OriginalName: "event_json", GoType: "[]byte", DBType: "jsonb", NotNull: true, Table: "zdx_claude_events"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_claude_events"},
+		{Name: "agent_id", OriginalName: "agent_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_claude_events"},
+		{Name: "is_sidechain", OriginalName: "is_sidechain", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_claude_events"},
+		{Name: "agent_type", OriginalName: "agent_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_claude_events"},
+		{Name: "agent_description", OriginalName: "agent_description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_claude_events"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "session_pk", GoType: "int64", DBType: "pg_catalog.int8", NotNull: true},
+		{Position: 2, Name: "seq", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 3, Name: "limit", GoType: "int32", DBType: "integer", NotNull: true},
+	},
+}
+
+// WrapListClaudeEventsSinceSeq returns a metaquery.Builder over MetaListClaudeEventsSinceSeq, pre-bound with typed arguments.
+func WrapListClaudeEventsSinceSeq(arg ListClaudeEventsSinceSeqParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListClaudeEventsSinceSeq, arg.SessionPk, arg.Seq, arg.Limit)
+}
+
+// ListClaudeEventsSinceSeqCols gives typed, name-safe access to ListClaudeEventsSinceSeq's output columns.
+var ListClaudeEventsSinceSeqCols = struct {
+	ID               metaquery.IntCol
+	SessionPk        metaquery.IntCol
+	Seq              metaquery.IntCol
+	EventType        metaquery.TextCol
+	EventJson        metaquery.BytesCol
+	CreatedAt        metaquery.TimeCol
+	AgentID          metaquery.TextCol
+	IsSidechain      metaquery.BoolCol
+	AgentType        metaquery.TextCol
+	AgentDescription metaquery.TextCol
+}{
+	ID:               metaquery.NewIntCol("id"),
+	SessionPk:        metaquery.NewIntCol("session_pk"),
+	Seq:              metaquery.NewIntCol("seq"),
+	EventType:        metaquery.NewTextCol("event_type"),
+	EventJson:        metaquery.NewBytesCol("event_json"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	AgentID:          metaquery.NewTextCol("agent_id"),
+	IsSidechain:      metaquery.NewBoolCol("is_sidechain"),
+	AgentType:        metaquery.NewTextCol("agent_type"),
+	AgentDescription: metaquery.NewTextCol("agent_description"),
+}
+
 var MetaListClaudeSessions = metaquery.Query{
 	Name:   "ListClaudeSessions",
 	Cmd:    ":many",
@@ -885,6 +943,73 @@ var ListStaleOpenClaudeSessionsCols = struct {
 	Title:     metaquery.NewTextCol("title"),
 	Alias:     metaquery.NewTextCol("alias"),
 	UpdatedAt: metaquery.NewTimeCol("updated_at"),
+}
+
+var MetaResolveClaudeSession = metaquery.Query{
+	Name:   "ResolveClaudeSession",
+	Cmd:    ":one",
+	Source: "claude_sessions.sql",
+	SQL: `SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at, todo_id
+FROM zdx_claude_sessions
+WHERE project_id = $1
+  AND (session_id = $2 OR alias = $2)
+ORDER BY created_at DESC
+LIMIT 1`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_claude_sessions"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_claude_sessions"},
+		{Name: "issue_id", OriginalName: "issue_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_claude_sessions"},
+		{Name: "session_id", OriginalName: "session_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_claude_sessions"},
+		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_claude_sessions"},
+		{Name: "alias", OriginalName: "alias", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_claude_sessions"},
+		{Name: "header", OriginalName: "header", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_claude_sessions"},
+		{Name: "summary", OriginalName: "summary", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_claude_sessions"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_claude_sessions"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_claude_sessions"},
+		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_claude_sessions"},
+		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_claude_sessions"},
+		{Name: "todo_id", OriginalName: "todo_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_claude_sessions"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "session_id", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapResolveClaudeSession returns a metaquery.Builder over MetaResolveClaudeSession, pre-bound with typed arguments.
+func WrapResolveClaudeSession(arg ResolveClaudeSessionParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaResolveClaudeSession, arg.ProjectID, arg.SessionID)
+}
+
+// ResolveClaudeSessionCols gives typed, name-safe access to ResolveClaudeSession's output columns.
+var ResolveClaudeSessionCols = struct {
+	ID        metaquery.IntCol
+	ProjectID metaquery.IntCol
+	IssueID   metaquery.TextCol
+	SessionID metaquery.TextCol
+	Title     metaquery.TextCol
+	Alias     metaquery.TextCol
+	Header    metaquery.TextCol
+	Summary   metaquery.TextCol
+	Status    metaquery.TextCol
+	CreatedAt metaquery.TimeCol
+	UpdatedAt metaquery.TimeCol
+	ClosedAt  metaquery.TimeCol
+	TodoID    metaquery.IntCol
+}{
+	ID:        metaquery.NewIntCol("id"),
+	ProjectID: metaquery.NewIntCol("project_id"),
+	IssueID:   metaquery.NewTextCol("issue_id"),
+	SessionID: metaquery.NewTextCol("session_id"),
+	Title:     metaquery.NewTextCol("title"),
+	Alias:     metaquery.NewTextCol("alias"),
+	Header:    metaquery.NewTextCol("header"),
+	Summary:   metaquery.NewTextCol("summary"),
+	Status:    metaquery.NewTextCol("status"),
+	CreatedAt: metaquery.NewTimeCol("created_at"),
+	UpdatedAt: metaquery.NewTimeCol("updated_at"),
+	ClosedAt:  metaquery.NewTimeCol("closed_at"),
+	TodoID:    metaquery.NewIntCol("todo_id"),
 }
 
 var MetaTouchClaudeSession = metaquery.Query{
