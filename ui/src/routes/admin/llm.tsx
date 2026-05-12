@@ -45,6 +45,7 @@ const NEW_CONFIG: LLMConfigBody = {
   model_low: '',
   model_medium: '',
   model_high: '',
+  timeout_seconds: 600,
 }
 
 function ConfigRow({
@@ -203,6 +204,17 @@ function ConfigRow({
         sx={{ mt: 2 }}
       />
 
+      <TextField
+        label="Request Timeout (seconds)"
+        type="number"
+        value={draft.timeout_seconds}
+        onChange={(e) => patch({ timeout_seconds: parseInt(e.target.value, 10) || 600 })}
+        size="small"
+        fullWidth
+        sx={{ mt: 2 }}
+        inputProps={{ min: 10, max: 3600 }}
+      />
+
       <Divider sx={{ my: 2 }}>
         <Typography variant="caption" color="text.secondary">
           Level slots — leave blank = none (no override)
@@ -356,6 +368,16 @@ function NewConfigForm({ onCancel }: { onCancel: () => void }) {
         disabled={isClaude}
         placeholder={isClaude ? 'Not used for Claude' : 'nomic-embed-text'}
         sx={{ mt: 2 }}
+      />
+      <TextField
+        label="Request Timeout (seconds)"
+        type="number"
+        value={draft.timeout_seconds}
+        onChange={(e) => setDraft({ ...draft, timeout_seconds: parseInt(e.target.value, 10) || 600 })}
+        size="small"
+        fullWidth
+        sx={{ mt: 2 }}
+        inputProps={{ min: 10, max: 3600 }}
       />
       <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
         <Button variant="contained" onClick={submit} disabled={create.isPending}>

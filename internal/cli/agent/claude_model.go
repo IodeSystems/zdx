@@ -95,12 +95,13 @@ type llmConfigEntry struct {
 // fullLLMConfigEntry includes URL and API key for adapters that need the
 // complete endpoint config (OpenCode, MCP harness) not just model names.
 type fullLLMConfigEntry struct {
-	ModelLow    string `json:"model_low"`
-	ModelMedium string `json:"model_medium"`
-	ModelHigh   string `json:"model_high"`
-	Url         string `json:"url"`
-	ApiKey      string `json:"api_key"`
-	Type        string `json:"type"`
+	ModelLow       string `json:"model_low"`
+	ModelMedium    string `json:"model_medium"`
+	ModelHigh      string `json:"model_high"`
+	Url            string `json:"url"`
+	ApiKey         string `json:"api_key"`
+	Type           string `json:"type"`
+	TimeoutSeconds int    `json:"timeout_seconds"`
 }
 
 // fetchLLMConfigs pulls the ordered list of admin LLM configs over HTTP.
@@ -173,11 +174,15 @@ func resolveLLMConfigFromServer(rc remoteConfig, complexity string) config.LLMLo
 			picked = cfg.ModelHigh
 		}
 		if picked != "" && cfg.Url != "" {
+			timeout := cfg.TimeoutSeconds
+			if timeout <= 0 {
+				timeout = 600
+			}
 			return config.LLMLocal{
 				BaseURL:        cfg.Url,
 				Model:          picked,
 				APIKey:         cfg.ApiKey,
-				TimeoutSeconds: 120,
+				TimeoutSeconds: timeout,
 			}
 		}
 	}
