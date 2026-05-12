@@ -105,6 +105,14 @@ type ProviderOpts struct {
 	// guards need the hard variant.
 	MaxRuntimeHard time.Duration
 
+	// MaxClaims and MaxRuntime are soft bounds for `dx agent loop`
+	// (IS-1086 / TK-1751). Zero means unlimited. The fields are surfaced
+	// in loop.heartbeat events even before the bound-check logic ships so
+	// the heartbeat schema is stable: TK-1752 emits the values; TK-1751
+	// adds the cobra flags and bound enforcement in the for-loop body.
+	MaxClaims  int
+	MaxRuntime time.Duration
+
 	// TraceLog is the session-scoped structured logger (initialized in
 	// DispatchSingle / managed wrappers). When non-nil, providers and the
 	// shared lifecycle code emit setup events (worktree.create,

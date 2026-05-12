@@ -152,3 +152,12 @@ func (h *LoopTaskHolder) WaitWhilePaused(ctx context.Context) error {
 		return ctx.Err()
 	}
 }
+
+// Paused reports whether the holder is currently paused. Non-blocking
+// snapshot for heartbeat/observability — operators can poll this without
+// gating the loop. WaitWhilePaused is the gating equivalent.
+func (h *LoopTaskHolder) Paused() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.pausedCh != nil
+}

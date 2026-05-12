@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -358,6 +359,13 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 	defer cancel()
 	installReleaseOnSignal(opts.RC, opts.Alias, stateFile, nil, cancel)
 
+	// Loop-wide counters surfaced via loop.heartbeat (IS-1086 / TK-1752).
+	// The for-loop body is the sole writer; the heartbeat goroutine is a
+	// reader — atomic.Int32 covers both sides without a mutex.
+	loopStart := time.Now()
+	var claimsCompleted atomic.Int32
+	var consecutiveChurns atomic.Int32
+
 	// Hard runtime cap (IS-1086 / TK-1753): on expiry, cancel the loop ctx so
 	// any in-flight session aborts at its next ctx check. The cancellation
 	// trips the existing release path — RunManagedSession returns ctx.Err(),
@@ -394,9 +402,32 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 	// Churn tracking: when the server reports ChurnDowngraded for the same
 	// todo key on consecutive iterations, the agent is thrashing — backoff
 	// exponentially (1m, 2m, 4m, ... 64m cap) so we don't spin. Different
-	// todo key resets the counter.
-	consecutiveChurns := 0
+	// todo key resets the counter. consecutiveChurns is declared above as
+	// an atomic.Int32 so the heartbeat goroutine can read it safely.
 	lastChurnTodoKey := ""
+
+	// Periodic heartbeat (IS-1086 / TK-1752): tick every 60s and emit
+	// loop.heartbeat with the current counters so operators can `dx log
+	// tail` and see progress between claim.acquired/claim.released
+	// boundaries, especially during long sessions or idle stretches.
+	go func() {
+		ticker := time.NewTicker(60 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				emit("loop.heartbeat",
+					"claims_completed", int(claimsCompleted.Load()),
+					"max_claims", opts.MaxClaims,
+					"elapsed_seconds", int(time.Since(loopStart).Seconds()),
+					"max_runtime_seconds", int(opts.MaxRuntime.Seconds()),
+					"consecutive_churns", int(consecutiveChurns.Load()),
+					"paused", holder.Paused())
+			}
+		}
+	}()
 
 	for {
 		if err := ctx.Err(); err != nil {
@@ -506,6 +537,7 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 		if runErr != nil {
 			fmt.Fprintf(os.Stderr, "[%s] session error: %v\n", providerName, runErr)
 		}
+		claimsCompleted.Add(1)
 		emit("claim.released",
 			"iteration_id", iterationID,
 			"todo_id", todo.ID,
@@ -527,24 +559,24 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 		switch {
 		case release.CycleDetected || release.ChurnDowngraded:
 			if todo.Key == lastChurnTodoKey {
-				consecutiveChurns++
+				consecutiveChurns.Add(1)
 			} else {
-				consecutiveChurns = 1
+				consecutiveChurns.Store(1)
 				lastChurnTodoKey = todo.Key
 			}
 		default:
-			consecutiveChurns = 0
+			consecutiveChurns.Store(0)
 			lastChurnTodoKey = ""
 		}
-		if consecutiveChurns >= 3 {
-			shift := consecutiveChurns - 3
+		if churns := consecutiveChurns.Load(); churns >= 3 {
+			shift := churns - 3
 			if shift > 6 {
 				shift = 6
 			}
 			backoff := time.Duration(1<<shift) * time.Minute
 			fmt.Fprintf(os.Stderr, "[%s] churn backoff: key %s churned %d times; sleeping %s\n",
-				providerName, lastChurnTodoKey, consecutiveChurns, backoff.Truncate(time.Second))
-			emit("churn.backoff", "key", lastChurnTodoKey, "count", consecutiveChurns, "backoff_seconds", int(backoff.Seconds()))
+				providerName, lastChurnTodoKey, churns, backoff.Truncate(time.Second))
+			emit("churn.backoff", "key", lastChurnTodoKey, "count", int(churns), "backoff_seconds", int(backoff.Seconds()))
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
