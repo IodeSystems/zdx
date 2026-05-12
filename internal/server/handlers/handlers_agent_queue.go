@@ -37,6 +37,27 @@ type agentCandidate struct {
 	Persona       string
 }
 
+// candidateLane returns the queue lane a candidate belongs to, derived from
+// its kind. Used for telemetry today (TK-1758); TK-1757 wires the same helper
+// into the sort/persist path so the lanes are also load-bearing for ordering.
+// Lanes:
+//   - "priority" — explicit issue work (add/dev/closable/close:tracker/
+//     decompose-tracker). Meaningful only when the underlying issue carries
+//     a priority — TK-1757 enforces that invariant; until then "priority"
+//     lane can also include candidates against unprioritized issues.
+//   - "triage"   — triage candidates only.
+//   - "other"    — all remaining synthetic candidates.
+func candidateLane(kind string) string {
+	switch kind {
+	case "triage":
+		return "triage"
+	case "add", "dev", "closable", "close:tracker", "owner:decompose-tracker":
+		return "priority"
+	default:
+		return "other"
+	}
+}
+
 // foldIssuePriority lowers a base candidate priority (lower=wins) by the
 // user-facing issue priority so a P1/P2 impl with a ready dev task outranks
 // low-value triage. issuePriority is the string form from zdx_issues.priority
@@ -1067,6 +1088,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 						"kind":     c.Kind,
 						"priority": c.Priority,
 						"blocked":  c.Blocked,
+						"lane":     candidateLane(c.Kind),
 					})
 				}
 				existingBlocked, existingReason := loadExistingBlockedByKey(ctx, h.Q, p.ID)
@@ -1114,6 +1136,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 						"key":   row.Key,
 						"kind":  row.Kind,
 						"title": row.Title,
+						"lane":  candidateLane(row.Kind),
 					})
 					_, _ = h.Q.InsertReservation(ctx, db.InsertReservationParams{
 						ProjectID:      row.ProjectID,
@@ -1141,6 +1164,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 					"key":   row.Key,
 					"kind":  row.Kind,
 					"title": row.Title,
+					"lane":  candidateLane(row.Kind),
 				})
 				_, _ = h.Q.InsertReservation(ctx, db.InsertReservationParams{
 					ProjectID:      row.ProjectID,
@@ -1346,6 +1370,8 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 				"id":   row.ID,
 				"key":  row.Key,
 				"slug": row.ProjectSlug,
+				"kind": row.Kind,
+				"lane": candidateLane(row.Kind),
 			})
 			_, _ = h.Q.InsertReservation(ctx, db.InsertReservationParams{
 				ProjectID:      row.ProjectID,
