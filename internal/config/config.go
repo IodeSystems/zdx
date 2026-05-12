@@ -115,7 +115,7 @@ type LLMLocal struct {
 const (
 	defaultLLMLocalBaseURL = "http://192.168.1.76:8111"
 	defaultLLMLocalModel   = "qwen3-30b-a3b"
-	defaultLLMLocalTimeout = 120
+	defaultLLMLocalTimeout = 600
 )
 
 // ResolvedLLMLocal returns the local-LLM config with defaults and env overrides applied.
