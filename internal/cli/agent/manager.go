@@ -433,6 +433,31 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+
+		// Soft self-bounds (IS-1086 / TK-1751). Checked at the top of each
+		// iteration so any in-flight session has already completed by the
+		// time we re-enter here — graceful exit for cost-guard / babysit
+		// runs. The hard variant (--max-runtime-hard) cancels the ctx
+		// mid-session and is handled by its own goroutine above.
+		if opts.MaxClaims > 0 && int(claimsCompleted.Load()) >= opts.MaxClaims {
+			emit("loop.bound-reached",
+				"bound", "max-claims",
+				"claims_completed", int(claimsCompleted.Load()),
+				"max_claims", opts.MaxClaims,
+				"elapsed_seconds", int(time.Since(loopStart).Seconds()),
+				"max_runtime_seconds", int(opts.MaxRuntime.Seconds()))
+			return nil
+		}
+		if opts.MaxRuntime > 0 && time.Since(loopStart) >= opts.MaxRuntime {
+			emit("loop.bound-reached",
+				"bound", "max-runtime",
+				"claims_completed", int(claimsCompleted.Load()),
+				"max_claims", opts.MaxClaims,
+				"elapsed_seconds", int(time.Since(loopStart).Seconds()),
+				"max_runtime_seconds", int(opts.MaxRuntime.Seconds()))
+			return nil
+		}
+
 		if h := fileHash(selfPath); h != "" && selfHash != "" && h != selfHash {
 			fmt.Fprintf(os.Stderr, "[%s] self-update: %s → %s, re-execing\n", providerName, shortHash(selfHash), shortHash(h))
 			emit("self_update.detected", "old", shortHash(selfHash), "new", shortHash(h))

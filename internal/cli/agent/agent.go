@@ -266,9 +266,9 @@ func rejectUnimplementedExplicit(flag, value string) error {
 // --concurrency, --chrome, --mcp-container) live here.
 func agentLoopCmd() *cobra.Command {
 	var mcpContainer string
-	var maxTurns, concurrency int
+	var maxTurns, concurrency, maxClaims int
 	var keepContainer, chrome bool
-	var maxRuntimeHard time.Duration
+	var maxRuntime, maxRuntimeHard time.Duration
 	cmd := &cobra.Command{
 		Use:   "loop",
 		Short: "Loop: claim work, run a managed session per pick, repeat",
@@ -287,7 +287,13 @@ own visible alias and claim stream. The ` + "`--concurrency=N`" + ` flag is an
 explicit opt-in to in-process fan-out (N slot containers under one parent
 process); most operators should not need it. The agent.max_worktrees
 config field is NOT consulted here — that's the project-wide
-concurrent-agents ceiling read by ` + "`dx agent start`" + `.`,
+concurrent-agents ceiling read by ` + "`dx agent start`" + `.
+
+Soft self-bounds: ` + "`--max-claims=N`" + ` exits after N todos are released, and
+` + "`--max-runtime=DUR`" + ` exits after the given wall-clock duration (e.g. 30m, 1h).
+Both check at the top of each iteration, so any in-flight session completes
+first — graceful for cost-guard / babysit runs. For CI-grade interruption
+that aborts a mid-LLM session, see ` + "`--max-runtime-hard`" + `.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			provider := cmd.Flag("provider").Value.String()
 			alias := cmd.Flag("alias").Value.String()
@@ -321,6 +327,8 @@ concurrent-agents ceiling read by ` + "`dx agent start`" + `.`,
 			}
 			opts.KeepContainer = keepContainer
 			opts.Concurrency = concurrency
+			opts.MaxClaims = maxClaims
+			opts.MaxRuntime = maxRuntime
 			opts.MaxRuntimeHard = maxRuntimeHard
 			if mode != ContainerDocker {
 				// Local execution. enforceContainerExecution still gates on
@@ -342,6 +350,8 @@ concurrent-agents ceiling read by ` + "`dx agent start`" + `.`,
 	cmd.Flags().BoolVar(&chrome, "chrome", true, "pass --chrome to claude CLI (claude only; ignored otherwise)")
 	cmd.Flags().IntVar(&concurrency, "concurrency", 1, "in-process slot fan-out for --container=docker (default 1; for parallel work prefer running multiple `dx agent loop` processes)")
 	cmd.Flags().StringVar(&mcpContainer, "mcp-container", "", "dispatch tool calls through dx-agent --mcp-stdio running inside this container (opencode/local only)")
+	cmd.Flags().IntVar(&maxClaims, "max-claims", 0, "exit after N todos released (0 = unlimited)")
+	cmd.Flags().DurationVar(&maxRuntime, "max-runtime", 0, "exit after wall-clock duration once the in-flight session finishes (e.g. 30m, 1h; 0 = unlimited)")
 	cmd.Flags().DurationVar(&maxRuntimeHard, "max-runtime-hard", 0, "hard wall-clock cap that interrupts any in-flight session (0 = unlimited; for CI smoke tests where graceful exit could exceed the budget)")
 	return cmd
 }
