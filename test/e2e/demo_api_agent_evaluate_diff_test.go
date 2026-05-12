@@ -91,7 +91,7 @@ func TestDemoAPI_AgentEvaluateDiff(t *testing.T) {
 		}
 	}
 	applyItems = append(applyItems, AgentQueueItem{
-		Key: keyFake, Kind: "triage", Text: "sentinel from a prior evaluation",
+		Key: keyFake, Kind: "product:triage", Text: "sentinel from a prior evaluation",
 		TargetType: "project", TargetID: slug,
 		Priority: 50, Persona: "owner", Status: "open",
 	})

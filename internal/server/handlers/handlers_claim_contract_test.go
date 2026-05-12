@@ -42,7 +42,7 @@ func TestValidateClaimContract_ForceBypass(t *testing.T) {
 		},
 		{
 			name: "metadata with sha mismatch bypassed",
-			kind: "triage",
+			kind: "product:triage",
 			bs: &BranchState{
 				HeadSHA:    "ffffffffffffffffffffffffffffffffffffffff",
 				HeadBranch: "feature/wrong",
@@ -89,7 +89,7 @@ func TestValidateClaimContract_SkipPaths(t *testing.T) {
 		},
 		{
 			name:            "metadata kind with nil branch_state skips",
-			kind:            "triage",
+			kind:            "product:triage",
 			claimBaseSha:    "deadbeef",
 			claimBaseBranch: "dev",
 			bs:              nil,
@@ -120,7 +120,7 @@ func TestValidateClaimContract_MetadataViolations(t *testing.T) {
 	}{
 		{
 			name: "tree not clean",
-			kind: "triage",
+			kind: "product:triage",
 			bs: &BranchState{
 				HeadSHA:    baseSha,
 				HeadBranch: baseBranch,
@@ -131,7 +131,7 @@ func TestValidateClaimContract_MetadataViolations(t *testing.T) {
 		},
 		{
 			name: "head_branch mismatch",
-			kind: "triage",
+			kind: "product:triage",
 			bs: &BranchState{
 				HeadSHA:    baseSha,
 				HeadBranch: "feature/elsewhere",
@@ -142,7 +142,7 @@ func TestValidateClaimContract_MetadataViolations(t *testing.T) {
 		},
 		{
 			name: "head_sha mismatch",
-			kind: "triage",
+			kind: "product:triage",
 			bs: &BranchState{
 				HeadSHA:    "ffffffffffffffffffffffffffffffffffffffff",
 				HeadBranch: baseBranch,

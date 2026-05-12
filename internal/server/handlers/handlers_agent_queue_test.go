@@ -32,16 +32,16 @@ func TestLaneOffsetFor(t *testing.T) {
 		issuePrioritized bool
 		want             int32
 	}{
-		{"triage always triage lane", "triage", false, laneOffsetTriage},
-		{"triage with prioritized issue still triage", "triage", true, laneOffsetTriage},
+		{"triage always triage lane", "product:triage", false, laneOffsetTriage},
+		{"triage with prioritized issue still triage", "product:triage", true, laneOffsetTriage},
 		{"dev prioritized → priority lane", "dev", true, laneOffsetPriority},
 		{"dev unprioritized → other lane", "dev", false, laneOffsetOther},
 		{"add prioritized → priority lane", "add", true, laneOffsetPriority},
 		{"add unprioritized → other lane", "add", false, laneOffsetOther},
 		{"closable prioritized → priority lane", "closable", true, laneOffsetPriority},
 		{"close:tracker prioritized → priority lane", "close:tracker", true, laneOffsetPriority},
-		{"owner:decompose-tracker prioritized → priority lane", "owner:decompose-tracker", true, laneOffsetPriority},
-		{"owner:decompose-tracker unprioritized → other", "owner:decompose-tracker", false, laneOffsetOther},
+		{"tech:decompose-tracker prioritized → priority lane", "tech:decompose-tracker", true, laneOffsetPriority},
+		{"tech:decompose-tracker unprioritized → other", "tech:decompose-tracker", false, laneOffsetOther},
 		{"read:comments → other regardless", "read:comments", true, laneOffsetOther},
 		{"owner:spec → other", "owner:spec", false, laneOffsetOther},
 		{"unknown kind → other", "totally-unknown", true, laneOffsetOther},
@@ -62,8 +62,8 @@ func TestLaneOffsetFor(t *testing.T) {
 func TestSortQueueCandidates_EmptyPriorityLane(t *testing.T) {
 	candidates := []agentCandidate{
 		{Key: "add-IS-2", Kind: "add", IssueRef: "IS-2", Priority: 38},
-		{Key: "triage-IS-1", Kind: "triage", IssueRef: "IS-1", Priority: 20},
-		{Key: "triage-IS-2", Kind: "triage", IssueRef: "IS-2", Priority: 20},
+		{Key: "triage-IS-1", Kind: "product:triage", IssueRef: "IS-1", Priority: 20},
+		{Key: "triage-IS-2", Kind: "product:triage", IssueRef: "IS-2", Priority: 20},
 		{Key: "dev-TK-9", Kind: "dev", IssueRef: "IS-1", Priority: 40},
 	}
 	sortQueueCandidates(candidates, map[string]bool{})
@@ -85,7 +85,7 @@ func TestSortQueueCandidates_EmptyPriorityLane(t *testing.T) {
 // triage (also 20). With lanes, dev claims first.
 func TestSortQueueCandidates_PriorityBeatsTriage(t *testing.T) {
 	candidates := []agentCandidate{
-		{Key: "triage-IS-1", Kind: "triage", IssueRef: "IS-1", Priority: 20},
+		{Key: "triage-IS-1", Kind: "product:triage", IssueRef: "IS-1", Priority: 20},
 		// foldIssuePriority(40, "1") = 20 — pre-TK-1757 this tied with triage.
 		{Key: "dev-TK-2", Kind: "dev", IssueRef: "IS-2", Priority: 20},
 		// foldIssuePriority(38, "2") = 23
@@ -111,7 +111,7 @@ func TestSortQueueCandidates_PriorityBeatsTriage(t *testing.T) {
 // priority lane.
 func TestSortQueueCandidates_Promotion(t *testing.T) {
 	before := []agentCandidate{
-		{Key: "triage-IS-1", Kind: "triage", IssueRef: "IS-1", Priority: 20},
+		{Key: "triage-IS-1", Kind: "product:triage", IssueRef: "IS-1", Priority: 20},
 		{Key: "add-IS-1", Kind: "add", IssueRef: "IS-1", Priority: 38},
 	}
 	sortQueueCandidates(before, map[string]bool{})

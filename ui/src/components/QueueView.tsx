@@ -38,7 +38,7 @@ import { MarkdownContent } from './MarkdownContent'
 import { ChoiceAnswerForm } from './ChoiceAnswerForm'
 
 const KIND_COLORS: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
-  triage: 'error',
+  'product:triage': 'error',
   plan: 'info',
   dev: 'warning',
   closable: 'info',

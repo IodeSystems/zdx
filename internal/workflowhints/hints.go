@@ -176,7 +176,7 @@ func TriageText(issueID, title string) Hint {
 				"   ops = one-time verifiable action; impl = durable code change; ask = investigation; tracker = umbrella (decomposed into children).\n\n"+
 				"If the issue is too vague to classify: `dx question add --target-type=issue --target-id=%s --context=\"<what to decide>\" --choices=\"opt1,opt2,...\"` and stop. The queue blocks progress until answered.",
 			issueID, title, issueID, issueID, issueID, issueID, issueID, issueID, issueID,
-		) + ContractFooter("triage"),
+		) + ContractFooter("product:triage"),
 	}
 }
 
@@ -284,7 +284,7 @@ func DecomposeTrackerText(issueID string) Hint {
 				"4. Do NOT implement tracker work inline and do NOT close the tracker manually — it auto-closes when all children close.\n"+
 				"5. Stop after decomposition. The loop will pick a child vertical next.",
 			issueID, issueID, issueID, issueID, issueID,
-		) + BlockerQuestionCriteriaFragment + ContractFooter("owner:decompose-tracker"),
+		) + BlockerQuestionCriteriaFragment + ContractFooter("tech:decompose-tracker"),
 	}
 }
 
@@ -725,7 +725,7 @@ func MaturityTextForKind(kind, title, description string) Hint {
 		h = QuantifyGoalText(title, description)
 	case "tech:instrument-feature":
 		h = InstrumentFeatureText(title, description)
-	case "owner:decompose-feature":
+	case "tech:decompose-feature":
 		h = DecomposeFeatureText(title, description)
 	default:
 		h = MaturityDefaultText(title, description)

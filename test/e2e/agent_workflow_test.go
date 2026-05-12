@@ -309,12 +309,12 @@ func TestAgentTriageResolveRefusedWhenUntriaged(t *testing.T) {
 		if status != http.StatusOK {
 			t.Fatalf("agent/claim attempt %d: status=%d", i, status)
 		}
-		if c.Kind == "triage" {
+		if c.Kind == "product:triage" {
 			claimed = c
 			break
 		}
 	}
-	if claimed.Kind != "triage" {
+	if claimed.Kind != "product:triage" {
 		t.Fatalf("did not find a triage todo to claim after 10 attempts")
 	}
 
@@ -379,7 +379,7 @@ func TestAgentCycleDetectionAutoFilesIssue(t *testing.T) {
 			if status != http.StatusOK {
 				t.Fatalf("agent/claim: status=%d", status)
 			}
-			if c.Kind == "triage" {
+			if c.Kind == "product:triage" {
 				return c, true
 			}
 		}
@@ -459,7 +459,7 @@ func TestAgentCycleDetectionAutoFilesIssue(t *testing.T) {
 		map[string]any{"slug": d.Slug, "issue": ""}, &evalResp))
 	checkCascade := func(items []AgentQueueItem) {
 		for _, it := range items {
-			if it.Kind == "triage" && it.TargetID == refIssueStr {
+			if it.Kind == "product:triage" && it.TargetID == refIssueStr {
 				t.Errorf("auto-filed issue %s spawned its own triage candidate %q — system-gap issues must be created with a priority to break the cascade",
 					refIssueStr, it.Key)
 			}

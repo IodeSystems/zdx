@@ -355,7 +355,7 @@ func TestDemoCLI_UnifiedMixedSources(t *testing.T) {
 	rec := newRecorder(t, "unified-mixed-sources", "bin/dx")
 	t.Cleanup(rec.Save)
 
-	// Signal 1: untriaged issue → appears as "triage" in queue (priority 20)
+	// Signal 1: untriaged issue → appears as "product:triage" in queue (priority 20)
 	rec.Run("issue", "add", "--title=Bug: login fails on slow connections", "--auto-ready")
 	untriagedID := extractFirstID(rec.steps[len(rec.steps)-1].Stdout)
 
@@ -512,7 +512,7 @@ func TestDemoCLI_TodoItemFields(t *testing.T) {
 	rec := newRecorder(t, "todo-item-fields", "bin/dx")
 	t.Cleanup(rec.Save)
 
-	// Tier 1 (owner): an untriaged issue surfaces as [owner:triage].
+	// Tier 1 (product): an untriaged issue surfaces as [product:triage].
 	rec.Run("issue", "add", "--title=Needs owner triage", "--auto-ready")
 
 	// Tier 2 (tech): a triaged-but-undecomposed issue surfaces as [tech:add].

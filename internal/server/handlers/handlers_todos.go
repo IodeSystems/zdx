@@ -59,7 +59,7 @@ type TodoDetailBody struct {
 
 func todoInstructions(kind string) string {
 	switch kind {
-	case "triage":
+	case "product:triage":
 		return `Triage checklist:
 1. Verify independently — reproduce or read the relevant code before accepting the report.
 2. Dup-check: dx issue list; close duplicates with --reason=duplicate --duplicate-of=IS-X.

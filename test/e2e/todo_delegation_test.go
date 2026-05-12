@@ -142,7 +142,7 @@ func TestTodoAgentEvaluateDelegatesToServer(t *testing.T) {
 	if len(items) == 0 {
 		t.Fatal("expected at least one item from server evaluate")
 	}
-	item := requireKind(t, items, "triage")
+	item := requireKind(t, items, "product:triage")
 	if item.TargetType != "issue" {
 		t.Errorf("expected target_type=issue, got %q", item.TargetType)
 	}

@@ -12,12 +12,12 @@ func TestQueueKindTriage(t *testing.T) {
 	Given(d).Issue("Untriaged bug", "something broke").Build()
 
 	items := d.EvaluateQueue("")
-	item := requireKind(t, items, "triage")
+	item := requireKind(t, items, "product:triage")
 	if item.TargetType != "issue" {
 		t.Errorf("expected target_type=issue, got %q", item.TargetType)
 	}
-	if item.Persona != "owner" {
-		t.Errorf("expected persona=owner, got %q", item.Persona)
+	if item.Persona != "product" {
+		t.Errorf("expected persona=product, got %q", item.Persona)
 	}
 }
 
@@ -121,7 +121,7 @@ func TestQueueKindTriageExcludesTracker(t *testing.T) {
 		map[string]any{"slug": d.Slug, "title": "Tracker parent", "context": "test", "issue_type": "tracker", "auto_ready": true}, &issue))
 
 	items := d.EvaluateQueue("")
-	requireNoKind(t, items, "triage")
+	requireNoKind(t, items, "product:triage")
 }
 
 // TestQueueTrackerExcludedFromAllRegularItems verifies spec 82: given a tracker-type issue,
@@ -139,7 +139,7 @@ func TestQueueTrackerExcludedFromAllRegularItems(t *testing.T) {
 		map[string]any{"slug": d.Slug, "title": "Tracker umbrella", "context": "test", "issue_type": "tracker", "auto_ready": true}, &tracker))
 
 	trackerRef := fmt.Sprintf("IS-%d", tracker.ID)
-	regularKinds := map[string]bool{"triage": true, "add": true, "dev": true, "closable": true}
+	regularKinds := map[string]bool{"product:triage": true, "add": true, "dev": true, "closable": true}
 
 	items := d.EvaluateQueue("")
 	for _, it := range items {
@@ -400,7 +400,7 @@ func TestQueueKindPriority(t *testing.T) {
 		if it.Kind == "read:comments" && commentIdx == -1 {
 			commentIdx = i
 		}
-		if it.Kind == "triage" && triageIdx == -1 {
+		if it.Kind == "product:triage" && triageIdx == -1 {
 			triageIdx = i
 		}
 	}
@@ -515,7 +515,7 @@ func TestQueueStrictPriorityOrder(t *testing.T) {
 	categories := []kindPrio{
 		{kind: "read:comments"},
 		{kind: "answer"},
-		{kind: "triage"},
+		{kind: "product:triage"},
 		{kind: "owner:spec"},
 		{kind: "closable"},
 		{kind: "add"},
@@ -566,7 +566,7 @@ func TestQueueIssueScoped(t *testing.T) {
 		idx      int
 		wantKind string
 	}{
-		{0, "triage"},
+		{0, "product:triage"},
 		{1, "add"},
 		{2, "dev"},
 		{3, "closable"},
@@ -636,7 +636,7 @@ func TestQueueUnifiedMixedSources(t *testing.T) {
 	// Global evaluate: five of the six signal sources appear in one unified ordered queue.
 	items := d.EvaluateQueue("")
 
-	wantGlobal := []string{"read:comments", "triage", "closable", "add", "dev"}
+	wantGlobal := []string{"read:comments", "product:triage", "closable", "add", "dev"}
 	for _, kind := range wantGlobal {
 		requireKind(t, items, kind)
 	}
@@ -844,7 +844,7 @@ func TestAgentEvaluateDiff(t *testing.T) {
 		}
 	}
 	applyItems = append(applyItems, AgentQueueItem{
-		Key: keyFake, Kind: "triage", Text: "sentinel",
+		Key: keyFake, Kind: "product:triage", Text: "sentinel",
 		TargetType: "project", TargetID: d.Slug,
 		Priority: 50, Persona: "owner", Status: "open",
 	})

@@ -49,9 +49,9 @@ type agentCandidate struct {
 //   - "other"    — all remaining synthetic candidates.
 func candidateLane(kind string) string {
 	switch kind {
-	case "triage":
+	case "product:triage":
 		return "triage"
-	case "add", "dev", "closable", "close:tracker", "owner:decompose-tracker":
+	case "add", "dev", "closable", "close:tracker", "tech:decompose-tracker":
 		return "priority"
 	default:
 		return "other"
@@ -80,9 +80,9 @@ const (
 // beat triage, defeating the lane split (IS-1104).
 func laneOffsetFor(kind string, issuePrioritized bool) int32 {
 	switch kind {
-	case "triage":
+	case "product:triage":
 		return laneOffsetTriage
-	case "add", "dev", "closable", "close:tracker", "owner:decompose-tracker":
+	case "add", "dev", "closable", "close:tracker", "tech:decompose-tracker":
 		if issuePrioritized {
 			return laneOffsetPriority
 		}
@@ -462,12 +462,12 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 				Title:       th.Title,
 				Description: th.Description,
 				Text:        th.Instructions,
-				Kind:        "triage",
+				Kind:        "product:triage",
 				TargetType:  "issue",
 				TargetID:    iss.ID,
 				IssueRef:    iss.ID,
 				Priority:    20,
-				Persona:     "owner",
+				Persona:     "product",
 			})
 		}
 	}
@@ -606,12 +606,12 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 				Title:       dth.Title,
 				Description: dth.Description,
 				Text:        dth.Instructions,
-				Kind:        "owner:decompose-tracker",
+				Kind:        "tech:decompose-tracker",
 				TargetType:  "issue",
 				TargetID:    iss.ID,
 				IssueRef:    iss.ID,
 				Priority:    11,
-				Persona:     "owner",
+				Persona:     "tech",
 			})
 			continue
 		}
@@ -790,7 +790,7 @@ type AgentQueueItem struct {
 // so the caller can act without further discovery.
 func suggestedActionForKind(kind, targetType, targetID string) string {
 	switch kind {
-	case "triage":
+	case "product:triage":
 		return "dx todo owner triage " + targetID + " --priority=<1-4> --type=<ops|impl|ask|tracker>"
 	case "add":
 		return "dx todo tech add --issue=" + targetID + " --title=<outcome> --text=<plan> --test-plan=<verification>"
@@ -800,7 +800,7 @@ func suggestedActionForKind(kind, targetType, targetID string) string {
 		return "dx issue close " + targetID + " --reason=done"
 	case "close:tracker":
 		return "dx issue close " + targetID + " --reason=done"
-	case "owner:decompose-tracker":
+	case "tech:decompose-tracker":
 		return "dx issue add --title=<subtask> --type=impl"
 	case "owner:spec":
 		return "dx feature spec add " + targetID
@@ -1498,7 +1498,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 			// Otherwise the agent's "session succeeded" path silently flips the
 			// todo to resolved even though no triage level was applied.
 			triageIncomplete := false
-			if resolve && todo.ID != 0 && todo.Kind == "triage" && todo.TargetType == "issue" && todo.TargetID != "" {
+			if resolve && todo.ID != 0 && todo.Kind == "product:triage" && todo.TargetType == "issue" && todo.TargetID != "" {
 				iss, err := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: todo.ProjectID, ID: todo.TargetID})
 				if err == nil && iss.Priority == "" && iss.Status == "open" {
 					triageIncomplete = true

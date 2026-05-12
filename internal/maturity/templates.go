@@ -34,7 +34,7 @@ var Templates = map[string]map[string][]ItemTemplate{
 				PriorityHint: 34,
 			},
 			{
-				Kind:         "owner:decompose-feature",
+				Kind:         "tech:decompose-feature",
 				Title:        "Decompose over-specced features",
 				Description:  "Features with >8 specs are too broad. Break them into focused child features.",
 				PriorityHint: 35,

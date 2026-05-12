@@ -157,8 +157,8 @@ func TestAgentClaimScopeHappyPath(t *testing.T) {
 	}
 }
 
-// TestAgentClaimScopeEmptyTrackerHasDecomposeWork: an empty tracker has an
-// `owner:decompose-tracker` candidate, so a scoped claim returns it as work
+// TestAgentClaimScopeEmptyTrackerHasDecomposeWork: an empty tracker has a
+// `tech:decompose-tracker` candidate, so a scoped claim returns it as work
 // to do — the loop is NOT stalled. This confirms tracker scope sees todos
 // whose issue_ref is the tracker itself (descendant set always includes the
 // seed).
@@ -176,8 +176,8 @@ func TestAgentClaimScopeEmptyTrackerHasDecomposeWork(t *testing.T) {
 	if got.IssueRef != emptyTracker {
 		t.Errorf("decompose-tracker issue_ref: want %q got %q", emptyTracker, got.IssueRef)
 	}
-	if got.Kind != "owner:decompose-tracker" {
-		t.Errorf("kind: want %q got %q", "owner:decompose-tracker", got.Kind)
+	if got.Kind != "tech:decompose-tracker" {
+		t.Errorf("kind: want %q got %q", "tech:decompose-tracker", got.Kind)
 	}
 }
 

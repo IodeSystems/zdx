@@ -65,7 +65,7 @@ func TestValidateBranchState_MetadataViolation_DirtyTree(t *testing.T) {
 		HeadBranch: "dev",
 		TreeClean:  false,
 	}
-	err := ValidateBranchState("triage", bs, "abc123", "dev")
+	err := ValidateBranchState("product:triage", bs, "abc123", "dev")
 	if err == nil {
 		t.Fatal("expected violation error, got nil")
 	}
@@ -77,7 +77,7 @@ func TestValidateBranchState_MetadataViolation_SHAMismatch(t *testing.T) {
 		HeadBranch: "dev",
 		TreeClean:  true,
 	}
-	err := ValidateBranchState("triage", bs, "original123", "dev")
+	err := ValidateBranchState("product:triage", bs, "original123", "dev")
 	if err == nil {
 		t.Fatal("expected violation error, got nil")
 	}
@@ -89,7 +89,7 @@ func TestValidateBranchState_MetadataClean(t *testing.T) {
 		HeadBranch: "dev",
 		TreeClean:  true,
 	}
-	if err := ValidateBranchState("triage", bs, "abc123", "dev"); err != nil {
+	if err := ValidateBranchState("product:triage", bs, "abc123", "dev"); err != nil {
 		t.Fatalf("expected nil, got %v", err)
 	}
 }
