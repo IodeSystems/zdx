@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -267,6 +268,7 @@ func agentLoopCmd() *cobra.Command {
 	var mcpContainer string
 	var maxTurns, concurrency int
 	var keepContainer, chrome bool
+	var maxRuntimeHard time.Duration
 	cmd := &cobra.Command{
 		Use:   "loop",
 		Short: "Loop: claim work, run a managed session per pick, repeat",
@@ -319,6 +321,7 @@ concurrent-agents ceiling read by ` + "`dx agent start`" + `.`,
 			}
 			opts.KeepContainer = keepContainer
 			opts.Concurrency = concurrency
+			opts.MaxRuntimeHard = maxRuntimeHard
 			if mode != ContainerDocker {
 				// Local execution. enforceContainerExecution still gates on
 				// DX_AGENT_FORCE_CONTAINER (spec 117) — operators can refuse
@@ -339,6 +342,7 @@ concurrent-agents ceiling read by ` + "`dx agent start`" + `.`,
 	cmd.Flags().BoolVar(&chrome, "chrome", true, "pass --chrome to claude CLI (claude only; ignored otherwise)")
 	cmd.Flags().IntVar(&concurrency, "concurrency", 1, "in-process slot fan-out for --container=docker (default 1; for parallel work prefer running multiple `dx agent loop` processes)")
 	cmd.Flags().StringVar(&mcpContainer, "mcp-container", "", "dispatch tool calls through dx-agent --mcp-stdio running inside this container (opencode/local only)")
+	cmd.Flags().DurationVar(&maxRuntimeHard, "max-runtime-hard", 0, "hard wall-clock cap that interrupts any in-flight session (0 = unlimited; for CI smoke tests where graceful exit could exceed the budget)")
 	return cmd
 }
 

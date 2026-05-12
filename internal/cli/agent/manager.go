@@ -358,6 +358,23 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 	defer cancel()
 	installReleaseOnSignal(opts.RC, opts.Alias, stateFile, nil, cancel)
 
+	// Hard runtime cap (IS-1086 / TK-1753): on expiry, cancel the loop ctx so
+	// any in-flight session aborts at its next ctx check. The cancellation
+	// trips the existing release path — RunManagedSession returns ctx.Err(),
+	// releaseTodo runs in the for-loop body, state file is cleared — so no
+	// orphan claim is left behind even when the bound fires mid-LLM-call.
+	if opts.MaxRuntimeHard > 0 {
+		go func() {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(opts.MaxRuntimeHard):
+				emit("loop.bound-reached", "bound", "max-runtime-hard", "elapsed_seconds", int(opts.MaxRuntimeHard.Seconds()))
+				cancel()
+			}
+		}()
+	}
+
 	// Remote-control bridge (IS-1032): open a persistent WS to /api/agents/
 	// connect, expose a real TaskHolder reflecting the current claim, and
 	// react to server-pushed pause/resume/drain control messages. Best-

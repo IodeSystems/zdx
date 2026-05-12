@@ -3,6 +3,7 @@ package agent
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/iodesystems/zdx-go/internal/cli/agent/tracelog"
 	"github.com/iodesystems/zdx-go/internal/config"
@@ -92,6 +93,17 @@ type ProviderOpts struct {
 	// agents that are waiting for assignment, and for project-scoped
 	// agents an operator wants to "have ready" before dispatching work.
 	Idle bool
+
+	// MaxRuntimeHard, when >0, is a hard wall-clock cap for `dx agent
+	// loop`: on expiry the loop context is cancelled, interrupting any
+	// in-flight session. The cancellation trips the existing release
+	// path (in-flight session ctx errors out → releaseTodo runs → state
+	// file removed → daemon/sink close), so no orphan claim is left
+	// behind even when the bound fires mid-LLM-call. Sibling to the
+	// soft --max-runtime bound: hard interrupts, soft waits for the
+	// in-flight session to finish. CI smoke tests and tight cost
+	// guards need the hard variant.
+	MaxRuntimeHard time.Duration
 
 	// TraceLog is the session-scoped structured logger (initialized in
 	// DispatchSingle / managed wrappers). When non-nil, providers and the
