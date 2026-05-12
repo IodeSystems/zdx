@@ -601,6 +601,8 @@ func opencodeSystemPrompt(alias, issueID string) string {
 	b.WriteString("  - filesystem tools: read_file, write_file, edit_file, list_dir, glob, grep.\n")
 	b.WriteString("  - structural outline: `outline` (backends: Go, TS/TSX/JS/JSX). Prefer this over read_file when probing what a file or package exposes. Pass `lod` (0=files-only, 1=decl names, 2=signatures (default), 3=full) and `json_path` (e.g. 'files/0/decls') to drill in progressively. Function bodies are never included.\n")
 	b.WriteString("  - shell: run_bash. Invoke `dx` CLI for project state — e.g. `dx issue show IS-N`, `dx comment add`, `dx todo dev start/done`, `dx feature show`, `dx pattern search`, `dx question add`. Run `dx --help` for the full tree.\n\n")
+	b.WriteString("Tooling:\n")
+	b.WriteString("  - The `dx` binary is available on PATH at /workspace/bin. You can call `dx` directly from run_bash without locating it first.\n\n")
 	b.WriteString("Operating rules:\n")
 	b.WriteString("  - Prefer `dx` CLI calls for project state (never re-derive from the filesystem alone).\n")
 	b.WriteString("  - Edit minimally; read surrounding context before writing.\n")
