@@ -438,6 +438,7 @@ func loadAgentRuntime(cmd *cobra.Command) (agentRuntime, error) {
 			return agentRuntime{
 				RC:       remoteConfig{url: gc.Remote.URL, key: config.GlobalRemoteAPIKey()},
 				AgentCfg: config.AgentConfig{ClaudeModel: ga.ClaudeModel, MaxWorktrees: ga.MaxWorktrees, LeaseMinutes: ga.LeaseMinutes},
+				LLMLocal: (*config.Config)(nil).ResolvedLLMLocal(),
 				Srcless:  true,
 				WorkDir:  ga.WorkDir,
 			}, nil

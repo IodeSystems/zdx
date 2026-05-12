@@ -47,6 +47,9 @@ func init() {
 				if opts.Model == "" {
 					llmCfg.Model = serverCfg.Model
 				}
+				if serverCfg.TimeoutSeconds > 0 {
+					llmCfg.TimeoutSeconds = serverCfg.TimeoutSeconds
+				}
 			}
 		}
 		return &opencodeAdapter{
@@ -442,6 +445,9 @@ func (cs *opencodeChatSession) Run(ctx context.Context, system, user string) err
 		// tool calls keeps each turn's request bounded by one tool result
 		// rather than the fan-out sum.
 		serial := false
+		chatStart := time.Now()
+		fmt.Fprintf(os.Stderr, "→ llm: turn=%d msgs=%d tools=%d timeout=%s\n",
+			turn, len(msgs), len(cs.tools), cs.timeout)
 		resp, err := cs.client.ChatCompletion(ctx, &llm.ChatRequest{
 			Messages:          msgs,
 			Tools:             cs.tools,
@@ -450,12 +456,17 @@ func (cs *opencodeChatSession) Run(ctx context.Context, system, user string) err
 			ParallelToolCalls: &serial,
 		})
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "← llm: turn=%d failed after %s: %v\n",
+				turn, time.Since(chatStart).Truncate(time.Millisecond), err)
 			// Record a final assistant event so the failure is visible in the
 			// session JSONL — otherwise the log dangles after the last
 			// tool_result and operators have no fingerprint of what crashed.
 			_ = cs.log.AssistantText(fmt.Sprintf("(stopped: chat error on turn %d: %v)", turn, err), nil)
 			return fmt.Errorf("turn %d: %w", turn, err)
 		}
+		fmt.Fprintf(os.Stderr, "← llm: turn=%d ok in %s (in=%d out=%d)\n",
+			turn, time.Since(chatStart).Truncate(time.Millisecond),
+			resp.Usage.PromptTokens, resp.Usage.CompletionTokens)
 
 		usage := map[string]any{
 			"input_tokens":  resp.Usage.PromptTokens,
