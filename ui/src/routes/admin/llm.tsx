@@ -212,7 +212,7 @@ function ConfigRow({
         size="small"
         fullWidth
         sx={{ mt: 2 }}
-        inputProps={{ min: 10, max: 3600 }}
+        slotProps={{ htmlInput: { min: 10, max: 3600 } }}
       />
 
       <Divider sx={{ my: 2 }}>
@@ -377,7 +377,7 @@ function NewConfigForm({ onCancel }: { onCancel: () => void }) {
         size="small"
         fullWidth
         sx={{ mt: 2 }}
-        inputProps={{ min: 10, max: 3600 }}
+        slotProps={{ htmlInput: { min: 10, max: 3600 } }}
       />
       <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
         <Button variant="contained" onClick={submit} disabled={create.isPending}>
