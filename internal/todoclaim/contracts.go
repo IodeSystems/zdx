@@ -29,14 +29,19 @@ var ByKind = map[string]Contract{
 	"closable":                {Metadata},
 	"close:tracker":           {Metadata},
 	"review:deferred-spec":    {Metadata},
-	"dev":                     {Dev},
-	"tech:standup":            {Dev},
-	"tech:test-ref":           {Dev},
-	"clarify":                 {Ask},
-	"answer":                  {Ask},
-	"respond:discussion":      {Ask},
-	"read:comments":           {Ask},
-	"respond:stale":           {Ask},
+	// IS-1090 prep (TK-1760): contract surface only — sibling children own emission.
+	"reviewer:review-decomposition": {Metadata},
+	"reviewer:review-impl":          {Metadata},
+	"product:goal-recalibrate":      {Metadata},
+	"tech:resolve-disjoint":         {Metadata},
+	"dev":                           {Dev},
+	"tech:standup":                  {Dev},
+	"tech:test-ref":                 {Dev},
+	"clarify":                       {Ask},
+	"answer":                        {Ask},
+	"respond:discussion":            {Ask},
+	"read:comments":                 {Ask},
+	"respond:stale":                 {Ask},
 }
 
 // ForKind returns the Contract for the given kind, defaulting to Metadata.

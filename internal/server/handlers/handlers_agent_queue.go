@@ -830,6 +830,14 @@ func suggestedActionForKind(kind, targetType, targetID string) string {
 		return "dx issue add --title=<issue> && dx todo tech add --issue=<IS-N>"
 	case "review:deferred-spec":
 		return "dx spec show " + targetID
+	case "reviewer:review-decomposition":
+		return "dx review decomposition " + targetID
+	case "reviewer:review-impl":
+		return "dx review impl " + targetID
+	case "product:goal-recalibrate":
+		return "dx goal recalibrate " + targetID
+	case "tech:resolve-disjoint":
+		return "dx todo tech start " + targetID
 	}
 	if strings.HasSuffix(kind, ":journal-review") {
 		role := strings.TrimSuffix(kind, ":journal-review")
