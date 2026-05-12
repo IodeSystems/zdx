@@ -38,13 +38,13 @@ type agentCandidate struct {
 }
 
 // candidateLane returns the queue lane a candidate belongs to, derived from
-// its kind. Used for telemetry today (TK-1758); TK-1757 wires the same helper
-// into the sort/persist path so the lanes are also load-bearing for ordering.
+// its kind. Used for telemetry traces (TK-1758) — a coarse kind-only label
+// that does not consult issue priority. For sort/persist ordering use
+// laneOffsetFor, which refines "priority" to require the issue actually
+// carries a priority (TK-1757).
 // Lanes:
 //   - "priority" — explicit issue work (add/dev/closable/close:tracker/
-//     decompose-tracker). Meaningful only when the underlying issue carries
-//     a priority — TK-1757 enforces that invariant; until then "priority"
-//     lane can also include candidates against unprioritized issues.
+//     decompose-tracker).
 //   - "triage"   — triage candidates only.
 //   - "other"    — all remaining synthetic candidates.
 func candidateLane(kind string) string {
@@ -56,6 +56,64 @@ func candidateLane(kind string) string {
 	default:
 		return "other"
 	}
+}
+
+// Lane offsets fold into a candidate's persisted Priority int so the existing
+// `ORDER BY priority` SQL in ClaimNextTodo preserves strict lane ordering
+// without schema changes (TK-1757). Lower wins.
+//
+// Operator intent: P1–P4 work on triaged issues claims first; triage on
+// unprioritized issues claims next (so it can hand priority to those issues);
+// every other synthetic candidate (read:comments, qa, project health,
+// maturity, untriaged dev work, etc.) drains last. Offsets are wide enough
+// (1000) that any sane base priority cannot leak into an adjacent lane.
+const (
+	laneOffsetPriority int32 = 0
+	laneOffsetTriage   int32 = 1000
+	laneOffsetOther    int32 = 2000
+)
+
+// laneOffsetFor returns the lane offset to apply to a candidate's base
+// priority. A candidate enters the priority lane only when its kind is one of
+// the explicit-issue-work kinds AND the underlying issue carries a non-empty
+// priority — otherwise add/dev/closable on an untriaged issue would still
+// beat triage, defeating the lane split (IS-1104).
+func laneOffsetFor(kind string, issuePrioritized bool) int32 {
+	switch kind {
+	case "triage":
+		return laneOffsetTriage
+	case "add", "dev", "closable", "close:tracker", "owner:decompose-tracker":
+		if issuePrioritized {
+			return laneOffsetPriority
+		}
+	}
+	return laneOffsetOther
+}
+
+// sortQueueCandidates applies lane offsets to each candidate's Priority and
+// stable-sorts the slice. The post-sort Priority is what gets persisted, so
+// SQL ordering matches in-memory ordering. Same-priority items keep the
+// existing branch tiebreaker (dev-first, then alphabetical).
+func sortQueueCandidates(candidates []agentCandidate, prioritizedIssues map[string]bool) {
+	for i := range candidates {
+		candidates[i].Priority += laneOffsetFor(candidates[i].Kind, prioritizedIssues[candidates[i].IssueRef])
+	}
+	sort.SliceStable(candidates, func(i, j int) bool {
+		if candidates[i].Priority != candidates[j].Priority {
+			return candidates[i].Priority < candidates[j].Priority
+		}
+		bi, bj := candidates[i].TargetBranch, candidates[j].TargetBranch
+		if bi == "" {
+			bi = "dev"
+		}
+		if bj == "" {
+			bj = "dev"
+		}
+		if (bi == "dev") != (bj == "dev") {
+			return bi == "dev"
+		}
+		return bi < bj
+	})
 }
 
 // foldIssuePriority lowers a base candidate priority (lower=wins) by the
@@ -81,6 +139,17 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 	issues, err := h.Q.ListOpenIssues(ctx, projectID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Snapshot which open issues carry an explicit priority before any
+	// filtering (autonomous/BQ-blocked/ancestor-blocked) trims `issues`. The
+	// lane sort (TK-1757) consults this map to decide whether add/dev/closable
+	// candidates enter the priority lane or fall through to "other".
+	prioritizedIssues := map[string]bool{}
+	for _, iss := range issues {
+		if iss.Priority != "" {
+			prioritizedIssues[iss.ID] = true
+		}
 	}
 
 	// Filter to specific issue if requested
@@ -690,24 +759,11 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 		}
 	}
 
-	// Sort by priority ascending; within equal priority, dev-targeted items lead
-	// and same-branch items stay contiguous (spec 178).
-	sort.SliceStable(candidates, func(i, j int) bool {
-		if candidates[i].Priority != candidates[j].Priority {
-			return candidates[i].Priority < candidates[j].Priority
-		}
-		bi, bj := candidates[i].TargetBranch, candidates[j].TargetBranch
-		if bi == "" {
-			bi = "dev"
-		}
-		if bj == "" {
-			bj = "dev"
-		}
-		if (bi == "dev") != (bj == "dev") {
-			return bi == "dev"
-		}
-		return bi < bj
-	})
+	// Apply lane offsets (TK-1757) and sort by the resulting priority. Within
+	// equal priority, dev-targeted items lead and same-branch items stay
+	// contiguous (spec 178). Lane offsets are folded into c.Priority so the
+	// persisted value matches SQL's `ORDER BY priority` claim ordering.
+	sortQueueCandidates(candidates, prioritizedIssues)
 
 	return candidates, nil
 }
