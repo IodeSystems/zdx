@@ -141,6 +141,69 @@ SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.p
 FROM claimed c
 LEFT JOIN zdx_issues i ON i.id = c.issue_ref;
 
+-- name: ListIssueCompositionDescendants :many
+-- Walk composition edges downward from a seed issue, returning the seed
+-- itself plus every transitively-composed child. Used by the scoped
+-- agent claim path to restrict candidate todos to a tracker's subtree.
+-- Composition edge layout (matches queries/issue_blocks.sql): the row
+-- (issue_id=parent, blocked_by_id=child, kind='composition') means
+-- "child belongs to parent". Walking parent→children means joining
+-- descendants.id = blocks.issue_id and emitting blocks.blocked_by_id.
+WITH RECURSIVE descendants(id) AS (
+  SELECT @issue_id::text
+  UNION
+  SELECT b.blocked_by_id
+  FROM zdx_issue_blocks b
+  JOIN descendants d ON d.id = b.issue_id
+  WHERE b.kind = 'composition'
+)
+SELECT id FROM descendants;
+
+-- name: ClaimNextTodoInScope :one
+-- Scoped variant of ClaimNextTodo: only considers todos whose issue_ref
+-- is in the provided scope set (typically the scope issue + its
+-- composition descendants from ListIssueCompositionDescendants).
+-- Preserves FOR UPDATE SKIP LOCKED and priority ordering so concurrent
+-- scoped agents don't collide.
+WITH claimed AS (
+  UPDATE zdx_todos SET
+    claimed_by        = @agent_id,
+    claimed_at        = NOW(),
+    lease_expires_at  = NOW() + (@lease_minutes::int || ' minutes')::interval,
+    claim_base_sha    = @claim_base_sha,
+    claim_base_branch = @claim_base_branch
+  WHERE id = (
+    SELECT t.id FROM zdx_todos t
+    WHERE t.project_id = @project_id
+      AND t.status = 'open'
+      AND t.blocked = false
+      AND (t.claimed_by = '' OR t.lease_expires_at < NOW())
+      AND t.issue_ref = ANY(@scope_issue_ids::text[])
+    ORDER BY t.priority, t.created_at
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+  )
+  RETURNING id, project_id, text, title, description, key, persona, priority, status,
+            target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
+            claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+            claim_base_sha, claim_base_branch
+)
+SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
+       c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
+       c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
+       c.claim_base_sha, c.claim_base_branch,
+       COALESCE(i.target_branch, 'dev') AS target_branch
+FROM claimed c
+LEFT JOIN zdx_issues i ON i.id = c.issue_ref;
+
+-- name: ListOpenIssuesInSet :many
+-- Return the subset of @ids that are currently open issues. Used by
+-- the scoped-claim stall path to distinguish "all descendants closed"
+-- (tracker-closable) from "some open but all blocked/reserved".
+SELECT id FROM zdx_issues
+WHERE id = ANY(@ids::text[])
+  AND status = 'open';
+
 -- name: ClaimNextTodoAny :one
 -- Cross-project atomic claim for unpinned global agents. Picks the
 -- single best todo across every project, ordered by project.priority

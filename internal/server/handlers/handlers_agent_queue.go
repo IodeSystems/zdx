@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/iodesystems/zdx-go/internal/atlas/trace"
@@ -1013,7 +1015,8 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 	// POST /api/dx/agent/claim — generate queue, merge, claim next unclaimed todo
 	type agentClaimBody struct {
 		TodoItem
-		Debug *DebugOutput `json:"debug,omitempty"`
+		Debug *DebugOutput     `json:"debug,omitempty"`
+		Scope *AgentClaimScope `json:"scope,omitempty"`
 	}
 	huma.Register(api, huma.Operation{OperationID: "agent-claim", Method: http.MethodPost, Path: "/api/dx/agent/claim"},
 		func(ctx context.Context, in *struct {
@@ -1024,6 +1027,11 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 				AgentID      string `json:"agent_id"`
 				LeaseMinutes int32  `json:"lease_minutes" required:"false"`
 				Mode         string `json:"mode" required:"false"`
+				// ScopeIssueID restricts the claim to todos whose issue_ref is the
+				// given tracker issue or any of its composition descendants. Used
+				// by `dx agent claude --scope=IS-N` to focus a worker loop on one
+				// tracker's subtree. Empty = global (existing behavior).
+				ScopeIssueID string `json:"scope_issue_id,omitempty"`
 			}
 		}) (*struct{ Body agentClaimBody }, error) {
 			var err error
@@ -1039,7 +1047,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 			autonomous := in.Body.Mode == "autonomous"
 			trace.Note(ctx, "lease_minutes", leaseMin)
 
-			claimFromProject := func(p db.ZdxProject) (*TodoItem, error) {
+			refreshAndClaim := func(p db.ZdxProject, scopeIDs []string) (*TodoItem, error) {
 				if expired, _ := h.Q.ReclaimExpiredTodos(ctx, p.ID); len(expired) > 0 {
 					for _, t := range expired {
 						_ = h.Q.ReleaseReservation(ctx, db.ReleaseReservationParams{
@@ -1089,6 +1097,35 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 					})
 				}
 				baseSha, baseBranch := resolveGitHead()
+				if scopeIDs != nil {
+					row, err := h.Q.ClaimNextTodoInScope(ctx, db.ClaimNextTodoInScopeParams{
+						ProjectID:       p.ID,
+						AgentID:         in.Body.AgentID,
+						LeaseMinutes:    leaseMin,
+						ClaimBaseSha:    baseSha,
+						ClaimBaseBranch: baseBranch,
+						ScopeIssueIds:   scopeIDs,
+					})
+					if err != nil {
+						return nil, err
+					}
+					trace.Note(ctx, "claimed_atomic_scoped", map[string]any{
+						"id":    row.ID,
+						"key":   row.Key,
+						"kind":  row.Kind,
+						"title": row.Title,
+					})
+					_, _ = h.Q.InsertReservation(ctx, db.InsertReservationParams{
+						ProjectID:      row.ProjectID,
+						TargetType:     "todo",
+						TargetID:       fmt.Sprintf("%d", row.ID),
+						ClaimedBy:      row.ClaimedBy,
+						LeaseExpiresAt: row.LeaseExpiresAt,
+					})
+					item := toTodoItemFromScopeClaim(row)
+					item.ProjectSlug = p.Slug
+					return &item, nil
+				}
 				row, err := h.Q.ClaimNextTodo(ctx, db.ClaimNextTodoParams{
 					ProjectID:       p.ID,
 					AgentID:         in.Body.AgentID,
@@ -1117,6 +1154,76 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 				return &item, nil
 			}
 
+			// Scoped claim path: restrict to a tracker issue's subtree.
+			if in.Body.ScopeIssueID != "" {
+				if in.Body.Slug == "" {
+					return nil, apiErr(http.StatusUnprocessableEntity, "scope_issue_id requires slug")
+				}
+				p, err := getProject(ctx, h.Q, in.Body.Slug)
+				if err != nil {
+					return nil, err
+				}
+				iss, err := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: in.Body.ScopeIssueID})
+				if err != nil {
+					if errors.Is(err, pgx.ErrNoRows) {
+						return nil, apiErr(http.StatusNotFound, fmt.Sprintf("scope issue %s not found", in.Body.ScopeIssueID))
+					}
+					return nil, apiErr(http.StatusInternalServerError, err.Error())
+				}
+				if iss.Status == "closed" {
+					return &struct{ Body agentClaimBody }{Body: agentClaimBody{
+						Debug: debugOutput(ctx),
+						Scope: &AgentClaimScope{
+							IssueID: iss.ID,
+							State:   "closed",
+						},
+					}}, nil
+				}
+				scopeIDs, err := h.Q.ListIssueCompositionDescendants(ctx, iss.ID)
+				if err != nil {
+					return nil, apiErr(http.StatusInternalServerError, err.Error())
+				}
+				item, claimErr := refreshAndClaim(p, scopeIDs)
+				if claimErr == nil {
+					return &struct{ Body agentClaimBody }{Body: agentClaimBody{
+						TodoItem: *item,
+						Debug:    debugOutput(ctx),
+						Scope: &AgentClaimScope{
+							IssueID: iss.ID,
+							State:   "claimed",
+						},
+					}}, nil
+				}
+				if !errors.Is(claimErr, pgx.ErrNoRows) {
+					return nil, apiErr(http.StatusInternalServerError, claimErr.Error())
+				}
+				// No claimable todo in scope. Determine why.
+				openIDs, _ := h.Q.ListOpenIssuesInSet(ctx, scopeIDs)
+				openBlockers := make([]string, 0, len(openIDs))
+				for _, id := range openIDs {
+					if id == iss.ID {
+						continue
+					}
+					openBlockers = append(openBlockers, id)
+				}
+				reason := "all-blocked"
+				// tracker-closable: the scope issue is the only thing still
+				// open in its subtree, so the loop's exit signal is "close
+				// this tracker, no more work below it".
+				if len(openBlockers) == 0 {
+					reason = "tracker-closable"
+				}
+				return &struct{ Body agentClaimBody }{Body: agentClaimBody{
+					Debug: debugOutput(ctx),
+					Scope: &AgentClaimScope{
+						IssueID:      iss.ID,
+						State:        "stalled",
+						Reason:       reason,
+						OpenBlockers: openBlockers,
+					},
+				}}, nil
+			}
+
 			// Global/srcless mode: empty slug means iterate all projects and claim from the first available.
 			if in.Body.Slug == "" {
 				projects, err := h.Q.ListProjects(ctx)
@@ -1124,7 +1231,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 					return nil, apiErr(500, err.Error())
 				}
 				for _, p := range projects {
-					item, err := claimFromProject(p)
+					item, err := refreshAndClaim(p, nil)
 					if err != nil {
 						continue
 					}
@@ -1137,7 +1244,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			item, err := claimFromProject(p)
+			item, err := refreshAndClaim(p, nil)
 			if err != nil {
 				h.maybeAutoFileQueueStall(ctx, p.ID, p.Slug)
 				return nil, apiErr(404, "no claimable todo items")
@@ -1596,6 +1703,52 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 			})
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
+}
+
+// AgentClaimScope is returned on /api/dx/agent/claim when scope_issue_id is
+// set. State is one of:
+//
+//	"claimed"  — a todo from the scope subtree was claimed (TodoItem fields are populated).
+//	"closed"   — the scope issue itself is closed; the loop should exit.
+//	"stalled"  — no claimable todo found in the subtree. Reason distinguishes:
+//	               "tracker-closable" → all descendants closed; tracker can be closed.
+//	               "all-blocked"      → at least one open descendant but every
+//	                                    claimable todo is blocked or reserved.
+//	             OpenBlockers lists the open descendant issue ids the caller
+//	             may want to inspect (excludes the scope issue itself).
+type AgentClaimScope struct {
+	IssueID      string   `json:"issue_id"`
+	State        string   `json:"state"`
+	Reason       string   `json:"reason,omitempty"`
+	OpenBlockers []string `json:"open_blockers,omitempty"`
+}
+
+func toTodoItemFromScopeClaim(r db.ClaimNextTodoInScopeRow) TodoItem {
+	return TodoItem{
+		ID:               r.ID,
+		Text:             r.Text,
+		Title:            r.Title,
+		Description:      r.Description,
+		Key:              r.Key,
+		Persona:          r.Persona,
+		Priority:         r.Priority,
+		Status:           r.Status,
+		TargetType:       r.TargetType,
+		TargetID:         r.TargetID,
+		Kind:             r.Kind,
+		IssueRef:         r.IssueRef,
+		TargetBranch:     r.TargetBranch,
+		Blocked:          r.Blocked,
+		BlockedReason:    r.BlockedReason,
+		CycleCount:       r.CycleCount,
+		ReferenceIssueID: r.ReferenceIssueID,
+		SuggestedAction:  suggestedActionForKind(r.Kind, r.TargetType, r.TargetID),
+		ClaimBaseSha:     r.ClaimBaseSha,
+		ClaimedBy:        r.ClaimedBy,
+		ClaimedAt:        fmtTS(r.ClaimedAt),
+		CreatedAt:        fmtTS(r.CreatedAt),
+		ResolvedAt:       fmtTS(r.ResolvedAt),
+	}
 }
 
 func toTodoItemFromAnyClaim(r db.ClaimNextTodoAnyRow) TodoItem {
