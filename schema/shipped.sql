@@ -1467,6 +1467,7 @@ CREATE TABLE public.zdx_llm_configs (
     model_low text,
     model_medium text,
     model_high text,
+    timeout_seconds integer NOT NULL DEFAULT 600,
     id bigint NOT NULL,
     name text DEFAULT 'default'::text NOT NULL,
     priority integer NOT NULL,

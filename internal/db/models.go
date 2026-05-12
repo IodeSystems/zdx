@@ -532,6 +532,7 @@ type ZdxLlmConfig struct {
 	ModelLow       pgtype.Text        `db:"model_low" json:"model_low"`
 	ModelMedium    pgtype.Text        `db:"model_medium" json:"model_medium"`
 	ModelHigh      pgtype.Text        `db:"model_high" json:"model_high"`
+	TimeoutSeconds int32              `db:"timeout_seconds" json:"timeout_seconds"`
 	ID             int64              `db:"id" json:"id"`
 	Name           string             `db:"name" json:"name"`
 	Priority       int32              `db:"priority" json:"priority"`

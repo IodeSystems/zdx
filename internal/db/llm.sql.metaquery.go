@@ -17,14 +17,14 @@ var MetaCreateLLMConfig = metaquery.Query{
 	Source: "llm.sql",
 	SQL: `INSERT INTO zdx_llm_configs (
     name, priority, type, url, embedding_model, api_key,
-    agent_type, model_low, model_medium, model_high
+    agent_type, model_low, model_medium, model_high, timeout_seconds
 )
 VALUES (
     $1, $2, $3, $4, $5, $6,
-    $7, $8, $9, $10
+    $7, $8, $9, $10, $11
 )
 RETURNING id, name, priority, type, url, embedding_model, api_key,
-          agent_type, model_low, model_medium, model_high, created_at`,
+          agent_type, model_low, model_medium, model_high, timeout_seconds, created_at`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_llm_configs"},
 		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_llm_configs"},
@@ -37,6 +37,7 @@ RETURNING id, name, priority, type, url, embedding_model, api_key,
 		{Name: "model_low", OriginalName: "model_low", GoType: "pgtype.Text", DBType: "text", Table: "zdx_llm_configs"},
 		{Name: "model_medium", OriginalName: "model_medium", GoType: "pgtype.Text", DBType: "text", Table: "zdx_llm_configs"},
 		{Name: "model_high", OriginalName: "model_high", GoType: "pgtype.Text", DBType: "text", Table: "zdx_llm_configs"},
+		{Name: "timeout_seconds", OriginalName: "timeout_seconds", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_llm_configs"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_llm_configs"},
 	},
 	Args: []metaquery.Arg{
@@ -50,13 +51,14 @@ RETURNING id, name, priority, type, url, embedding_model, api_key,
 		{Position: 8, Name: "model_low", GoType: "pgtype.Text", DBType: "text"},
 		{Position: 9, Name: "model_medium", GoType: "pgtype.Text", DBType: "text"},
 		{Position: 10, Name: "model_high", GoType: "pgtype.Text", DBType: "text"},
+		{Position: 11, Name: "timeout_seconds", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
 	},
 	Table: &metaquery.Table{Name: "zdx_llm_configs"},
 }
 
 // WrapCreateLLMConfig returns a metaquery.Builder over MetaCreateLLMConfig, pre-bound with typed arguments.
 func WrapCreateLLMConfig(arg CreateLLMConfigParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaCreateLLMConfig, arg.Name, arg.Priority, arg.Type, arg.Url, arg.EmbeddingModel, arg.ApiKey, arg.AgentType, arg.ModelLow, arg.ModelMedium, arg.ModelHigh)
+	return metaquery.Wrap(&MetaCreateLLMConfig, arg.Name, arg.Priority, arg.Type, arg.Url, arg.EmbeddingModel, arg.ApiKey, arg.AgentType, arg.ModelLow, arg.ModelMedium, arg.ModelHigh, arg.TimeoutSeconds)
 }
 
 // CreateLLMConfigCols gives typed, name-safe access to CreateLLMConfig's output columns.
@@ -72,6 +74,7 @@ var CreateLLMConfigCols = struct {
 	ModelLow       metaquery.TextCol
 	ModelMedium    metaquery.TextCol
 	ModelHigh      metaquery.TextCol
+	TimeoutSeconds metaquery.IntCol
 	CreatedAt      metaquery.TimeCol
 }{
 	ID:             metaquery.NewIntCol("id"),
@@ -85,6 +88,7 @@ var CreateLLMConfigCols = struct {
 	ModelLow:       metaquery.NewTextCol("model_low"),
 	ModelMedium:    metaquery.NewTextCol("model_medium"),
 	ModelHigh:      metaquery.NewTextCol("model_high"),
+	TimeoutSeconds: metaquery.NewIntCol("timeout_seconds"),
 	CreatedAt:      metaquery.NewTimeCol("created_at"),
 }
 
@@ -108,7 +112,7 @@ var MetaGetLLMConfigByID = metaquery.Query{
 	Cmd:    ":one",
 	Source: "llm.sql",
 	SQL: `SELECT id, name, priority, type, url, embedding_model, api_key,
-       agent_type, model_low, model_medium, model_high, created_at
+       agent_type, model_low, model_medium, model_high, timeout_seconds, created_at
 FROM zdx_llm_configs
 WHERE id = $1`,
 	Columns: []metaquery.Column{
@@ -123,6 +127,7 @@ WHERE id = $1`,
 		{Name: "model_low", OriginalName: "model_low", GoType: "pgtype.Text", DBType: "text", Table: "zdx_llm_configs"},
 		{Name: "model_medium", OriginalName: "model_medium", GoType: "pgtype.Text", DBType: "text", Table: "zdx_llm_configs"},
 		{Name: "model_high", OriginalName: "model_high", GoType: "pgtype.Text", DBType: "text", Table: "zdx_llm_configs"},
+		{Name: "timeout_seconds", OriginalName: "timeout_seconds", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_llm_configs"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_llm_configs"},
 	},
 	Args: []metaquery.Arg{
@@ -148,6 +153,7 @@ var GetLLMConfigByIDCols = struct {
 	ModelLow       metaquery.TextCol
 	ModelMedium    metaquery.TextCol
 	ModelHigh      metaquery.TextCol
+	TimeoutSeconds metaquery.IntCol
 	CreatedAt      metaquery.TimeCol
 }{
 	ID:             metaquery.NewIntCol("id"),
@@ -161,6 +167,7 @@ var GetLLMConfigByIDCols = struct {
 	ModelLow:       metaquery.NewTextCol("model_low"),
 	ModelMedium:    metaquery.NewTextCol("model_medium"),
 	ModelHigh:      metaquery.NewTextCol("model_high"),
+	TimeoutSeconds: metaquery.NewIntCol("timeout_seconds"),
 	CreatedAt:      metaquery.NewTimeCol("created_at"),
 }
 
@@ -169,7 +176,7 @@ var MetaGetPrimaryLLMConfigWithEmbedding = metaquery.Query{
 	Cmd:    ":one",
 	Source: "llm.sql",
 	SQL: `SELECT id, name, priority, type, url, embedding_model, api_key,
-       agent_type, model_low, model_medium, model_high, created_at
+       agent_type, model_low, model_medium, model_high, timeout_seconds, created_at
 FROM zdx_llm_configs
 WHERE agent_type <> 'claude'
   AND embedding_model IS NOT NULL
@@ -188,6 +195,7 @@ LIMIT 1`,
 		{Name: "model_low", OriginalName: "model_low", GoType: "pgtype.Text", DBType: "text", Table: "zdx_llm_configs"},
 		{Name: "model_medium", OriginalName: "model_medium", GoType: "pgtype.Text", DBType: "text", Table: "zdx_llm_configs"},
 		{Name: "model_high", OriginalName: "model_high", GoType: "pgtype.Text", DBType: "text", Table: "zdx_llm_configs"},
+		{Name: "timeout_seconds", OriginalName: "timeout_seconds", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_llm_configs"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_llm_configs"},
 	},
 }
@@ -210,6 +218,7 @@ var GetPrimaryLLMConfigWithEmbeddingCols = struct {
 	ModelLow       metaquery.TextCol
 	ModelMedium    metaquery.TextCol
 	ModelHigh      metaquery.TextCol
+	TimeoutSeconds metaquery.IntCol
 	CreatedAt      metaquery.TimeCol
 }{
 	ID:             metaquery.NewIntCol("id"),
@@ -223,6 +232,7 @@ var GetPrimaryLLMConfigWithEmbeddingCols = struct {
 	ModelLow:       metaquery.NewTextCol("model_low"),
 	ModelMedium:    metaquery.NewTextCol("model_medium"),
 	ModelHigh:      metaquery.NewTextCol("model_high"),
+	TimeoutSeconds: metaquery.NewIntCol("timeout_seconds"),
 	CreatedAt:      metaquery.NewTimeCol("created_at"),
 }
 
@@ -231,7 +241,7 @@ var MetaListLLMConfigs = metaquery.Query{
 	Cmd:    ":many",
 	Source: "llm.sql",
 	SQL: `SELECT id, name, priority, type, url, embedding_model, api_key,
-       agent_type, model_low, model_medium, model_high, created_at
+       agent_type, model_low, model_medium, model_high, timeout_seconds, created_at
 FROM zdx_llm_configs
 ORDER BY priority ASC, id ASC`,
 	Columns: []metaquery.Column{
@@ -246,6 +256,7 @@ ORDER BY priority ASC, id ASC`,
 		{Name: "model_low", OriginalName: "model_low", GoType: "pgtype.Text", DBType: "text", Table: "zdx_llm_configs"},
 		{Name: "model_medium", OriginalName: "model_medium", GoType: "pgtype.Text", DBType: "text", Table: "zdx_llm_configs"},
 		{Name: "model_high", OriginalName: "model_high", GoType: "pgtype.Text", DBType: "text", Table: "zdx_llm_configs"},
+		{Name: "timeout_seconds", OriginalName: "timeout_seconds", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_llm_configs"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_llm_configs"},
 	},
 }
@@ -268,6 +279,7 @@ var ListLLMConfigsCols = struct {
 	ModelLow       metaquery.TextCol
 	ModelMedium    metaquery.TextCol
 	ModelHigh      metaquery.TextCol
+	TimeoutSeconds metaquery.IntCol
 	CreatedAt      metaquery.TimeCol
 }{
 	ID:             metaquery.NewIntCol("id"),
@@ -281,6 +293,7 @@ var ListLLMConfigsCols = struct {
 	ModelLow:       metaquery.NewTextCol("model_low"),
 	ModelMedium:    metaquery.NewTextCol("model_medium"),
 	ModelHigh:      metaquery.NewTextCol("model_high"),
+	TimeoutSeconds: metaquery.NewIntCol("timeout_seconds"),
 	CreatedAt:      metaquery.NewTimeCol("created_at"),
 }
 
@@ -319,10 +332,11 @@ SET name            = $1,
     agent_type      = $6,
     model_low       = $7,
     model_medium    = $8,
-    model_high      = $9
-WHERE id = $10
+    model_high      = $9,
+    timeout_seconds = $10
+WHERE id = $11
 RETURNING id, name, priority, type, url, embedding_model, api_key,
-          agent_type, model_low, model_medium, model_high, created_at`,
+          agent_type, model_low, model_medium, model_high, timeout_seconds, created_at`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_llm_configs"},
 		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_llm_configs"},
@@ -335,6 +349,7 @@ RETURNING id, name, priority, type, url, embedding_model, api_key,
 		{Name: "model_low", OriginalName: "model_low", GoType: "pgtype.Text", DBType: "text", Table: "zdx_llm_configs"},
 		{Name: "model_medium", OriginalName: "model_medium", GoType: "pgtype.Text", DBType: "text", Table: "zdx_llm_configs"},
 		{Name: "model_high", OriginalName: "model_high", GoType: "pgtype.Text", DBType: "text", Table: "zdx_llm_configs"},
+		{Name: "timeout_seconds", OriginalName: "timeout_seconds", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_llm_configs"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_llm_configs"},
 	},
 	Args: []metaquery.Arg{
@@ -347,13 +362,14 @@ RETURNING id, name, priority, type, url, embedding_model, api_key,
 		{Position: 7, Name: "model_low", GoType: "pgtype.Text", DBType: "text"},
 		{Position: 8, Name: "model_medium", GoType: "pgtype.Text", DBType: "text"},
 		{Position: 9, Name: "model_high", GoType: "pgtype.Text", DBType: "text"},
-		{Position: 10, Name: "id", GoType: "int64", DBType: "pg_catalog.int8", NotNull: true},
+		{Position: 10, Name: "timeout_seconds", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 11, Name: "id", GoType: "int64", DBType: "pg_catalog.int8", NotNull: true},
 	},
 }
 
 // WrapUpdateLLMConfig returns a metaquery.Builder over MetaUpdateLLMConfig, pre-bound with typed arguments.
 func WrapUpdateLLMConfig(arg UpdateLLMConfigParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaUpdateLLMConfig, arg.Name, arg.Type, arg.Url, arg.EmbeddingModel, arg.ApiKey, arg.AgentType, arg.ModelLow, arg.ModelMedium, arg.ModelHigh, arg.ID)
+	return metaquery.Wrap(&MetaUpdateLLMConfig, arg.Name, arg.Type, arg.Url, arg.EmbeddingModel, arg.ApiKey, arg.AgentType, arg.ModelLow, arg.ModelMedium, arg.ModelHigh, arg.TimeoutSeconds, arg.ID)
 }
 
 // UpdateLLMConfigCols gives typed, name-safe access to UpdateLLMConfig's output columns.
@@ -369,6 +385,7 @@ var UpdateLLMConfigCols = struct {
 	ModelLow       metaquery.TextCol
 	ModelMedium    metaquery.TextCol
 	ModelHigh      metaquery.TextCol
+	TimeoutSeconds metaquery.IntCol
 	CreatedAt      metaquery.TimeCol
 }{
 	ID:             metaquery.NewIntCol("id"),
@@ -382,6 +399,7 @@ var UpdateLLMConfigCols = struct {
 	ModelLow:       metaquery.NewTextCol("model_low"),
 	ModelMedium:    metaquery.NewTextCol("model_medium"),
 	ModelHigh:      metaquery.NewTextCol("model_high"),
+	TimeoutSeconds: metaquery.NewIntCol("timeout_seconds"),
 	CreatedAt:      metaquery.NewTimeCol("created_at"),
 }
 
