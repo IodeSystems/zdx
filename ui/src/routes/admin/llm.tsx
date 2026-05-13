@@ -32,6 +32,8 @@ const SLOTS = [
   { key: 'low', label: 'Low' },
   { key: 'medium', label: 'Medium' },
   { key: 'high', label: 'High' },
+  { key: 'xhigh', label: 'XHigh' },
+  { key: 'max', label: 'Max' },
 ] as const
 type SlotKey = (typeof SLOTS)[number]['key']
 
@@ -45,6 +47,8 @@ const NEW_CONFIG: LLMConfigBody = {
   model_low: '',
   model_medium: '',
   model_high: '',
+  model_xhigh: '',
+  model_max: '',
   timeout_seconds: 600,
 }
 
@@ -112,12 +116,38 @@ function ConfigRow({
     )
   }
 
-  const slotValue = (slot: SlotKey) =>
-    slot === 'low' ? draft.model_low : slot === 'medium' ? draft.model_medium : draft.model_high
+  const slotValue = (slot: SlotKey): string => {
+    switch (slot) {
+      case 'low':
+        return draft.model_low
+      case 'medium':
+        return draft.model_medium
+      case 'high':
+        return draft.model_high
+      case 'xhigh':
+        return draft.model_xhigh ?? ''
+      case 'max':
+        return draft.model_max ?? ''
+    }
+  }
   const setSlot = (slot: SlotKey, v: string) => {
-    if (slot === 'low') patch({ model_low: v })
-    else if (slot === 'medium') patch({ model_medium: v })
-    else patch({ model_high: v })
+    switch (slot) {
+      case 'low':
+        patch({ model_low: v })
+        break
+      case 'medium':
+        patch({ model_medium: v })
+        break
+      case 'high':
+        patch({ model_high: v })
+        break
+      case 'xhigh':
+        patch({ model_xhigh: v })
+        break
+      case 'max':
+        patch({ model_max: v })
+        break
+    }
   }
 
   const modelOptions = models.data ?? []
@@ -217,7 +247,7 @@ function ConfigRow({
 
       <Divider sx={{ my: 2 }}>
         <Typography variant="caption" color="text.secondary">
-          Level slots — leave blank = none (no override)
+          Level slots — leave blank for low/medium/high to fall through to the next config; leave XHigh or Max empty to fall through to High in this row.
         </Typography>
       </Divider>
 
@@ -426,9 +456,10 @@ function LLMConfigPage() {
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Configs are evaluated in priority order. For any requested level
-        (low/medium/high), the first non-empty slot wins — empty slots fall
-        through to the next config, then to defaults. Claude configs don't use
-        the embedding model.
+        (low/medium/high/xhigh/max), the first non-empty slot wins — empty
+        slots fall through to the next config, then to defaults. XHigh and
+        Max additionally fall through to High within the same row when their
+        dedicated slot is empty. Claude configs don't use the embedding model.
       </Typography>
 
       <Stack spacing={2}>
