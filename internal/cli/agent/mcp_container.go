@@ -268,10 +268,11 @@ func provisionSlot(ctx context.Context, providerName, imageTag, cwd string, opts
 		Name:   slotName,
 		Mount:  wtPath,
 		Branch: branch,
-		// /workspace/bin/dx-agent — absolute path, not bare `dx-agent`. The
-		// dev image (dev.Dockerfile) builds without /workspace/bin on $PATH,
-		// so a bare command resolves to "executable not found" and claude's
-		// --mcp-config silently fails to wire up the dx-tools server.
+		// /workspace/bin/dx-agent — absolute path, not bare `dx-agent`.
+		// dev.Dockerfile now bakes /workspace/bin into the image PATH, but
+		// the absolute path is kept here so older images (built before the
+		// PATH ENV was added) still resolve the binary correctly and
+		// claude's --mcp-config wires up the dx-tools server.
 		MCPCmd:  []string{"docker", "exec", "-i", slotName, "/workspace/bin/dx-agent", "--mcp-stdio"},
 		Cleanup: cleanup,
 	}, nil

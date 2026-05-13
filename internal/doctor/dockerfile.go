@@ -50,6 +50,18 @@ func RenderDevDockerfile(s Stack) string {
 		b.WriteString("RUN go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest\n\n")
 	}
 
+	// Agent-runtime defaults — see dev.Dockerfile commentary in zdx-go for
+	// the rationale. /workspace/bin is the per-slot dx + dx-agent seed
+	// location; GOPATH/GOMODCACHE point at writable /tmp paths so go
+	// build/test don't trip on the default user-home cache permissions.
+	// Emitting only for Go stacks keeps the non-Go images minimal.
+	if s.HasGo {
+		b.WriteString("ENV PATH=/workspace/bin:/usr/local/go/bin:/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \\\n")
+		b.WriteString("    GOPATH=/tmp/gopath \\\n")
+		b.WriteString("    GOMODCACHE=/tmp/gomodcache\n")
+		b.WriteString("RUN mkdir -p /tmp/gopath /tmp/gomodcache\n\n")
+	}
+
 	b.WriteString("WORKDIR /workspace\n")
 	b.WriteString("COPY . /workspace\n\n")
 	b.WriteString("CMD [\"bash\"]\n")

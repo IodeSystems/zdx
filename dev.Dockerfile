@@ -26,6 +26,24 @@ RUN go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
 # Non-root agent user; matches default UID on most Linux dev hosts.
 RUN useradd -m -u 1000 -s /bin/bash agent
 
+# Agent-runtime defaults. `docker exec` invocations inherit the image ENV
+# (non-login shells skip /etc/profile), so agents that don't preface every
+# command with `export PATH=...` would otherwise fail to find `dx`,
+# `go`, or write to GOMODCACHE. Baking the defaults here removes a whole
+# class of "command not found" / "permission denied" thrash.
+#
+# - /workspace/bin is where copyDxBinaries seeds dx + dx-agent per slot.
+# - /usr/local/go/bin + /go/bin are set by the golang base; re-stating them
+#   here is defensive in case the base ENV layout shifts.
+# - GOPATH/GOMODCACHE point at writable /tmp paths so `go test` /
+#   `go build` don't hit the default /home/agent/go cache and trip on
+#   permissions when the operator binds a host volume.
+ENV PATH=/workspace/bin:/usr/local/go/bin:/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    GOPATH=/tmp/gopath \
+    GOMODCACHE=/tmp/gomodcache
+RUN mkdir -p /tmp/gopath /tmp/gomodcache \
+ && chown -R agent:agent /tmp/gopath /tmp/gomodcache
+
 WORKDIR /workspace
 COPY . /workspace
 RUN chown -R agent:agent /workspace
