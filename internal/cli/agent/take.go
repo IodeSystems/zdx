@@ -51,6 +51,7 @@ type TakeConfig struct {
 	HomeCwd  string // original cwd to restore after srcless
 	AgentCfg config.AgentConfig
 	ModelSel modelSelector
+	Persona  string // role tier (NormalizePersona-d); empty defaults to "dev"
 	// SessionIdx is the model-rotation counter; caller increments after each Take.
 	SessionIdx int
 	SelfPath   string // for ensureProjectInit (srcless)
@@ -124,7 +125,7 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 		log("resuming interrupted session: issue=%s sid=%s", issueID, sid)
 	} else {
 		// Claim the next available todo via the API.
-		todo, err := claimNextTodo(cfg.RC, cfg.AgentID, int32(cfg.AgentCfg.LeaseMinutes))
+		todo, err := claimNextTodo(cfg.RC, cfg.AgentID, cfg.Persona, int32(cfg.AgentCfg.LeaseMinutes))
 		if err != nil || todo == nil {
 			return TakeResult{Err: ErrNoWork}
 		}
@@ -288,7 +289,7 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 	if activeTodo != nil {
 		todoID = activeTodo.ID
 	}
-	sessionErr := runSession(ctx, cfg.RC, sid, issueID, cfg.Alias, cfg.Chrome, prevSID, resumed, resolvedModel, todoID, activeTodo, cfg.Srcless)
+	sessionErr := runSession(ctx, cfg.RC, sid, issueID, cfg.Alias, cfg.Chrome, prevSID, resumed, resolvedModel, cfg.Persona, todoID, activeTodo, cfg.Srcless)
 
 	// ── Stall recovery ─────────────────────────────────────────────────
 	if errors.Is(sessionErr, ErrSessionStalled) && ctx.Err() == nil {
@@ -301,7 +302,7 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 		log("forking stalled session: %s → %s", stalledSID, resumeSID)
 
 		resumeStart := time.Now()
-		resumeErr := runSession(ctx, cfg.RC, resumeSID, issueID, cfg.Alias, cfg.Chrome, stalledSID, true, resolvedModel, todoID, activeTodo, cfg.Srcless)
+		resumeErr := runSession(ctx, cfg.RC, resumeSID, issueID, cfg.Alias, cfg.Chrome, stalledSID, true, resolvedModel, cfg.Persona, todoID, activeTodo, cfg.Srcless)
 
 		if resumeErr != nil && time.Since(resumeStart) < 60*time.Second {
 			log("resume failed quickly (%v), starting fresh session with transcript summary", resumeErr)
@@ -323,7 +324,7 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 				"transcript_path", transcriptPath,
 				"summary_lines", countLines(summary))
 
-			sessionErr = runSessionWithSummary(ctx, cfg.RC, freshSID, issueID, cfg.Alias, cfg.Chrome, resolvedModel, todoID, summary, activeTodo, cfg.Srcless)
+			sessionErr = runSessionWithSummary(ctx, cfg.RC, freshSID, issueID, cfg.Alias, cfg.Chrome, resolvedModel, cfg.Persona, todoID, summary, activeTodo, cfg.Srcless)
 			sid = freshSID
 		} else {
 			sessionErr = resumeErr

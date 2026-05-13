@@ -652,7 +652,7 @@ func (h *Handler) handleClaudeSessionIngestStream(w http.ResponseWriter, r *http
 
 		if !sessionReady {
 			title := extractTitleFromLegacyLine(line)
-			s2, created, cErr := h.getOrCreateAgentSession(ctx, p.ID, sessionUUID, issueID, alias, title, 0)
+			s2, created, cErr := h.getOrCreateAgentSession(ctx, p.ID, sessionUUID, issueID, alias, title, 0, "")
 			if cErr != nil {
 				http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
 				return

@@ -1117,6 +1117,11 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 				// by `dx agent claude --scope=IS-N` to focus a worker loop on one
 				// tracker's subtree. Empty = global (existing behavior).
 				ScopeIssueID string `json:"scope_issue_id,omitempty"`
+				// Persona is the role tier (dev|tech|reviewer|product) the
+				// agent claims AS (IS-1096). Persisted on the claim row as
+				// claim_persona so downstream filters (IS-1097/1098/1101) can
+				// key off it. Empty defaults to "dev" server-side.
+				Persona string `json:"persona,omitempty"`
 			}
 		}) (*struct{ Body agentClaimBody }, error) {
 			var err error
@@ -1130,7 +1135,12 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 				leaseMin = 10
 			}
 			autonomous := in.Body.Mode == "autonomous"
+			persona := in.Body.Persona
+			if persona == "" {
+				persona = "dev"
+			}
 			trace.Note(ctx, "lease_minutes", leaseMin)
+			trace.Note(ctx, "persona", persona)
 
 			refreshAndClaim := func(p db.ZdxProject, scopeIDs []string) (*TodoItem, error) {
 				if expired, _ := h.Q.ReclaimExpiredTodos(ctx, p.ID); len(expired) > 0 {
@@ -1191,6 +1201,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 						ClaimBaseSha:    baseSha,
 						ClaimBaseBranch: baseBranch,
 						ScopeIssueIds:   scopeIDs,
+						ClaimPersona:    persona,
 					})
 					if err != nil {
 						return nil, err
@@ -1219,6 +1230,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 					LeaseMinutes:    leaseMin,
 					ClaimBaseSha:    baseSha,
 					ClaimBaseBranch: baseBranch,
+					ClaimPersona:    persona,
 				})
 				if err != nil {
 					return nil, err
@@ -1356,6 +1368,10 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 				AgentID      string `json:"agent_id"`
 				LeaseMinutes int32  `json:"lease_minutes" required:"false"`
 				Mode         string `json:"mode" required:"false"`
+				// Persona is the role tier (dev|tech|reviewer|product) the
+				// agent claims AS (IS-1096). Persisted as claim_persona on
+				// the todo. Empty defaults to "dev" server-side.
+				Persona string `json:"persona,omitempty"`
 			}
 		}) (*struct{ Body agentClaimBody }, error) {
 			var err error
@@ -1369,7 +1385,12 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 				leaseMin = 10
 			}
 			autonomous := in.Body.Mode == "autonomous"
+			persona := in.Body.Persona
+			if persona == "" {
+				persona = "dev"
+			}
 			trace.Note(ctx, "lease_minutes", leaseMin)
+			trace.Note(ctx, "persona", persona)
 
 			projects, err := h.Q.ListProjectsByPriority(ctx)
 			if err != nil {
@@ -1425,6 +1446,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 				LeaseMinutes:    leaseMin,
 				ClaimBaseSha:    baseSha,
 				ClaimBaseBranch: baseBranch,
+				ClaimPersona:    persona,
 			})
 			if err != nil {
 				// pgx returns ErrNoRows when the CTE produced zero rows.

@@ -77,17 +77,21 @@ func fromAgentClaimBody(b *dxclient.AgentClaimBody) *claimedTodo {
 // ordered by project.priority then todo.priority. When rc.slug is set the
 // daemon stays on the project-scoped /claim path. The wire response shape
 // is identical (claim-any populates project_slug; /claim leaves it blank).
-func claimNextTodo(rc remoteConfig, agentID string, leaseMinutes int32) (*claimedTodo, error) {
+func claimNextTodo(rc remoteConfig, agentID, persona string, leaseMinutes int32) (*claimedTodo, error) {
 	c := cli.NewClient(rc.url, rc.key)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	mode := "autonomous"
+	if persona == "" {
+		persona = DefaultPersona
+	}
 
 	if rc.slug == "" {
 		resp, err := c.AgentClaimAnyWithResponse(ctx, &dxclient.AgentClaimAnyParams{}, dxclient.AgentClaimAnyJSONRequestBody{
 			AgentId:      agentID,
 			LeaseMinutes: &leaseMinutes,
 			Mode:         &mode,
+			Persona:      &persona,
 		})
 		if err != nil {
 			return nil, err
@@ -103,6 +107,7 @@ func claimNextTodo(rc remoteConfig, agentID string, leaseMinutes int32) (*claime
 		AgentId:      agentID,
 		LeaseMinutes: &leaseMinutes,
 		Mode:         &mode,
+		Persona:      &persona,
 	})
 	if err != nil {
 		return nil, err

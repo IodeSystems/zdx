@@ -216,7 +216,7 @@ func claudeProjectDir() string {
 // each claimed todo carries a project_slug; the loop ensures a persistent main
 // clone exists at ${workDir}/${slug}/main and creates a per-session worktree
 // to run the session in. workDir is empty when srcless is false.
-func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcless bool, workDir string, agentCfg config.AgentConfig) error {
+func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcless bool, workDir string, agentCfg config.AgentConfig, persona string) error {
 	// In srcless mode the cwd is the agent home; .zdx state lives next to the
 	// global config (the cwd has no project to attach state to).
 	stateFile := ".zdx/cache/claude-work-state"
@@ -352,6 +352,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 			HomeCwd:     homeCwd,
 			AgentCfg:    agentCfg,
 			ModelSel:    sel,
+			Persona:     persona,
 			SessionIdx:  sessionIdx,
 			SelfPath:    selfPath,
 			StateFile:   stateFile,
@@ -440,11 +441,15 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 }
 
 // buildSessionPrompt assembles the -p prompt for a Claude session from the
-// project vision, optional issue ID, and optional claimed todo.
-func buildSessionPrompt(vision, issueID string, todo *claimedTodo) string {
+// project vision, optional issue ID, and optional claimed todo. An empty
+// persona falls back to DefaultPersona (dev) via NormalizePersona.
+func buildSessionPrompt(vision, issueID, persona string, todo *claimedTodo) string {
 	prompt := ""
+	if block, err := PersonaPrompt(persona); err == nil && block != "" {
+		prompt = block + "\n\n"
+	}
 	if vision != "" {
-		prompt = "Project vision: " + vision + "\n\n"
+		prompt += "Project vision: " + vision + "\n\n"
 	}
 	if todo != nil {
 		// Pass the todo text directly as the prompt — the work instructions
@@ -507,13 +512,13 @@ Example --suggested-next values:
 // through the provider-agnostic RunLifecycle runner. Event tailing, WS
 // streaming, and close are all owned by the shared runner — this wrapper
 // only constructs a claudeAdapter and prints the post-session token summary.
-func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, prevSID string, resumed bool, model string, todoID int32, todo *claimedTodo, srcless bool) error {
+func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, prevSID string, resumed bool, model, persona string, todoID int32, todo *claimedTodo, srcless bool) error {
 	projDir := claudeProjectDir()
 	_ = os.MkdirAll(projDir, 0o755)
 
 	// Fetch project vision to provide context for the session.
 	vision := fetchProjectVision(rc)
-	prompt := buildSessionPrompt(vision, issueID, todo)
+	prompt := buildSessionPrompt(vision, issueID, persona, todo)
 
 	adapter := &claudeAdapter{
 		rc:      rc,
@@ -573,16 +578,19 @@ func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string
 // runSessionWithSummary starts a fresh claude session whose prompt includes
 // a transcript summary from a previous stalled session so the agent can
 // continue the same work without --resume.
-func runSessionWithSummary(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, model string, todoID int32, summary string, todo *claimedTodo, srcless bool) error {
+func runSessionWithSummary(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, model, persona string, todoID int32, summary string, todo *claimedTodo, srcless bool) error {
 	projDir := claudeProjectDir()
 	_ = os.MkdirAll(projDir, 0o755)
 
 	taskPrompt := ""
+	if block, err := PersonaPrompt(persona); err == nil && block != "" {
+		taskPrompt = block + "\n\n"
+	}
 	if todo != nil {
-		taskPrompt = fmt.Sprintf("Claimed todo %d [%s] target=%s:%s\n\n%s",
+		taskPrompt += fmt.Sprintf("Claimed todo %d [%s] target=%s:%s\n\n%s",
 			todo.ID, todo.Kind, todo.TargetType, todo.TargetID, todo.Text)
 	} else if issueID != "" {
-		taskPrompt = fmt.Sprintf("Work on issue %s. Use ./bin/dx CLI commands (issue show, comment add, todo dev done) to interact with the project tracker.", issueID)
+		taskPrompt += fmt.Sprintf("Work on issue %s. Use ./bin/dx CLI commands (issue show, comment add, todo dev done) to interact with the project tracker.", issueID)
 	}
 	prompt := fmt.Sprintf("%s\n\nThis session is a continuation of a stalled session. The previous session was automatically terminated because it stopped producing output (likely a stuck tool call). Below is a summary of what it accomplished. Continue the work from where it left off — do NOT repeat already-completed steps.\n\n%s", taskPrompt, summary)
 
@@ -643,7 +651,7 @@ func init() {
 		projDir := claudeProjectDir()
 		_ = os.MkdirAll(projDir, 0o755)
 		vision := fetchProjectVision(opts.RC)
-		prompt := buildSessionPrompt(vision, opts.IssueID, nil)
+		prompt := buildSessionPrompt(vision, opts.IssueID, opts.Persona, nil)
 		// Default chrome=true to match the legacy claude command's flag default.
 		chrome := opts.Chrome
 		return &claudeAdapter{
@@ -668,7 +676,7 @@ func init() {
 // Manager dispatches here automatically when --provider=claude in loop mode.
 func (a *claudeAdapter) RunLoop(_ context.Context, opts ProviderOpts) error {
 	sel := modelSelector{modelFlag: opts.Model, complexity: opts.Complexity, agentCfg: opts.AgentCfg}
-	return runLoop(opts.RC, opts.Alias, opts.Chrome, sel, opts.Srcless, opts.WorkDir, opts.AgentCfg)
+	return runLoop(opts.RC, opts.Alias, opts.Chrome, sel, opts.Srcless, opts.WorkDir, opts.AgentCfg, opts.Persona)
 }
 
 // claudeAdapter implements AgentAdapter against the real `claude` CLI. It

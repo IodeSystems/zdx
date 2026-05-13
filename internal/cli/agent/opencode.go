@@ -59,6 +59,7 @@ func init() {
 			seedPrompt: opts.SeedPrompt,
 			mcpCommand: opts.MCPCommand,
 			complexity: opts.Complexity,
+			persona:    opts.Persona,
 			tlog:       opts.TraceLog,
 		}, nil
 	}
@@ -80,6 +81,7 @@ type opencodeAdapter struct {
 	seedPrompt string
 	mcpCommand []string // when non-empty, dispatch tools via newRemoteDispatcher (dev-container mode)
 	complexity string   // canonical tier — surfaced in setup events for review/escalation telemetry
+	persona    string   // role tier (NormalizePersona-d); empty defaults to "dev" (IS-1096)
 	tlog       *tracelog.Logger
 
 	doneCh chan struct{}
@@ -152,7 +154,7 @@ func (a *opencodeAdapter) Start(ctx context.Context, sid, issueID, alias string)
 
 	saveOpenCodeState(sid, issueID, alias, a.llmCfg.Model, root)
 
-	system := opencodeSystemPrompt(alias, issueID)
+	system := opencodeSystemPrompt(alias, issueID, a.persona)
 	user := a.seedPrompt
 	if user == "" {
 		if issueID != "" {
@@ -597,8 +599,12 @@ func (cs *opencodeChatSession) compactAndRehydrate(ctx context.Context, targetPh
 
 // ── System prompt ─────────────────────────────────────────────────────────
 
-func opencodeSystemPrompt(alias, issueID string) string {
+func opencodeSystemPrompt(alias, issueID, persona string) string {
 	var b strings.Builder
+	if block, err := PersonaPrompt(persona); err == nil && block != "" {
+		b.WriteString(block)
+		b.WriteString("\n\n")
+	}
 	b.WriteString("You are dx agent (openai), an autonomous developer operating inside a git repo.\n\n")
 	b.WriteString("Available tool categories:\n")
 	b.WriteString("  - filesystem tools: read_file, write_file, edit_file, list_dir, glob, grep.\n")

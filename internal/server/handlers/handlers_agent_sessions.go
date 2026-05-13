@@ -45,6 +45,7 @@ func (h *Handler) registerAgentSessionRoutes(api huma.API) {
 			AgentType        string `json:"agent_type" required:"false"`
 			AgentDescription string `json:"agent_description" required:"false"`
 			TodoID           int32  `json:"todo_id" required:"false"`
+			Persona          string `json:"persona" required:"false"`
 		}
 	}) (*struct {
 		Body struct {
@@ -57,7 +58,7 @@ func (h *Handler) registerAgentSessionRoutes(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		sess, created, err := h.getOrCreateAgentSession(ctx, p.ID, in.Sid, in.Body.IssueID, in.Body.Alias, in.Body.Title, in.Body.TodoID)
+		sess, created, err := h.getOrCreateAgentSession(ctx, p.ID, in.Sid, in.Body.IssueID, in.Body.Alias, in.Body.Title, in.Body.TodoID, in.Body.Persona)
 		if err != nil {
 			return nil, apiErr(500, err.Error())
 		}
@@ -165,10 +166,13 @@ func (h *Handler) registerAgentSessionRoutes(api huma.API) {
 // getOrCreateAgentSession looks up a session by (project_id, session_id) and
 // creates one if it doesn't exist. The second return is true when this call
 // created the row.
-func (h *Handler) getOrCreateAgentSession(ctx context.Context, projectID int32, sessionID, issueID, alias, title string, todoID int32) (db.CreateClaudeSessionRow, bool, error) {
+func (h *Handler) getOrCreateAgentSession(ctx context.Context, projectID int32, sessionID, issueID, alias, title string, todoID int32, persona string) (db.CreateClaudeSessionRow, bool, error) {
 	todo := pgtype.Int4{}
 	if todoID > 0 {
 		todo = pgtype.Int4{Int32: todoID, Valid: true}
+	}
+	if persona == "" {
+		persona = "dev"
 	}
 	sess, err := h.Q.CreateClaudeSession(ctx, db.CreateClaudeSessionParams{
 		ProjectID: projectID,
@@ -177,6 +181,7 @@ func (h *Handler) getOrCreateAgentSession(ctx context.Context, projectID int32, 
 		Title:     title,
 		Alias:     alias,
 		TodoID:    todo,
+		Persona:   persona,
 	})
 	if err == nil {
 		return sess, true, nil

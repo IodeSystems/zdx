@@ -40,7 +40,7 @@ import (
 // --worktree and --branch parse and reject non-"auto" values until Stream 1
 // (per-issue branch lifecycle, IS-1048) lands.
 func AgentCmd() *cobra.Command {
-	var provider, alias, issue, model, complexity, container, worktree, branch, mcpContainer string
+	var provider, alias, issue, model, complexity, container, worktree, branch, mcpContainer, persona string
 	cmd := &cobra.Command{
 		Use:   "agent",
 		Short: "Run a single agent session (use `dx agent loop` for the work loop)",
@@ -57,6 +57,11 @@ Execution environment is selected via --container=docker|local (default
 docker). Container mode runs the agent inside MCP-slot containers with an
 isolated worktree per slot; local mode runs claude directly on the host
 against the operator's working tree.
+
+Role is selected via --persona=dev|tech|reviewer|product (default dev).
+The persona selects the per-role system prompt prepended to the provider's
+existing prompt — see internal/cli/agent/prompts/<persona>.md. The matrix
+of allowed tools and escalation paths is defined in IS-1090.
 
 For the long-running work loop, use ` + "`dx agent loop --provider=X`" + `.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -78,10 +83,15 @@ For the long-running work loop, use ` + "`dx agent loop --provider=X`" + `.`,
 			if terr != nil {
 				return terr
 			}
+			personaCanon, perr := NormalizePersona(persona)
+			if perr != nil {
+				return perr
+			}
 			opts, oerr := loadManagedOptsFromCmd(cmd, provider, alias, issue, model, tier, 0, mcpContainer)
 			if oerr != nil {
 				return oerr
 			}
+			opts.Persona = personaCanon
 			if mode != ContainerDocker {
 				// Local execution. enforceContainerExecution gates on
 				// DX_AGENT_FORCE_CONTAINER (spec 117) — operators can refuse
@@ -110,6 +120,7 @@ For the long-running work loop, use ` + "`dx agent loop --provider=X`" + `.`,
 	cmd.PersistentFlags().StringVar(&container, "container", "docker", "execution environment: docker (default) | local")
 	cmd.PersistentFlags().StringVar(&worktree, "worktree", "auto", "worktree path (auto = system picks/creates per claim) — non-auto pending IS-1048")
 	cmd.PersistentFlags().StringVar(&branch, "branch", "auto", "git branch (auto = derived per claim) — non-auto pending IS-1048")
+	cmd.PersistentFlags().StringVar(&persona, "persona", "dev", "agent persona: dev|tech|reviewer|product (selects per-role prompt; see IS-1090)")
 
 	// Single-session-only flags.
 	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
@@ -182,10 +193,15 @@ open so the UI can pause/resume/drain or eventually push work.`,
 			if err != nil {
 				return err
 			}
+			personaCanon, perr := NormalizePersona(cmd.Flag("persona").Value.String())
+			if perr != nil {
+				return perr
+			}
 			opts, err := loadManagedOptsFromCmd(cmd, provider, alias, "", model, tier, maxTurns, mcpContainer)
 			if err != nil {
 				return err
 			}
+			opts.Persona = personaCanon
 			if cmd.Flags().Changed("chrome") {
 				opts.Chrome = chrome
 			}
@@ -318,10 +334,15 @@ that aborts a mid-LLM session, see ` + "`--max-runtime-hard`" + `.`,
 			if err != nil {
 				return err
 			}
+			personaCanon, perr := NormalizePersona(cmd.Flag("persona").Value.String())
+			if perr != nil {
+				return perr
+			}
 			opts, err := loadManagedOptsFromCmd(cmd, provider, alias, "", model, tier, maxTurns, mcpContainer)
 			if err != nil {
 				return err
 			}
+			opts.Persona = personaCanon
 			if cmd.Flags().Changed("chrome") {
 				opts.Chrome = chrome
 			}

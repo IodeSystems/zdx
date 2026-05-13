@@ -309,15 +309,16 @@ func TestBuildSessionPrompt(t *testing.T) {
 		name    string
 		vision  string
 		issueID string
+		persona string
 		todo    *claimedTodo
 		check   func(t *testing.T, got string)
 	}{
 		{
-			name:   "vision prepends prefix",
+			name:   "vision included",
 			vision: "Great platform",
 			check: func(t *testing.T, got string) {
-				if !strings.HasPrefix(got, "Project vision: Great platform\n\n") {
-					t.Fatalf("missing vision prefix, got %q", got)
+				if !strings.Contains(got, "Project vision: Great platform\n\n") {
+					t.Fatalf("missing vision block, got %q", got)
 				}
 			},
 		},
@@ -335,8 +336,8 @@ func TestBuildSessionPrompt(t *testing.T) {
 			vision: "V",
 			todo:   todo,
 			check: func(t *testing.T, got string) {
-				if !strings.HasPrefix(got, "Project vision: V\n\n") {
-					t.Fatalf("missing vision prefix, got %q", got)
+				if !strings.Contains(got, "Project vision: V\n\n") {
+					t.Fatalf("missing vision block, got %q", got)
 				}
 				if !strings.Contains(got, "Claimed todo 42 [dev] target=task:TK-1") {
 					t.Fatalf("missing todo header, got %q", got)
@@ -351,8 +352,30 @@ func TestBuildSessionPrompt(t *testing.T) {
 			vision:  "",
 			issueID: "IS-99",
 			check: func(t *testing.T, got string) {
-				if !strings.HasPrefix(got, "Work on issue IS-99") {
+				if !strings.Contains(got, "Work on issue IS-99") {
 					t.Fatalf("missing issue prompt, got %q", got)
+				}
+			},
+		},
+		{
+			name:   "default persona injects dev block",
+			vision: "V",
+			check: func(t *testing.T, got string) {
+				if !strings.Contains(got, "Persona: dev") {
+					t.Fatalf("default persona prompt missing, got %q", got)
+				}
+			},
+		},
+		{
+			name:    "explicit persona swaps block",
+			vision:  "V",
+			persona: "reviewer",
+			check: func(t *testing.T, got string) {
+				if !strings.Contains(got, "Persona: reviewer") {
+					t.Fatalf("reviewer persona prompt missing, got %q", got)
+				}
+				if strings.Contains(got, "Persona: dev") {
+					t.Fatalf("reviewer persona should replace dev, got %q", got)
 				}
 			},
 		},
@@ -409,7 +432,7 @@ func TestBuildSessionPrompt(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := buildSessionPrompt(tc.vision, tc.issueID, tc.todo)
+			got := buildSessionPrompt(tc.vision, tc.issueID, tc.persona, tc.todo)
 			tc.check(t, got)
 		})
 	}

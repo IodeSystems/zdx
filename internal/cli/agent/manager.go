@@ -483,7 +483,7 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 			return nil
 		}
 
-		todo, err := claimNextTodo(opts.RC, opts.Alias, leaseMin)
+		todo, err := claimNextTodo(opts.RC, opts.Alias, opts.Persona, leaseMin)
 		if err != nil || todo == nil {
 			emit("claim.idle", "err", errString(err))
 			select {

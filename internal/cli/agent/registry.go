@@ -25,6 +25,7 @@ type ProviderOpts struct {
 	Alias      string
 	Model      string // resolved post-ResolveModel; empty means provider picks
 	Complexity string // canonical tier (NormalizeComplexity-d) — providers may use this for full endpoint resolution
+	Persona    string // role tier (NormalizePersona-d): dev|tech|reviewer|product. Selects the per-role prompt block prepended to the provider's system prompt; surfaces on the claim request and session row (IS-1096).
 	SeedPrompt string
 
 	// claude-specific (ignored by other providers)

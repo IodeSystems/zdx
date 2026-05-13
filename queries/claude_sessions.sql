@@ -1,7 +1,7 @@
 -- name: CreateClaudeSession :one
-INSERT INTO zdx_claude_sessions (project_id, issue_id, session_id, title, alias, todo_id)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at, todo_id;
+INSERT INTO zdx_claude_sessions (project_id, issue_id, session_id, title, alias, todo_id, persona)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at, todo_id, persona;
 
 -- name: GetClaudeSession :one
 SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
