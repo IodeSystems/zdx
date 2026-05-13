@@ -80,6 +80,35 @@ type ZdxBudgetPause struct {
 	LiftedBy  pgtype.Text        `db:"lifted_by" json:"lifted_by"`
 }
 
+type ZdxChurnHint struct {
+	ID           int64              `db:"id" json:"id"`
+	ProjectID    int32              `db:"project_id" json:"project_id"`
+	Title        string             `db:"title" json:"title"`
+	Summary      string             `db:"summary" json:"summary"`
+	Status       string             `db:"status" json:"status"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	LastActiveAt pgtype.Timestamptz `db:"last_active_at" json:"last_active_at"`
+	ClosedAt     pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	ClosedByRef  pgtype.Text        `db:"closed_by_ref" json:"closed_by_ref"`
+}
+
+type ZdxChurnHintRef struct {
+	ID          int32              `db:"id" json:"id"`
+	HintID      int64              `db:"hint_id" json:"hint_id"`
+	RefType     string             `db:"ref_type" json:"ref_type"`
+	RefID       string             `db:"ref_id" json:"ref_id"`
+	Observation string             `db:"observation" json:"observation"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type ZdxChurnHintResolution struct {
+	ID             int32              `db:"id" json:"id"`
+	HintID         int64              `db:"hint_id" json:"hint_id"`
+	ResolutionType string             `db:"resolution_type" json:"resolution_type"`
+	ResolutionID   string             `db:"resolution_id" json:"resolution_id"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxClaudeEvent struct {
 	ID               int64              `db:"id" json:"id"`
 	SessionPk        int64              `db:"session_pk" json:"session_pk"`

@@ -32,6 +32,8 @@ type Querier interface {
 	AggregateTodoIncompleteReports(ctx context.Context, arg AggregateTodoIncompleteReportsParams) ([]AggregateTodoIncompleteReportsRow, error)
 	AnswerBlockerQuestion(ctx context.Context, arg AnswerBlockerQuestionParams) error
 	AnswerQuestion(ctx context.Context, arg AnswerQuestionParams) (ZdxQuestion, error)
+	AppendChurnHintRef(ctx context.Context, arg AppendChurnHintRefParams) (ZdxChurnHintRef, error)
+	AppendChurnHintResolution(ctx context.Context, arg AppendChurnHintResolutionParams) (ZdxChurnHintResolution, error)
 	AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams) error
 	// Pin an originally-global agent to a project. Refuses to operate on
 	// project-scoped agents (originally_global=false) — those are
@@ -78,6 +80,7 @@ type Querier interface {
 	ClearDoctorDeferrals(ctx context.Context, projectID int32) error
 	ClearFeatureParent(ctx context.Context, id int32) error
 	ClearStaleFlag(ctx context.Context, id string) error
+	CloseChurnHint(ctx context.Context, arg CloseChurnHintParams) error
 	CloseClaudeSession(ctx context.Context, id int64) error
 	// IS-1062: completed_in_sha is the HEAD (or operator-asserted) commit that
 	// completed the issue. closed_dirty is true when --force overrode the
@@ -99,6 +102,7 @@ type Querier interface {
 	CountOpenIssuesByTitle(ctx context.Context, arg CountOpenIssuesByTitleParams) (int64, error)
 	CountProjectGoals(ctx context.Context, projectID int32) (int64, error)
 	CountQuestionProposalsByQuestion(ctx context.Context, arg CountQuestionProposalsByQuestionParams) (int64, error)
+	CountRefsByHint(ctx context.Context, hintID int64) (int32, error)
 	// Count how many times a todo has been claimed (reservation count).
 	CountReservationsForTodo(ctx context.Context, arg CountReservationsForTodoParams) (int32, error)
 	// Count how many revisions were recorded by a given agent session.
@@ -115,6 +119,7 @@ type Querier interface {
 	CreateAtlasCoderef(ctx context.Context, arg CreateAtlasCoderefParams) (ZdxCoderef, error)
 	CreateAtlasEdge(ctx context.Context, arg CreateAtlasEdgeParams) (ZdxEdge, error)
 	CreateAtlasNode(ctx context.Context, arg CreateAtlasNodeParams) (ZdxNode, error)
+	CreateChurnHint(ctx context.Context, arg CreateChurnHintParams) (ZdxChurnHint, error)
 	CreateClaudeEvent(ctx context.Context, arg CreateClaudeEventParams) error
 	CreateClaudeSession(ctx context.Context, arg CreateClaudeSessionParams) (CreateClaudeSessionRow, error)
 	CreateCodeRef(ctx context.Context, arg CreateCodeRefParams) (ZdxCodeRef, error)
@@ -222,6 +227,7 @@ type Querier interface {
 	// depth from the root.
 	GetAtlasNodeSubgraph(ctx context.Context, arg GetAtlasNodeSubgraphParams) ([]GetAtlasNodeSubgraphRow, error)
 	GetBlockerQuestion(ctx context.Context, arg GetBlockerQuestionParams) (ZdxBlockerQuestion, error)
+	GetChurnHint(ctx context.Context, arg GetChurnHintParams) (ZdxChurnHint, error)
 	GetClaudeSession(ctx context.Context, arg GetClaudeSessionParams) (GetClaudeSessionRow, error)
 	GetClaudeSessionBySessionID(ctx context.Context, arg GetClaudeSessionBySessionIDParams) (GetClaudeSessionBySessionIDRow, error)
 	GetClaudeSessionTokenUsage(ctx context.Context, sessionPk int64) (GetClaudeSessionTokenUsageRow, error)
@@ -492,6 +498,7 @@ type Querier interface {
 	// issue — checks every must-spec in the project. Deferred specs are skipped.
 	// reason: 'no-demo' = no demo test linked; 'failing-demo' = linked but not passing.
 	ListMustSpecShipGateOffenders(ctx context.Context, projectID int32) ([]ListMustSpecShipGateOffendersRow, error)
+	ListOpenChurnHintsByProject(ctx context.Context, projectID int32) ([]ZdxChurnHint, error)
 	ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	// IS-825 trigger 2: when `dx branch cut` creates a new version branch, the
 	// caller enumerates open dev issues that should auto-generate a backport task
@@ -554,6 +561,7 @@ type Querier interface {
 	// most recent first. Joins in the claude session (if any) that shared the reservation window.
 	ListReservationsByTodoKey(ctx context.Context, arg ListReservationsByTodoKeyParams) ([]ListReservationsByTodoKeyRow, error)
 	ListResolutionCommits(ctx context.Context, resolutionID string) ([]ZdxIssueResolutionCommit, error)
+	ListResolutionsByHint(ctx context.Context, hintID int64) ([]ZdxChurnHintResolution, error)
 	ListResolutionsByProject(ctx context.Context, projectID int32) ([]ZdxIssueResolution, error)
 	ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ListRevisionsRow, error)
 	ListRevisionsByTarget(ctx context.Context, arg ListRevisionsByTargetParams) ([]ListRevisionsByTargetRow, error)
@@ -814,6 +822,7 @@ type Querier interface {
 	UpdateAtlasChunk(ctx context.Context, arg UpdateAtlasChunkParams) error
 	UpdateAtlasNode(ctx context.Context, arg UpdateAtlasNodeParams) error
 	UpdateChunkBodyAndVerify(ctx context.Context, arg UpdateChunkBodyAndVerifyParams) (ZdxNarrativeChunk, error)
+	UpdateChurnHintLastActive(ctx context.Context, id int64) error
 	UpdateClaudeSessionSummary(ctx context.Context, arg UpdateClaudeSessionSummaryParams) error
 	UpdateDiscussionSession(ctx context.Context, arg UpdateDiscussionSessionParams) (ZdxDiscussion, error)
 	UpdateDiscussionStatus(ctx context.Context, arg UpdateDiscussionStatusParams) error

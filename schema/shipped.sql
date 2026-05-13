@@ -222,6 +222,112 @@ ALTER SEQUENCE public.zdx_budget_pauses_id_seq OWNED BY public.zdx_budget_pauses
 
 
 --
+-- Name: zdx_churn_hint_refs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_churn_hint_refs (
+    id integer NOT NULL,
+    hint_id bigint NOT NULL,
+    ref_type text NOT NULL,
+    ref_id text NOT NULL,
+    observation text DEFAULT ''::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT zdx_churn_hint_refs_ref_type_check CHECK ((ref_type = ANY (ARRAY['issue'::text, 'task'::text, 'session'::text, 'file'::text, 'review'::text, 'verdict'::text, 'operator'::text])))
+);
+
+
+--
+-- Name: zdx_churn_hint_refs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_churn_hint_refs_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_churn_hint_refs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_churn_hint_refs_id_seq OWNED BY public.zdx_churn_hint_refs.id;
+
+
+--
+-- Name: zdx_churn_hint_resolutions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_churn_hint_resolutions (
+    id integer NOT NULL,
+    hint_id bigint NOT NULL,
+    resolution_type text NOT NULL,
+    resolution_id text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT zdx_churn_hint_resolutions_resolution_type_check CHECK ((resolution_type = ANY (ARRAY['issue'::text, 'pattern'::text])))
+);
+
+
+--
+-- Name: zdx_churn_hint_resolutions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_churn_hint_resolutions_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_churn_hint_resolutions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_churn_hint_resolutions_id_seq OWNED BY public.zdx_churn_hint_resolutions.id;
+
+
+--
+-- Name: zdx_churn_hints; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_churn_hints (
+    id bigint NOT NULL,
+    project_id integer NOT NULL,
+    title text NOT NULL,
+    summary text DEFAULT ''::text NOT NULL,
+    status text DEFAULT 'open'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_active_at timestamp with time zone DEFAULT now() NOT NULL,
+    closed_at timestamp with time zone,
+    closed_by_ref text,
+    CONSTRAINT zdx_churn_hints_status_check CHECK ((status = ANY (ARRAY['open'::text, 'stale-closed'::text, 'resolved-closed'::text])))
+);
+
+
+--
+-- Name: zdx_churn_hints_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_churn_hints_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_churn_hints_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_churn_hints_id_seq OWNED BY public.zdx_churn_hints.id;
+
+
+--
 -- Name: zdx_claude_events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3048,6 +3154,27 @@ ALTER TABLE ONLY public.zdx_budget_pauses ALTER COLUMN id SET DEFAULT nextval('p
 
 
 --
+-- Name: zdx_churn_hint_refs id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_churn_hint_refs ALTER COLUMN id SET DEFAULT nextval('public.zdx_churn_hint_refs_id_seq'::regclass);
+
+
+--
+-- Name: zdx_churn_hint_resolutions id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_churn_hint_resolutions ALTER COLUMN id SET DEFAULT nextval('public.zdx_churn_hint_resolutions_id_seq'::regclass);
+
+
+--
+-- Name: zdx_churn_hints id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_churn_hints ALTER COLUMN id SET DEFAULT nextval('public.zdx_churn_hints_id_seq'::regclass);
+
+
+--
 -- Name: zdx_claude_events id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -3563,6 +3690,30 @@ ALTER TABLE ONLY public.zdx_blocker_questions
 
 ALTER TABLE ONLY public.zdx_budget_pauses
     ADD CONSTRAINT zdx_budget_pauses_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_churn_hint_refs zdx_churn_hint_refs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_churn_hint_refs
+    ADD CONSTRAINT zdx_churn_hint_refs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_churn_hint_resolutions zdx_churn_hint_resolutions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_churn_hint_resolutions
+    ADD CONSTRAINT zdx_churn_hint_resolutions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_churn_hints zdx_churn_hints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_churn_hints
+    ADD CONSTRAINT zdx_churn_hints_pkey PRIMARY KEY (id);
 
 
 --
@@ -4570,6 +4721,27 @@ CREATE INDEX idx_blocker_questions_target ON public.zdx_blocker_questions USING 
 
 
 --
+-- Name: idx_churn_hint_refs_hint; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_churn_hint_refs_hint ON public.zdx_churn_hint_refs USING btree (hint_id);
+
+
+--
+-- Name: idx_churn_hint_resolutions_hint; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_churn_hint_resolutions_hint ON public.zdx_churn_hint_resolutions USING btree (hint_id);
+
+
+--
+-- Name: idx_churn_hints_project_status_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_churn_hints_project_status_active ON public.zdx_churn_hints USING btree (project_id, status, last_active_at DESC);
+
+
+--
 -- Name: idx_comments_parent; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5281,6 +5453,30 @@ ALTER TABLE ONLY public.zdx_budget_pauses
 
 ALTER TABLE ONLY public.zdx_budget_pauses
     ADD CONSTRAINT zdx_budget_pauses_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_churn_hint_refs zdx_churn_hint_refs_hint_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_churn_hint_refs
+    ADD CONSTRAINT zdx_churn_hint_refs_hint_id_fkey FOREIGN KEY (hint_id) REFERENCES public.zdx_churn_hints(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_churn_hint_resolutions zdx_churn_hint_resolutions_hint_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_churn_hint_resolutions
+    ADD CONSTRAINT zdx_churn_hint_resolutions_hint_id_fkey FOREIGN KEY (hint_id) REFERENCES public.zdx_churn_hints(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_churn_hints zdx_churn_hints_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_churn_hints
+    ADD CONSTRAINT zdx_churn_hints_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --
