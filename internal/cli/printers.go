@@ -32,9 +32,6 @@ func PrintIssueItem(iss clitypes.IssueItem) {
 	if iss.ReopenCount > 0 {
 		fmt.Printf("Reopens:   %d  (churn signal)\n", iss.ReopenCount)
 	}
-	if iss.InteractiveOnly {
-		fmt.Printf("Interactive only: yes  (hidden from autonomous agent loop)\n")
-	}
 	if iss.CompletedInSha != "" {
 		short := iss.CompletedInSha
 		if len(short) > 12 {

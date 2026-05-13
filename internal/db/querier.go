@@ -766,7 +766,6 @@ type Querier interface {
 	SetAgentIdle(ctx context.Context, arg SetAgentIdleParams) error
 	SetEventVerdict(ctx context.Context, arg SetEventVerdictParams) (ZdxEvent, error)
 	SetIssueField(ctx context.Context, arg SetIssueFieldParams) error
-	SetIssueInteractiveOnly(ctx context.Context, arg SetIssueInteractiveOnlyParams) error
 	SetIssuePriority(ctx context.Context, arg SetIssuePriorityParams) error
 	SetProjectClassification(ctx context.Context, arg SetProjectClassificationParams) error
 	SetProjectGitConfig(ctx context.Context, arg SetProjectGitConfigParams) error

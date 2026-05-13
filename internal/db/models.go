@@ -452,28 +452,27 @@ type ZdxInvite struct {
 }
 
 type ZdxIssue struct {
-	ID              string             `db:"id" json:"id"`
-	ProjectID       int32              `db:"project_id" json:"project_id"`
-	Title           string             `db:"title" json:"title"`
-	Status          string             `db:"status" json:"status"`
-	Priority        string             `db:"priority" json:"priority"`
-	Component       string             `db:"component" json:"component"`
-	Context         string             `db:"context" json:"context"`
-	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	IssueType       string             `db:"issue_type" json:"issue_type"`
-	DuplicateOf     string             `db:"duplicate_of" json:"duplicate_of"`
-	Url             string             `db:"url" json:"url"`
-	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	SourceErrorID   pgtype.Int8        `db:"source_error_id" json:"source_error_id"`
-	LinkOf          string             `db:"link_of" json:"link_of"`
-	ReopenCount     int32              `db:"reopen_count" json:"reopen_count"`
-	ClosedAt        pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
-	InteractiveOnly bool               `db:"interactive_only" json:"interactive_only"`
-	TargetBranch    string             `db:"target_branch" json:"target_branch"`
-	CloseReason     string             `db:"close_reason" json:"close_reason"`
-	NodeRef         pgtype.Text        `db:"node_ref" json:"node_ref"`
-	CompletedInSha  pgtype.Text        `db:"completed_in_sha" json:"completed_in_sha"`
-	ClosedDirty     pgtype.Bool        `db:"closed_dirty" json:"closed_dirty"`
+	ID             string             `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Title          string             `db:"title" json:"title"`
+	Status         string             `db:"status" json:"status"`
+	Priority       string             `db:"priority" json:"priority"`
+	Component      string             `db:"component" json:"component"`
+	Context        string             `db:"context" json:"context"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	IssueType      string             `db:"issue_type" json:"issue_type"`
+	DuplicateOf    string             `db:"duplicate_of" json:"duplicate_of"`
+	Url            string             `db:"url" json:"url"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	SourceErrorID  pgtype.Int8        `db:"source_error_id" json:"source_error_id"`
+	LinkOf         string             `db:"link_of" json:"link_of"`
+	ReopenCount    int32              `db:"reopen_count" json:"reopen_count"`
+	ClosedAt       pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	TargetBranch   string             `db:"target_branch" json:"target_branch"`
+	CloseReason    string             `db:"close_reason" json:"close_reason"`
+	NodeRef        pgtype.Text        `db:"node_ref" json:"node_ref"`
+	CompletedInSha pgtype.Text        `db:"completed_in_sha" json:"completed_in_sha"`
+	ClosedDirty    pgtype.Bool        `db:"closed_dirty" json:"closed_dirty"`
 }
 
 type ZdxIssueBlock struct {

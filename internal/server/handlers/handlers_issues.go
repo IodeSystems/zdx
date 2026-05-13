@@ -390,15 +390,14 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "edit-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/edit"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug            string  `json:"slug"`
-				ID              int32   `json:"id"`
-				Title           *string `json:"title,omitempty"`
-				Context         *string `json:"context,omitempty"`
-				Priority        *int32  `json:"priority,omitempty"`
-				IssueType       *string `json:"issue_type,omitempty"`
-				Component       *string `json:"component,omitempty"`
-				URL             *string `json:"url,omitempty"`
-				InteractiveOnly *bool   `json:"interactive_only,omitempty"`
+				Slug      string  `json:"slug"`
+				ID        int32   `json:"id"`
+				Title     *string `json:"title,omitempty"`
+				Context   *string `json:"context,omitempty"`
+				Priority  *int32  `json:"priority,omitempty"`
+				IssueType *string `json:"issue_type,omitempty"`
+				Component *string `json:"component,omitempty"`
+				URL       *string `json:"url,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
@@ -450,15 +449,6 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				}
 				if oldValMap[field] != *val {
 					h.recordRevision(ctx, p.ID, "issue", issueID, field, oldValMap[field], *val)
-				}
-			}
-			if in.Body.InteractiveOnly != nil {
-				if err := h.Q.SetIssueInteractiveOnly(ctx, db.SetIssueInteractiveOnlyParams{
-					InteractiveOnly: *in.Body.InteractiveOnly,
-					ProjectID:       p.ID,
-					ID:              issueID,
-				}); err != nil {
-					return nil, apiErr(500, err.Error())
 				}
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -1623,7 +1613,6 @@ func toIssueItem(r db.ZdxIssue) IssueItem {
 		LinkOf:          r.LinkOf,
 		CloseReason:     r.CloseReason,
 		ReopenCount:     r.ReopenCount,
-		InteractiveOnly: r.InteractiveOnly,
 		TargetBranch:    r.TargetBranch,
 		URL:             r.Url,
 		NodeRef:         nodeRef,

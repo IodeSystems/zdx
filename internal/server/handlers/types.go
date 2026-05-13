@@ -18,7 +18,6 @@ type IssueItem struct {
 	LinkOf          string            `json:"link_of,omitempty"`
 	CloseReason     string            `json:"close_reason,omitempty"`
 	ReopenCount     int32             `json:"reopen_count,omitempty" doc:"Number of times this issue has been reopened — a churn signal for stabilization candidates"`
-	InteractiveOnly bool              `json:"interactive_only,omitempty"`
 	TargetBranch    string            `json:"target_branch,omitempty"`
 	URL             string            `json:"url"`
 	NodeRef         string            `json:"node_ref,omitempty" doc:"Atlas node this issue is filed against, formatted as kind:slug; empty when not filed against a node"`

@@ -167,10 +167,9 @@ type AddIssueResponse struct {
 	Features       string  `json:"features"`
 
 	// Id Server integer ID; CLI formats as IS-N
-	Id              int32   `json:"id"`
-	InteractiveOnly *bool   `json:"interactive_only,omitempty"`
-	IssueType       string  `json:"issue_type"`
-	LinkOf          *string `json:"link_of,omitempty"`
+	Id        int32   `json:"id"`
+	IssueType string  `json:"issue_type"`
+	LinkOf    *string `json:"link_of,omitempty"`
 
 	// NodeRef Atlas node this issue is filed against, formatted as kind:slug; empty when not filed against a node
 	NodeRef  *string `json:"node_ref,omitempty"`
@@ -382,7 +381,6 @@ type AgentClaimAnyRequest struct {
 	Schema       *string `json:"$schema,omitempty"`
 	AgentId      string  `json:"agent_id"`
 	LeaseMinutes *int32  `json:"lease_minutes,omitempty"`
-	Mode         *string `json:"mode,omitempty"`
 	Persona      *string `json:"persona,omitempty"`
 }
 
@@ -392,7 +390,6 @@ type AgentClaimRequest struct {
 	Schema       *string `json:"$schema,omitempty"`
 	AgentId      string  `json:"agent_id"`
 	LeaseMinutes *int32  `json:"lease_minutes,omitempty"`
-	Mode         *string `json:"mode,omitempty"`
 	Persona      *string `json:"persona,omitempty"`
 	ScopeIssueId *string `json:"scope_issue_id,omitempty"`
 	Slug         string  `json:"slug"`
@@ -1616,16 +1613,15 @@ type DoctorTokenHygieneResponse struct {
 // EditIssueRequest defines model for Edit-issueRequest.
 type EditIssueRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema          *string `json:"$schema,omitempty"`
-	Component       *string `json:"component,omitempty"`
-	Context         *string `json:"context,omitempty"`
-	Id              int32   `json:"id"`
-	InteractiveOnly *bool   `json:"interactive_only,omitempty"`
-	IssueType       *string `json:"issue_type,omitempty"`
-	Priority        *int32  `json:"priority,omitempty"`
-	Slug            string  `json:"slug"`
-	Title           *string `json:"title,omitempty"`
-	Url             *string `json:"url,omitempty"`
+	Schema    *string `json:"$schema,omitempty"`
+	Component *string `json:"component,omitempty"`
+	Context   *string `json:"context,omitempty"`
+	Id        int32   `json:"id"`
+	IssueType *string `json:"issue_type,omitempty"`
+	Priority  *int32  `json:"priority,omitempty"`
+	Slug      string  `json:"slug"`
+	Title     *string `json:"title,omitempty"`
+	Url       *string `json:"url,omitempty"`
 }
 
 // Entry defines model for Entry.
@@ -2228,10 +2224,9 @@ type IssueItem struct {
 	Features       string  `json:"features"`
 
 	// Id Server integer ID; CLI formats as IS-N
-	Id              int32   `json:"id"`
-	InteractiveOnly *bool   `json:"interactive_only,omitempty"`
-	IssueType       string  `json:"issue_type"`
-	LinkOf          *string `json:"link_of,omitempty"`
+	Id        int32   `json:"id"`
+	IssueType string  `json:"issue_type"`
+	LinkOf    *string `json:"link_of,omitempty"`
 
 	// NodeRef Atlas node this issue is filed against, formatted as kind:slug; empty when not filed against a node
 	NodeRef  *string `json:"node_ref,omitempty"`

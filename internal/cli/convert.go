@@ -111,9 +111,6 @@ func IssueToCli(iss dxclient.IssueItem) clitypes.IssueItem {
 	if iss.ReopenCount != nil {
 		out.ReopenCount = int32(*iss.ReopenCount)
 	}
-	if iss.InteractiveOnly != nil {
-		out.InteractiveOnly = *iss.InteractiveOnly
-	}
 	if iss.CompletedInSha != nil {
 		out.CompletedInSha = *iss.CompletedInSha
 	}

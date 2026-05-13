@@ -81,7 +81,6 @@ func claimNextTodo(rc remoteConfig, agentID, persona string, leaseMinutes int32)
 	c := cli.NewClient(rc.url, rc.key)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	mode := "autonomous"
 	if persona == "" {
 		persona = DefaultPersona
 	}
@@ -90,7 +89,6 @@ func claimNextTodo(rc remoteConfig, agentID, persona string, leaseMinutes int32)
 		resp, err := c.AgentClaimAnyWithResponse(ctx, &dxclient.AgentClaimAnyParams{}, dxclient.AgentClaimAnyJSONRequestBody{
 			AgentId:      agentID,
 			LeaseMinutes: &leaseMinutes,
-			Mode:         &mode,
 			Persona:      &persona,
 		})
 		if err != nil {
@@ -106,7 +104,6 @@ func claimNextTodo(rc remoteConfig, agentID, persona string, leaseMinutes int32)
 		Slug:         rc.slug,
 		AgentId:      agentID,
 		LeaseMinutes: &leaseMinutes,
-		Mode:         &mode,
 		Persona:      &persona,
 	})
 	if err != nil {

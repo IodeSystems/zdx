@@ -5629,7 +5629,6 @@ export interface components {
              * @description Server integer ID; CLI formats as IS-N
              */
             id: number;
-            interactive_only?: boolean;
             issue_type: string;
             link_of?: string;
             /** @description Atlas node this issue is filed against, formatted as kind:slug; empty when not filed against a node */
@@ -5890,8 +5889,6 @@ export interface components {
             agent_id: string;
             /** Format: int32 */
             lease_minutes?: number;
-            mode?: string;
-            /** @description Role tier (dev|tech|reviewer|product) the agent claims AS (IS-1096). Empty defaults to 'dev'. */
             persona?: string;
         };
         "Agent-claimRequest": {
@@ -5904,11 +5901,9 @@ export interface components {
             agent_id: string;
             /** Format: int32 */
             lease_minutes?: number;
-            mode?: string;
+            persona?: string;
             scope_issue_id?: string;
             slug: string;
-            /** @description Role tier (dev|tech|reviewer|product) the agent claims AS (IS-1096). Empty defaults to 'dev'. */
-            persona?: string;
         };
         "Agent-evaluateRequest": {
             /**
@@ -6651,12 +6646,14 @@ export interface components {
              * @example https://example.com/schemas/Close-agent-sessionRequest.json
              */
             readonly $schema?: string;
+            abort_reason?: string;
             /** Format: int64 */
             duration_ms: number;
             /** Format: int32 */
             event_count: number;
             /** Format: int32 */
             exit_code: number;
+            spin_lock?: components["schemas"]["SpinLockAbort"];
             tokens: components["schemas"]["TokensStruct"];
         };
         "Close-agent-sessionResponse": {
@@ -6862,13 +6859,12 @@ export interface components {
             agent_type?: string;
             alias: string;
             issue_id: string;
+            persona?: string;
             provider: string;
             title?: string;
             /** Format: int32 */
             todo_id?: number;
             trigger: string;
-            /** @description Role tier (dev|tech|reviewer|product) the agent claims AS (IS-1096). Empty defaults to 'dev'. */
-            persona?: string;
         };
         "Create-agent-sessionResponse": {
             /**
@@ -7413,7 +7409,6 @@ export interface components {
             context?: string;
             /** Format: int32 */
             id: number;
-            interactive_only?: boolean;
             issue_type?: string;
             /** Format: int32 */
             priority?: number;
@@ -8133,7 +8128,6 @@ export interface components {
              * @description Server integer ID; CLI formats as IS-N
              */
             id: number;
-            interactive_only?: boolean;
             issue_type: string;
             link_of?: string;
             /** @description Atlas node this issue is filed against, formatted as kind:slug; empty when not filed against a node */
@@ -10838,6 +10832,14 @@ export interface components {
             layer: string;
             name: string;
             status: string;
+        };
+        SpinLockAbort: {
+            args_digest: string;
+            /** Format: int32 */
+            last_turn: number;
+            /** Format: int32 */
+            repeat_count: number;
+            tool: string;
         };
         StaleStreamItem: {
             /** Format: int64 */

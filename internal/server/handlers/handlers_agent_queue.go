@@ -133,7 +133,7 @@ func foldIssuePriority(base int32, issuePriority string) int32 {
 	return base - int32(5-p)*5
 }
 
-func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issueFilter string, autonomousMode bool) ([]agentCandidate, error) {
+func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issueFilter string) ([]agentCandidate, error) {
 	var candidates []agentCandidate
 
 	issues, err := h.Q.ListOpenIssues(ctx, projectID)
@@ -142,8 +142,8 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 	}
 
 	// Snapshot which open issues carry an explicit priority before any
-	// filtering (autonomous/BQ-blocked/ancestor-blocked) trims `issues`. The
-	// lane sort (TK-1757) consults this map to decide whether add/dev/closable
+	// filtering (BQ-blocked/ancestor-blocked) trims `issues`. The lane sort
+	// (TK-1757) consults this map to decide whether add/dev/closable
 	// candidates enter the priority lane or fall through to "other".
 	prioritizedIssues := map[string]bool{}
 	for _, iss := range issues {
@@ -159,17 +159,6 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 			if iss.ID == issueFilter {
 				filtered = append(filtered, iss)
 				break
-			}
-		}
-		issues = filtered
-	}
-
-	// Autonomous agents skip interactive-only issues.
-	if autonomousMode {
-		var filtered []db.ZdxIssue
-		for _, iss := range issues {
-			if !iss.InteractiveOnly {
-				filtered = append(filtered, iss)
 			}
 		}
 		issues = filtered
@@ -888,7 +877,7 @@ func loadExistingBlockedByKey(ctx context.Context, q *db.Queries, projectID int3
 func (h *Handler) refreshQueueAsync(projectID int32) {
 	go func() {
 		ctx := context.Background()
-		proposed, err := h.generateAgentQueue(ctx, projectID, "", false)
+		proposed, err := h.generateAgentQueue(ctx, projectID, "")
 		if err != nil {
 			return
 		}
@@ -995,7 +984,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 				return nil, err
 			}
 
-			proposed, err := h.generateAgentQueue(ctx, p.ID, in.Body.Issue, false)
+			proposed, err := h.generateAgentQueue(ctx, p.ID, in.Body.Issue)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -1111,7 +1100,6 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 				Slug         string `json:"slug"`
 				AgentID      string `json:"agent_id"`
 				LeaseMinutes int32  `json:"lease_minutes" required:"false"`
-				Mode         string `json:"mode" required:"false"`
 				// ScopeIssueID restricts the claim to todos whose issue_ref is the
 				// given tracker issue or any of its composition descendants. Used
 				// by `dx agent claude --scope=IS-N` to focus a worker loop on one
@@ -1134,7 +1122,6 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 			if leaseMin == 0 {
 				leaseMin = 10
 			}
-			autonomous := in.Body.Mode == "autonomous"
 			persona := in.Body.Persona
 			if persona == "" {
 				persona = "dev"
@@ -1152,7 +1139,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 						})
 					}
 				}
-				proposed, err := h.generateAgentQueue(ctx, p.ID, "", autonomous)
+				proposed, err := h.generateAgentQueue(ctx, p.ID, "")
 				if err != nil {
 					return nil, err
 				}
@@ -1367,7 +1354,6 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 			Body        struct {
 				AgentID      string `json:"agent_id"`
 				LeaseMinutes int32  `json:"lease_minutes" required:"false"`
-				Mode         string `json:"mode" required:"false"`
 				// Persona is the role tier (dev|tech|reviewer|product) the
 				// agent claims AS (IS-1096). Persisted as claim_persona on
 				// the todo. Empty defaults to "dev" server-side.
@@ -1384,7 +1370,6 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 			if leaseMin == 0 {
 				leaseMin = 10
 			}
-			autonomous := in.Body.Mode == "autonomous"
 			persona := in.Body.Persona
 			if persona == "" {
 				persona = "dev"
@@ -1406,7 +1391,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 						})
 					}
 				}
-				proposed, err := h.generateAgentQueue(ctx, p.ID, "", autonomous)
+				proposed, err := h.generateAgentQueue(ctx, p.ID, "")
 				if err != nil {
 					trace.Note(ctx, "queue_refresh_skipped", map[string]any{"slug": p.Slug, "err": err.Error()})
 					continue
@@ -1579,7 +1564,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 				// Post-resolve cycle check: if we just resolved a todo, regenerate
 				// the queue and see if the same key would come back. If so, the
 				// agent cannot fix this — auto-block to prevent infinite loops.
-				candidates, err := h.generateAgentQueue(ctx, todo.ProjectID, "", true)
+				candidates, err := h.generateAgentQueue(ctx, todo.ProjectID, "")
 				if err == nil {
 					for _, c := range candidates {
 						if c.Key == todo.Key {
