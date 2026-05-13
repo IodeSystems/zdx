@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -322,7 +323,7 @@ func (h *Handler) registerTodoRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(http.StatusNotFound, "project not found: "+in.Slug)
 			}
-			t, err := store.GetTodoByKey(ctx, db.GetTodoByKeyParams{ProjectID: p.ID, Key: in.Key})
+			t, err := resolveIncompleteTodo(ctx, store, p.ID, in.Key)
 			if err != nil {
 				return nil, apiErr(http.StatusNotFound, "todo not found: "+in.Key)
 			}
@@ -389,7 +390,7 @@ func (h *Handler) registerTodoRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(http.StatusNotFound, "project not found: "+in.Slug)
 			}
-			t, err := store.GetTodoByKey(ctx, db.GetTodoByKeyParams{ProjectID: p.ID, Key: in.Key})
+			t, err := resolveIncompleteTodo(ctx, store, p.ID, in.Key)
 			if err != nil {
 				return nil, apiErr(http.StatusNotFound, "todo not found: "+in.Key)
 			}
@@ -623,6 +624,34 @@ func (h *Handler) registerTodoRoutes(api huma.API) {
 				},
 			}, nil
 		})
+}
+
+// resolveIncompleteTodo accepts the {key} path param in either canonical
+// form (e.g. "dev-IS-1096") or as a numeric todo ID (e.g. "862623"). The
+// numeric path saves agents from discovering the canonical key form when
+// they only know the ID from the claim seed (`Claimed todo 862623 ...`).
+//
+// sqlc generates GetTodoByKeyRow and GetTodoByIDRow from queries selecting
+// the same columns in the same order, so the named struct types share an
+// underlying type and Go permits the conversion. If one query's column
+// list changes, the conversion stops compiling — the compiler catches the
+// drift instead of silently mis-projecting a field.
+func resolveIncompleteTodo(ctx context.Context, store TodoIncompleteStore, projectID int32, keyOrID string) (db.GetTodoByKeyRow, error) {
+	if isAllDigits(keyOrID) {
+		n, err := strconv.Atoi(keyOrID)
+		if err != nil {
+			return db.GetTodoByKeyRow{}, err
+		}
+		byID, err := store.GetTodoByID(ctx, int32(n))
+		if err != nil {
+			return db.GetTodoByKeyRow{}, err
+		}
+		if byID.ProjectID != projectID {
+			return db.GetTodoByKeyRow{}, pgx.ErrNoRows
+		}
+		return db.GetTodoByKeyRow(byID), nil
+	}
+	return store.GetTodoByKey(ctx, db.GetTodoByKeyParams{ProjectID: projectID, Key: keyOrID})
 }
 
 func isAllDigits(s string) bool {

@@ -230,6 +230,35 @@ func TestPostIncompleteReport200(t *testing.T) {
 	}
 }
 
+func TestPostIncompleteReportAcceptsNumericTodoID(t *testing.T) {
+	store := newTestStore()
+	api := newTodoIncompleteAPI(t, store)
+	resp := api.Post("/api/dx/projects/proj/todos/10/incomplete-reports", map[string]any{
+		"reason":      "environment_broken",
+		"explanation": "lint hook failed on preexisting missing-binary error",
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body: %s", resp.Code, resp.Body)
+	}
+	if len(store.reports) != 1 {
+		t.Fatalf("expected 1 report, got %d", len(store.reports))
+	}
+	if store.reports[0].TodoID != 10 {
+		t.Errorf("report bound to wrong todo: got %d, want 10", store.reports[0].TodoID)
+	}
+}
+
+func TestPostIncompleteReport404OnUnknownNumericID(t *testing.T) {
+	api := newTodoIncompleteAPI(t, newTestStore())
+	resp := api.Post("/api/dx/projects/proj/todos/9999/incomplete-reports", map[string]any{
+		"reason":      "environment_broken",
+		"explanation": "x",
+	})
+	if resp.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404; body: %s", resp.Code, resp.Body)
+	}
+}
+
 func TestPostIncompleteReport400InvalidReason(t *testing.T) {
 	api := newTodoIncompleteAPI(t, newTestStore())
 	resp := api.Post("/api/dx/projects/proj/todos/TK-1/incomplete-reports", map[string]any{

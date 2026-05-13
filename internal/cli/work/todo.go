@@ -96,9 +96,12 @@ func todoIncompleteCmd() *cobra.Command {
 	var reason, explanation, suggestedNext, agentID string
 	var evidenceArgs []string
 	cmd := &cobra.Command{
-		Use:   "incomplete <TK-N>",
+		Use:   "incomplete <todo-key-or-id>",
 		Short: "Report a todo as incomplete with structured reason + evidence",
 		Long: "Emit a structured incomplete-report so the project tracker can dedup and route blockers.\n" +
+			"Accepts either the canonical todo key (e.g. dev-IS-1096) or the numeric todo ID (e.g. 862623) — " +
+			"both forms resolve server-side. The numeric form is what the claim seed prints in `Claimed todo N`, " +
+			"so agents that copy it through Just Work without a separate key lookup.\n" +
 			"Allowed --reason values: " + strings.Join(incompleteReasons, ", ") + ".\n" +
 			"--evidence is repeatable; each value uses key=val syntax. Empty evidence is valid; later --evidence with the same key wins.",
 		Args: cobra.ExactArgs(1),
