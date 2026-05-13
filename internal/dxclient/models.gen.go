@@ -383,9 +383,7 @@ type AgentClaimAnyRequest struct {
 	AgentId      string  `json:"agent_id"`
 	LeaseMinutes *int32  `json:"lease_minutes,omitempty"`
 	Mode         *string `json:"mode,omitempty"`
-
-	// Persona Role tier (dev|tech|reviewer|product) the agent claims AS (IS-1096). Empty defaults to 'dev'.
-	Persona *string `json:"persona,omitempty"`
+	Persona      *string `json:"persona,omitempty"`
 }
 
 // AgentClaimRequest defines model for Agent-claimRequest.
@@ -395,8 +393,6 @@ type AgentClaimRequest struct {
 	AgentId      string  `json:"agent_id"`
 	LeaseMinutes *int32  `json:"lease_minutes,omitempty"`
 	Mode         *string `json:"mode,omitempty"`
-
-	// Persona Role tier (dev|tech|reviewer|product) the agent claims AS (IS-1096). Empty defaults to 'dev'.
 	Persona      *string `json:"persona,omitempty"`
 	ScopeIssueId *string `json:"scope_issue_id,omitempty"`
 	Slug         string  `json:"slug"`
@@ -1009,11 +1005,13 @@ type ClientItem struct {
 // CloseAgentSessionRequest defines model for Close-agent-sessionRequest.
 type CloseAgentSessionRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema     *string      `json:"$schema,omitempty"`
-	DurationMs int64        `json:"duration_ms"`
-	EventCount int32        `json:"event_count"`
-	ExitCode   int32        `json:"exit_code"`
-	Tokens     TokensStruct `json:"tokens"`
+	Schema      *string        `json:"$schema,omitempty"`
+	AbortReason *string        `json:"abort_reason,omitempty"`
+	DurationMs  int64          `json:"duration_ms"`
+	EventCount  int32          `json:"event_count"`
+	ExitCode    int32          `json:"exit_code"`
+	SpinLock    *SpinLockAbort `json:"spin_lock,omitempty"`
+	Tokens      TokensStruct   `json:"tokens"`
 }
 
 // CloseAgentSessionResponse defines model for Close-agent-sessionResponse.
@@ -1185,13 +1183,11 @@ type CreateAgentSessionRequest struct {
 	AgentType        *string `json:"agent_type,omitempty"`
 	Alias            string  `json:"alias"`
 	IssueId          string  `json:"issue_id"`
-
-	// Persona Role tier (dev|tech|reviewer|product) the agent claims AS (IS-1096). Empty defaults to 'dev'.
-	Persona  *string `json:"persona,omitempty"`
-	Provider string  `json:"provider"`
-	Title    *string `json:"title,omitempty"`
-	TodoId   *int32  `json:"todo_id,omitempty"`
-	Trigger  string  `json:"trigger"`
+	Persona          *string `json:"persona,omitempty"`
+	Provider         string  `json:"provider"`
+	Title            *string `json:"title,omitempty"`
+	TodoId           *int32  `json:"todo_id,omitempty"`
+	Trigger          string  `json:"trigger"`
 }
 
 // CreateAgentSessionResponse defines model for Create-agent-sessionResponse.
@@ -4412,6 +4408,14 @@ type SpecTestItem struct {
 	Layer     string `json:"layer"`
 	Name      string `json:"name"`
 	Status    string `json:"status"`
+}
+
+// SpinLockAbort defines model for SpinLockAbort.
+type SpinLockAbort struct {
+	ArgsDigest  string `json:"args_digest"`
+	LastTurn    int32  `json:"last_turn"`
+	RepeatCount int32  `json:"repeat_count"`
+	Tool        string `json:"tool"`
 }
 
 // StaleStreamItem defines model for StaleStreamItem.
