@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -283,5 +284,107 @@ func TestApplyTombstone_SkipsAlreadyCompacted(t *testing.T) {
 		if r.EventID == "tr-1" {
 			t.Error("applyTombstone should not re-compact an event that already has a record")
 		}
+	}
+}
+
+func TestCheckThreshold_BelowSixtyPctStays(t *testing.T) {
+	// 50% pressure (4096 reserve + 0 prompt vs 16384 nCtx → 25% used).
+	got := CheckThreshold(0, 4096, 16384, PhaseRaw)
+	if got != PhaseRaw {
+		t.Errorf("expected PhaseRaw at low pressure, got %d", got)
+	}
+}
+
+func TestCheckThreshold_SixtyPctAdvancesOne(t *testing.T) {
+	// 70% used: prompt=8000, reserve=4096, nCtx=16384 → 12096/16384 ≈ 0.738
+	if got := CheckThreshold(8000, 4096, 16384, PhaseRaw); got != PhaseTombstone {
+		t.Errorf("PhaseRaw at 70%% should advance to PhaseTombstone, got %d", got)
+	}
+	if got := CheckThreshold(8000, 4096, 16384, PhaseTombstone); got != PhaseCompact {
+		t.Errorf("PhaseTombstone at 70%% should advance to PhaseCompact, got %d", got)
+	}
+}
+
+func TestCheckThreshold_EightyPctReturnsPanic(t *testing.T) {
+	// 90% used: prompt=10752, reserve=4096, nCtx=16384 → 14848/16384 ≈ 0.906
+	cases := []Phase{PhaseRaw, PhaseTombstone, PhaseCompact}
+	for _, current := range cases {
+		got := CheckThreshold(10752, 4096, 16384, current)
+		if got != PhasePanic {
+			t.Errorf("at >80%% from phase %d, expected PhasePanic, got %d", current, got)
+		}
+	}
+}
+
+func TestCheckThreshold_DisabledWhenNCtxUnknown(t *testing.T) {
+	got := CheckThreshold(99999, 4096, 0, PhaseTombstone)
+	if got != PhaseTombstone {
+		t.Errorf("nCtx=0 should leave current phase untouched, got %d", got)
+	}
+}
+
+func TestCheckThreshold_CompactPhaseStaysAtSixtyPct(t *testing.T) {
+	// Already at PhaseCompact and only the 60% trigger fires — there is
+	// no further phase to advance to, so we hold steady (panic is the only
+	// way out of PhaseCompact).
+	got := CheckThreshold(8000, 4096, 16384, PhaseCompact)
+	if got != PhaseCompact {
+		t.Errorf("PhaseCompact at 60%% should hold, got %d", got)
+	}
+}
+
+func TestTombstoneJSONWalk_PreservesKeysTruncatesLeaves(t *testing.T) {
+	// Build a JSON payload large enough to clear tombstoneMinBytes.
+	leaf := strings.Repeat("z", 1000)
+	payload := map[string]any{
+		"status": "ok",
+		"items": []any{
+			map[string]any{"id": "a", "body": leaf},
+			map[string]any{"id": "b", "body": leaf},
+		},
+	}
+	raw, _ := json.Marshal(payload)
+	// Pad to ensure we exceed tombstoneMinBytes.
+	for len(raw) < tombstoneMinBytes {
+		payload["pad"] = strings.Repeat("p", tombstoneMinBytes)
+		raw, _ = json.Marshal(payload)
+	}
+
+	out := tombstoneJSONWalk(string(raw))
+	if !strings.Contains(out, `"_tombstoned":true`) {
+		t.Fatalf("expected tombstone marker, got: %.300s", out)
+	}
+	if !strings.Contains(out, `"_strategy":"tombstone-json-walk"`) {
+		t.Errorf("expected strategy field, got: %.300s", out)
+	}
+	// Keys from the original payload must survive.
+	for _, key := range []string{"status", "items", "id", "body"} {
+		if !strings.Contains(out, `"`+key+`"`) {
+			t.Errorf("expected key %q to be preserved, got: %.300s", key, out)
+		}
+	}
+	// Long leaf string must be truncated (1000 z's must NOT appear verbatim).
+	if strings.Contains(out, leaf) {
+		t.Error("expected long leaf string to be truncated by walkAndTruncate")
+	}
+}
+
+func TestTombstoneJSONWalk_FallsBackForNonJSON(t *testing.T) {
+	// Non-JSON input larger than the min-byte floor should fall through
+	// to the 10pct tombstone instead of erroring.
+	garbage := strings.Repeat("not json at all ", 500)
+	out := tombstoneJSONWalk(garbage)
+	if !strings.Contains(out, `"_tombstoned":true`) {
+		t.Errorf("expected fallback tombstone marker, got: %.200s", out)
+	}
+	if strings.Contains(out, `"_strategy":"tombstone-json-walk"`) {
+		t.Errorf("non-JSON should fall back to tombstone10pct (no _strategy field), got: %.200s", out)
+	}
+}
+
+func TestTombstoneJSONWalk_SkipsSmallContent(t *testing.T) {
+	small := `{"k":"v"}`
+	if got := tombstoneJSONWalk(small); got != small {
+		t.Errorf("small content should pass through, got %q", got)
 	}
 }

@@ -54,10 +54,56 @@ const (
 // event in the JSONL log carries one of these in its `strategy` field.
 const (
 	StrategyTombstone10pct    = "tombstone-10pct"
-	StrategyTombstoneJSONWalk = "tombstone-json-walk" // not yet implemented
+	StrategyTombstoneJSONWalk = "tombstone-json-walk"
 	StrategyCompactionSummary = "compaction-summary"
 	StrategyRolledIntoSummary = "rolled-into-summary"
 )
+
+// Phase is the compaction phase recommended by CheckThreshold. Numerically
+// 1-indexed so it matches the cs.phase int used by the session loop and
+// preserves the "advance by one" ratchet semantics: PhaseRaw → PhaseTombstone
+// → PhaseCompact. PhasePanic is a sentinel used when pressure exceeds the
+// hard threshold and the caller should advance immediately rather than wait
+// for another turn.
+type Phase int
+
+const (
+	PhaseRaw       Phase = 1 // session log replayed verbatim, no compaction
+	PhaseTombstone Phase = 2 // large tool_results outside pristine tail tombstoned
+	PhaseCompact   Phase = 3 // dropped middle replaced with synthesized summary
+	PhasePanic     Phase = 4 // hard threshold breached; force-advance
+)
+
+// CheckThreshold returns the recommended phase based on token pressure
+// (promptTokens + responseReserveTokens against nCtx). Mapping:
+//
+//	usage > 80% × nCtx → PhasePanic (force-advance from any phase)
+//	usage > 60% × nCtx → next phase up from current (Raw→Tombstone, Tombstone→Compact)
+//	otherwise          → current (no action)
+//
+// Returns current when nCtx is unavailable (≤0) so the caller treats
+// compaction as disabled. Pure function — safe to call on every turn.
+func CheckThreshold(promptTokens, responseReserveTokens, nCtx int, current Phase) Phase {
+	if nCtx <= 0 {
+		return current
+	}
+	used := float64(promptTokens + responseReserveTokens)
+	budget := float64(nCtx)
+	if used > thresholdPanic*budget {
+		return PhasePanic
+	}
+	if used > thresholdEnterPhase2*budget {
+		switch current {
+		case PhaseRaw:
+			return PhaseTombstone
+		case PhaseTombstone:
+			return PhaseCompact
+		default:
+			return current
+		}
+	}
+	return current
+}
 
 // SessionEvent is one line from the JSONL session log.
 type SessionEvent struct {
@@ -419,6 +465,71 @@ func tombstone10pct(orig string) string {
 		return orig[:cut]
 	}
 	return string(buf)
+}
+
+// tombstoneJSONWalk parses content as JSON and rewrites it into a marker that
+// preserves all map keys and array shapes but truncates leaf string values to
+// a small cap. Useful for tool_results that ARE JSON (e.g. structured API
+// responses) — keeps enough shape signal that the agent can recognize what
+// the result was without forcing it to rerun the tool.
+//
+// Falls back to tombstone10pct when content isn't valid JSON or is below the
+// minimum size threshold.
+func tombstoneJSONWalk(orig string) string {
+	if len(orig) < tombstoneMinBytes {
+		return orig
+	}
+	var v any
+	if err := json.Unmarshal([]byte(orig), &v); err != nil {
+		return tombstone10pct(orig)
+	}
+	walked := walkAndTruncate(v, 0, jsonWalkMaxDepth, jsonWalkLeafCap)
+	wrapper := map[string]any{
+		"_tombstoned":    true,
+		"_strategy":      StrategyTombstoneJSONWalk,
+		"_original_size": len(orig),
+		"_walked":        walked,
+		"_hint":          "rerun the tool to recover full output; keys/shape preserved",
+	}
+	buf, err := json.Marshal(wrapper)
+	if err != nil {
+		return tombstone10pct(orig)
+	}
+	return string(buf)
+}
+
+const (
+	jsonWalkMaxDepth = 4
+	jsonWalkLeafCap  = 64
+)
+
+// walkAndTruncate copies v, truncating any leaf string longer than leafCap
+// and replacing values past maxDepth with a depth-elided placeholder.
+func walkAndTruncate(v any, depth, maxDepth, leafCap int) any {
+	if depth > maxDepth {
+		return "…"
+	}
+	switch t := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(t))
+		for k, val := range t {
+			out[k] = walkAndTruncate(val, depth+1, maxDepth, leafCap)
+		}
+		return out
+	case []any:
+		out := make([]any, len(t))
+		for i, val := range t {
+			out[i] = walkAndTruncate(val, depth+1, maxDepth, leafCap)
+		}
+		return out
+	case string:
+		if len(t) <= leafCap {
+			return t
+		}
+		return t[:leafCap] + "…"
+	default:
+		return v
+	}
 }
 
 // applyTombstone walks the event log and produces tombstone.applied records

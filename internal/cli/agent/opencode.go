@@ -552,23 +552,15 @@ func (cs *opencodeChatSession) rehydrate(system, user string) ([]llm.ChatMsg, er
 	return hydrate(events, system, user, HydrationStrategy{}), nil
 }
 
-// shouldCompact returns the target phase if the current pressure crosses a
-// threshold, plus a bool indicating whether to compact. Panic-trigger forces
-// the next phase regardless of the current phase; the standard 60% trigger
-// only steps forward by one. Compaction is disabled when nCtx is unknown.
+// shouldCompact wraps CheckThreshold for the session loop. It clamps panic
+// returns to "advance one phase" (matching the existing ratchet semantics)
+// and reports whether any compaction action is needed.
 func (cs *opencodeChatSession) shouldCompact(promptTokens int) (int, bool) {
-	if cs.nCtx <= 0 {
+	if cs.phase >= int(PhaseCompact) {
 		return cs.phase, false
 	}
-	if cs.phase >= 3 {
-		return cs.phase, false
-	}
-	used := promptTokens + defaultResponseReserveTokens
-	budget := float64(cs.nCtx)
-	if float64(used) > thresholdPanic*budget {
-		return cs.phase + 1, true
-	}
-	if float64(used) > thresholdEnterPhase2*budget {
+	next := CheckThreshold(promptTokens, defaultResponseReserveTokens, cs.nCtx, Phase(cs.phase))
+	if next == PhasePanic || int(next) > cs.phase {
 		return cs.phase + 1, true
 	}
 	return cs.phase, false
