@@ -151,6 +151,8 @@ load_deploy_config() {
   DEPLOY_ENV_NAME=$(prop deploy.environment_name)
   DEPLOY_API_URL=$(prop deploy.api_url)
   DEPLOY_API_TOKEN=$(prop deploy.api_token)
+  # Fall back to .zdx/credentials (project API key) when deploy.api_token unset.
+  [ -z "$DEPLOY_API_TOKEN" ] && [ -f .zdx/credentials ] && DEPLOY_API_TOKEN=$(cat .zdx/credentials | tr -d '[:space:]')
 
   [ -z "$HOST" ]     && echo "[ship] Missing deploy.host"   && exit 1
   [ -z "$HZ_TOKEN" ] && echo "[ship] Missing deploy.token"  && exit 1
@@ -294,7 +296,7 @@ post_deploy_record() {
     --arg log "$log_content" \
     '{build_sha: $sha, build_branch: $branch, status: "success", duration_secs: $duration, log: $log}')
   local auth_header=()
-  [ -n "$DEPLOY_API_TOKEN" ] && auth_header=(-H "Authorization: Bearer $DEPLOY_API_TOKEN")
+  [ -n "$DEPLOY_API_TOKEN" ] && auth_header=(-H "X-Api-Key: $DEPLOY_API_TOKEN")
   if curl -sf -X POST \
     "${auth_header[@]}" \
     -H "Content-Type: application/json" \
