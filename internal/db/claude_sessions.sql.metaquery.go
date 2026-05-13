@@ -201,9 +201,9 @@ var MetaCreateClaudeSession = metaquery.Query{
 	Name:   "CreateClaudeSession",
 	Cmd:    ":one",
 	Source: "claude_sessions.sql",
-	SQL: `INSERT INTO zdx_claude_sessions (project_id, issue_id, session_id, title, alias, todo_id)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at, todo_id`,
+	SQL: `INSERT INTO zdx_claude_sessions (project_id, issue_id, session_id, title, alias, todo_id, persona)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at, todo_id, persona`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_claude_sessions"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_claude_sessions"},
@@ -218,6 +218,7 @@ RETURNING id, project_id, issue_id, session_id, title, alias, header, summary, s
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_claude_sessions"},
 		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_claude_sessions"},
 		{Name: "todo_id", OriginalName: "todo_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_claude_sessions"},
+		{Name: "persona", OriginalName: "persona", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_claude_sessions"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -226,13 +227,14 @@ RETURNING id, project_id, issue_id, session_id, title, alias, header, summary, s
 		{Position: 4, Name: "title", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 5, Name: "alias", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 6, Name: "todo_id", GoType: "pgtype.Int4", DBType: "pg_catalog.int4"},
+		{Position: 7, Name: "persona", GoType: "string", DBType: "text", NotNull: true},
 	},
 	Table: &metaquery.Table{Name: "zdx_claude_sessions"},
 }
 
 // WrapCreateClaudeSession returns a metaquery.Builder over MetaCreateClaudeSession, pre-bound with typed arguments.
 func WrapCreateClaudeSession(arg CreateClaudeSessionParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaCreateClaudeSession, arg.ProjectID, arg.IssueID, arg.SessionID, arg.Title, arg.Alias, arg.TodoID)
+	return metaquery.Wrap(&MetaCreateClaudeSession, arg.ProjectID, arg.IssueID, arg.SessionID, arg.Title, arg.Alias, arg.TodoID, arg.Persona)
 }
 
 // CreateClaudeSessionCols gives typed, name-safe access to CreateClaudeSession's output columns.
@@ -250,6 +252,7 @@ var CreateClaudeSessionCols = struct {
 	UpdatedAt metaquery.TimeCol
 	ClosedAt  metaquery.TimeCol
 	TodoID    metaquery.IntCol
+	Persona   metaquery.TextCol
 }{
 	ID:        metaquery.NewIntCol("id"),
 	ProjectID: metaquery.NewIntCol("project_id"),
@@ -264,6 +267,7 @@ var CreateClaudeSessionCols = struct {
 	UpdatedAt: metaquery.NewTimeCol("updated_at"),
 	ClosedAt:  metaquery.NewTimeCol("closed_at"),
 	TodoID:    metaquery.NewIntCol("todo_id"),
+	Persona:   metaquery.NewTextCol("persona"),
 }
 
 var MetaGetClaudeSession = metaquery.Query{

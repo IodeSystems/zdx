@@ -125,10 +125,11 @@ var MetaClaimNextTodo = metaquery.Query{
     claimed_at        = NOW(),
     lease_expires_at  = NOW() + ($2::int || ' minutes')::interval,
     claim_base_sha    = $3,
-    claim_base_branch = $4
+    claim_base_branch = $4,
+    claim_persona     = $5
   WHERE id = (
     SELECT t.id FROM zdx_todos t
-    WHERE t.project_id = $5
+    WHERE t.project_id = $6
       AND t.status = 'open'
       AND t.blocked = false
       AND (t.claimed_by = '' OR t.lease_expires_at < NOW())
@@ -139,12 +140,12 @@ var MetaClaimNextTodo = metaquery.Query{
   RETURNING id, project_id, text, title, description, key, persona, priority, status,
             target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
             claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-            claim_base_sha, claim_base_branch
+            claim_base_sha, claim_base_branch, claim_persona
 )
 SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
        c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
        c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
-       c.claim_base_sha, c.claim_base_branch,
+       c.claim_base_sha, c.claim_base_branch, c.claim_persona,
        COALESCE(i.target_branch, 'dev') AS target_branch
 FROM claimed c
 LEFT JOIN zdx_issues i ON i.id = c.issue_ref`,
@@ -174,6 +175,7 @@ LEFT JOIN zdx_issues i ON i.id = c.issue_ref`,
 		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "claimed"},
 		{Name: "claim_base_sha", OriginalName: "claim_base_sha", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
 		{Name: "claim_base_branch", OriginalName: "claim_base_branch", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "claim_persona", OriginalName: "claim_persona", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
@@ -181,13 +183,14 @@ LEFT JOIN zdx_issues i ON i.id = c.issue_ref`,
 		{Position: 2, Name: "lease_minutes", GoType: "int32", DBType: "int4", NotNull: true},
 		{Position: 3, Name: "claim_base_sha", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 4, Name: "claim_base_branch", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 5, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 5, Name: "claim_persona", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 6, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
 	},
 }
 
 // WrapClaimNextTodo returns a metaquery.Builder over MetaClaimNextTodo, pre-bound with typed arguments.
 func WrapClaimNextTodo(arg ClaimNextTodoParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaClaimNextTodo, arg.AgentID, arg.LeaseMinutes, arg.ClaimBaseSha, arg.ClaimBaseBranch, arg.ProjectID)
+	return metaquery.Wrap(&MetaClaimNextTodo, arg.AgentID, arg.LeaseMinutes, arg.ClaimBaseSha, arg.ClaimBaseBranch, arg.ClaimPersona, arg.ProjectID)
 }
 
 // ClaimNextTodoCols gives typed, name-safe access to ClaimNextTodo's output columns.
@@ -217,6 +220,7 @@ var ClaimNextTodoCols = struct {
 	ReopenCount      metaquery.IntCol
 	ClaimBaseSha     metaquery.TextCol
 	ClaimBaseBranch  metaquery.TextCol
+	ClaimPersona     metaquery.TextCol
 	TargetBranch     metaquery.TextCol
 }{
 	ID:               metaquery.NewIntCol("id"),
@@ -244,6 +248,7 @@ var ClaimNextTodoCols = struct {
 	ReopenCount:      metaquery.NewIntCol("reopen_count"),
 	ClaimBaseSha:     metaquery.NewTextCol("claim_base_sha"),
 	ClaimBaseBranch:  metaquery.NewTextCol("claim_base_branch"),
+	ClaimPersona:     metaquery.NewTextCol("claim_persona"),
 	TargetBranch:     metaquery.NewTextCol("target_branch"),
 }
 
@@ -257,7 +262,8 @@ var MetaClaimNextTodoAny = metaquery.Query{
     claimed_at        = NOW(),
     lease_expires_at  = NOW() + ($2::int || ' minutes')::interval,
     claim_base_sha    = $3,
-    claim_base_branch = $4
+    claim_base_branch = $4,
+    claim_persona     = $5
   WHERE id = (
     SELECT t.id FROM zdx_todos t
     JOIN zdx_projects p ON p.id = t.project_id
@@ -271,12 +277,12 @@ var MetaClaimNextTodoAny = metaquery.Query{
   RETURNING id, project_id, text, title, description, key, persona, priority, status,
             target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
             claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-            claim_base_sha, claim_base_branch
+            claim_base_sha, claim_base_branch, claim_persona
 )
 SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
        c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
        c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
-       c.claim_base_sha, c.claim_base_branch,
+       c.claim_base_sha, c.claim_base_branch, c.claim_persona,
        COALESCE(i.target_branch, 'dev') AS target_branch,
        p.slug AS project_slug
 FROM claimed c
@@ -308,6 +314,7 @@ JOIN zdx_projects p ON p.id = c.project_id`,
 		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "claimed"},
 		{Name: "claim_base_sha", OriginalName: "claim_base_sha", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
 		{Name: "claim_base_branch", OriginalName: "claim_base_branch", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "claim_persona", OriginalName: "claim_persona", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "project_slug", OriginalName: "slug", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
 	},
@@ -316,12 +323,13 @@ JOIN zdx_projects p ON p.id = c.project_id`,
 		{Position: 2, Name: "lease_minutes", GoType: "int32", DBType: "int4", NotNull: true},
 		{Position: 3, Name: "claim_base_sha", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 4, Name: "claim_base_branch", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 5, Name: "claim_persona", GoType: "string", DBType: "text", NotNull: true},
 	},
 }
 
 // WrapClaimNextTodoAny returns a metaquery.Builder over MetaClaimNextTodoAny, pre-bound with typed arguments.
 func WrapClaimNextTodoAny(arg ClaimNextTodoAnyParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaClaimNextTodoAny, arg.AgentID, arg.LeaseMinutes, arg.ClaimBaseSha, arg.ClaimBaseBranch)
+	return metaquery.Wrap(&MetaClaimNextTodoAny, arg.AgentID, arg.LeaseMinutes, arg.ClaimBaseSha, arg.ClaimBaseBranch, arg.ClaimPersona)
 }
 
 // ClaimNextTodoAnyCols gives typed, name-safe access to ClaimNextTodoAny's output columns.
@@ -351,6 +359,7 @@ var ClaimNextTodoAnyCols = struct {
 	ReopenCount      metaquery.IntCol
 	ClaimBaseSha     metaquery.TextCol
 	ClaimBaseBranch  metaquery.TextCol
+	ClaimPersona     metaquery.TextCol
 	TargetBranch     metaquery.TextCol
 	ProjectSlug      metaquery.TextCol
 }{
@@ -379,6 +388,7 @@ var ClaimNextTodoAnyCols = struct {
 	ReopenCount:      metaquery.NewIntCol("reopen_count"),
 	ClaimBaseSha:     metaquery.NewTextCol("claim_base_sha"),
 	ClaimBaseBranch:  metaquery.NewTextCol("claim_base_branch"),
+	ClaimPersona:     metaquery.NewTextCol("claim_persona"),
 	TargetBranch:     metaquery.NewTextCol("target_branch"),
 	ProjectSlug:      metaquery.NewTextCol("slug"),
 }
@@ -393,14 +403,15 @@ var MetaClaimNextTodoInScope = metaquery.Query{
     claimed_at        = NOW(),
     lease_expires_at  = NOW() + ($2::int || ' minutes')::interval,
     claim_base_sha    = $3,
-    claim_base_branch = $4
+    claim_base_branch = $4,
+    claim_persona     = $5
   WHERE id = (
     SELECT t.id FROM zdx_todos t
-    WHERE t.project_id = $5
+    WHERE t.project_id = $6
       AND t.status = 'open'
       AND t.blocked = false
       AND (t.claimed_by = '' OR t.lease_expires_at < NOW())
-      AND t.issue_ref = ANY($6::text[])
+      AND t.issue_ref = ANY($7::text[])
     ORDER BY t.priority, t.created_at
     LIMIT 1
     FOR UPDATE SKIP LOCKED
@@ -408,12 +419,12 @@ var MetaClaimNextTodoInScope = metaquery.Query{
   RETURNING id, project_id, text, title, description, key, persona, priority, status,
             target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
             claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-            claim_base_sha, claim_base_branch
+            claim_base_sha, claim_base_branch, claim_persona
 )
 SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
        c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
        c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
-       c.claim_base_sha, c.claim_base_branch,
+       c.claim_base_sha, c.claim_base_branch, c.claim_persona,
        COALESCE(i.target_branch, 'dev') AS target_branch
 FROM claimed c
 LEFT JOIN zdx_issues i ON i.id = c.issue_ref`,
@@ -443,6 +454,7 @@ LEFT JOIN zdx_issues i ON i.id = c.issue_ref`,
 		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "claimed"},
 		{Name: "claim_base_sha", OriginalName: "claim_base_sha", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
 		{Name: "claim_base_branch", OriginalName: "claim_base_branch", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "claim_persona", OriginalName: "claim_persona", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
@@ -450,14 +462,15 @@ LEFT JOIN zdx_issues i ON i.id = c.issue_ref`,
 		{Position: 2, Name: "lease_minutes", GoType: "int32", DBType: "int4", NotNull: true},
 		{Position: 3, Name: "claim_base_sha", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 4, Name: "claim_base_branch", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 5, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
-		{Position: 6, Name: "scope_issue_ids", GoType: "[]string", DBType: "text", NotNull: true, IsArray: true},
+		{Position: 5, Name: "claim_persona", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 6, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 7, Name: "scope_issue_ids", GoType: "[]string", DBType: "text", NotNull: true, IsArray: true},
 	},
 }
 
 // WrapClaimNextTodoInScope returns a metaquery.Builder over MetaClaimNextTodoInScope, pre-bound with typed arguments.
 func WrapClaimNextTodoInScope(arg ClaimNextTodoInScopeParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaClaimNextTodoInScope, arg.AgentID, arg.LeaseMinutes, arg.ClaimBaseSha, arg.ClaimBaseBranch, arg.ProjectID, arg.ScopeIssueIds)
+	return metaquery.Wrap(&MetaClaimNextTodoInScope, arg.AgentID, arg.LeaseMinutes, arg.ClaimBaseSha, arg.ClaimBaseBranch, arg.ClaimPersona, arg.ProjectID, arg.ScopeIssueIds)
 }
 
 // ClaimNextTodoInScopeCols gives typed, name-safe access to ClaimNextTodoInScope's output columns.
@@ -487,6 +500,7 @@ var ClaimNextTodoInScopeCols = struct {
 	ReopenCount      metaquery.IntCol
 	ClaimBaseSha     metaquery.TextCol
 	ClaimBaseBranch  metaquery.TextCol
+	ClaimPersona     metaquery.TextCol
 	TargetBranch     metaquery.TextCol
 }{
 	ID:               metaquery.NewIntCol("id"),
@@ -514,6 +528,7 @@ var ClaimNextTodoInScopeCols = struct {
 	ReopenCount:      metaquery.NewIntCol("reopen_count"),
 	ClaimBaseSha:     metaquery.NewTextCol("claim_base_sha"),
 	ClaimBaseBranch:  metaquery.NewTextCol("claim_base_branch"),
+	ClaimPersona:     metaquery.NewTextCol("claim_persona"),
 	TargetBranch:     metaquery.NewTextCol("target_branch"),
 }
 

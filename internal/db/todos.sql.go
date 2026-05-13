@@ -96,10 +96,11 @@ WITH claimed AS (
     claimed_at        = NOW(),
     lease_expires_at  = NOW() + ($2::int || ' minutes')::interval,
     claim_base_sha    = $3,
-    claim_base_branch = $4
+    claim_base_branch = $4,
+    claim_persona     = $5
   WHERE id = (
     SELECT t.id FROM zdx_todos t
-    WHERE t.project_id = $5
+    WHERE t.project_id = $6
       AND t.status = 'open'
       AND t.blocked = false
       AND (t.claimed_by = '' OR t.lease_expires_at < NOW())
@@ -110,12 +111,12 @@ WITH claimed AS (
   RETURNING id, project_id, text, title, description, key, persona, priority, status,
             target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
             claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-            claim_base_sha, claim_base_branch
+            claim_base_sha, claim_base_branch, claim_persona
 )
 SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
        c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
        c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
-       c.claim_base_sha, c.claim_base_branch,
+       c.claim_base_sha, c.claim_base_branch, c.claim_persona,
        COALESCE(i.target_branch, 'dev') AS target_branch
 FROM claimed c
 LEFT JOIN zdx_issues i ON i.id = c.issue_ref
@@ -126,6 +127,7 @@ type ClaimNextTodoParams struct {
 	LeaseMinutes    int32  `db:"lease_minutes" json:"lease_minutes"`
 	ClaimBaseSha    string `db:"claim_base_sha" json:"claim_base_sha"`
 	ClaimBaseBranch string `db:"claim_base_branch" json:"claim_base_branch"`
+	ClaimPersona    string `db:"claim_persona" json:"claim_persona"`
 	ProjectID       int32  `db:"project_id" json:"project_id"`
 }
 
@@ -155,18 +157,22 @@ type ClaimNextTodoRow struct {
 	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
 	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
 	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
+	ClaimPersona     string             `db:"claim_persona" json:"claim_persona"`
 	TargetBranch     string             `db:"target_branch" json:"target_branch"`
 }
 
 // Atomically claim the highest-priority unclaimed open todo for an agent.
 // Skips locked rows (concurrent agents get different items).
 // target_branch is resolved from the referenced issue (default 'dev').
+// claim_persona records the role the agent claimed AS (IS-1096); separate
+// from zdx_todos.persona which advertises the persona the todo is FOR.
 func (q *Queries) ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (ClaimNextTodoRow, error) {
 	row := q.db.QueryRow(ctx, claimNextTodo,
 		arg.AgentID,
 		arg.LeaseMinutes,
 		arg.ClaimBaseSha,
 		arg.ClaimBaseBranch,
+		arg.ClaimPersona,
 		arg.ProjectID,
 	)
 	var i ClaimNextTodoRow
@@ -196,6 +202,7 @@ func (q *Queries) ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (C
 		&i.ReopenCount,
 		&i.ClaimBaseSha,
 		&i.ClaimBaseBranch,
+		&i.ClaimPersona,
 		&i.TargetBranch,
 	)
 	return i, err
@@ -208,7 +215,8 @@ WITH claimed AS (
     claimed_at        = NOW(),
     lease_expires_at  = NOW() + ($2::int || ' minutes')::interval,
     claim_base_sha    = $3,
-    claim_base_branch = $4
+    claim_base_branch = $4,
+    claim_persona     = $5
   WHERE id = (
     SELECT t.id FROM zdx_todos t
     JOIN zdx_projects p ON p.id = t.project_id
@@ -222,12 +230,12 @@ WITH claimed AS (
   RETURNING id, project_id, text, title, description, key, persona, priority, status,
             target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
             claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-            claim_base_sha, claim_base_branch
+            claim_base_sha, claim_base_branch, claim_persona
 )
 SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
        c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
        c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
-       c.claim_base_sha, c.claim_base_branch,
+       c.claim_base_sha, c.claim_base_branch, c.claim_persona,
        COALESCE(i.target_branch, 'dev') AS target_branch,
        p.slug AS project_slug
 FROM claimed c
@@ -240,6 +248,7 @@ type ClaimNextTodoAnyParams struct {
 	LeaseMinutes    int32  `db:"lease_minutes" json:"lease_minutes"`
 	ClaimBaseSha    string `db:"claim_base_sha" json:"claim_base_sha"`
 	ClaimBaseBranch string `db:"claim_base_branch" json:"claim_base_branch"`
+	ClaimPersona    string `db:"claim_persona" json:"claim_persona"`
 }
 
 type ClaimNextTodoAnyRow struct {
@@ -268,6 +277,7 @@ type ClaimNextTodoAnyRow struct {
 	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
 	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
 	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
+	ClaimPersona     string             `db:"claim_persona" json:"claim_persona"`
 	TargetBranch     string             `db:"target_branch" json:"target_branch"`
 	ProjectSlug      string             `db:"project_slug" json:"project_slug"`
 }
@@ -288,6 +298,7 @@ func (q *Queries) ClaimNextTodoAny(ctx context.Context, arg ClaimNextTodoAnyPara
 		arg.LeaseMinutes,
 		arg.ClaimBaseSha,
 		arg.ClaimBaseBranch,
+		arg.ClaimPersona,
 	)
 	var i ClaimNextTodoAnyRow
 	err := row.Scan(
@@ -316,6 +327,7 @@ func (q *Queries) ClaimNextTodoAny(ctx context.Context, arg ClaimNextTodoAnyPara
 		&i.ReopenCount,
 		&i.ClaimBaseSha,
 		&i.ClaimBaseBranch,
+		&i.ClaimPersona,
 		&i.TargetBranch,
 		&i.ProjectSlug,
 	)
@@ -329,14 +341,15 @@ WITH claimed AS (
     claimed_at        = NOW(),
     lease_expires_at  = NOW() + ($2::int || ' minutes')::interval,
     claim_base_sha    = $3,
-    claim_base_branch = $4
+    claim_base_branch = $4,
+    claim_persona     = $5
   WHERE id = (
     SELECT t.id FROM zdx_todos t
-    WHERE t.project_id = $5
+    WHERE t.project_id = $6
       AND t.status = 'open'
       AND t.blocked = false
       AND (t.claimed_by = '' OR t.lease_expires_at < NOW())
-      AND t.issue_ref = ANY($6::text[])
+      AND t.issue_ref = ANY($7::text[])
     ORDER BY t.priority, t.created_at
     LIMIT 1
     FOR UPDATE SKIP LOCKED
@@ -344,12 +357,12 @@ WITH claimed AS (
   RETURNING id, project_id, text, title, description, key, persona, priority, status,
             target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
             claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-            claim_base_sha, claim_base_branch
+            claim_base_sha, claim_base_branch, claim_persona
 )
 SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
        c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
        c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
-       c.claim_base_sha, c.claim_base_branch,
+       c.claim_base_sha, c.claim_base_branch, c.claim_persona,
        COALESCE(i.target_branch, 'dev') AS target_branch
 FROM claimed c
 LEFT JOIN zdx_issues i ON i.id = c.issue_ref
@@ -360,6 +373,7 @@ type ClaimNextTodoInScopeParams struct {
 	LeaseMinutes    int32    `db:"lease_minutes" json:"lease_minutes"`
 	ClaimBaseSha    string   `db:"claim_base_sha" json:"claim_base_sha"`
 	ClaimBaseBranch string   `db:"claim_base_branch" json:"claim_base_branch"`
+	ClaimPersona    string   `db:"claim_persona" json:"claim_persona"`
 	ProjectID       int32    `db:"project_id" json:"project_id"`
 	ScopeIssueIds   []string `db:"scope_issue_ids" json:"scope_issue_ids"`
 }
@@ -390,6 +404,7 @@ type ClaimNextTodoInScopeRow struct {
 	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
 	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
 	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
+	ClaimPersona     string             `db:"claim_persona" json:"claim_persona"`
 	TargetBranch     string             `db:"target_branch" json:"target_branch"`
 }
 
@@ -404,6 +419,7 @@ func (q *Queries) ClaimNextTodoInScope(ctx context.Context, arg ClaimNextTodoInS
 		arg.LeaseMinutes,
 		arg.ClaimBaseSha,
 		arg.ClaimBaseBranch,
+		arg.ClaimPersona,
 		arg.ProjectID,
 		arg.ScopeIssueIds,
 	)
@@ -434,6 +450,7 @@ func (q *Queries) ClaimNextTodoInScope(ctx context.Context, arg ClaimNextTodoInS
 		&i.ReopenCount,
 		&i.ClaimBaseSha,
 		&i.ClaimBaseBranch,
+		&i.ClaimPersona,
 		&i.TargetBranch,
 	)
 	return i, err

@@ -381,7 +381,8 @@ CREATE TABLE public.zdx_claude_sessions (
     status text DEFAULT ''::text NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     closed_at timestamp with time zone,
-    todo_id integer
+    todo_id integer,
+    persona text DEFAULT 'dev'::text NOT NULL
 );
 
 
@@ -2985,7 +2986,8 @@ CREATE TABLE public.zdx_todos (
     cycle_count integer DEFAULT 0 NOT NULL,
     reference_issue_id text DEFAULT ''::text NOT NULL,
     claim_base_sha text DEFAULT ''::text NOT NULL,
-    claim_base_branch text DEFAULT ''::text NOT NULL
+    claim_base_branch text DEFAULT ''::text NOT NULL,
+    claim_persona text DEFAULT 'dev'::text NOT NULL
 );
 
 

@@ -5891,6 +5891,8 @@ export interface components {
             /** Format: int32 */
             lease_minutes?: number;
             mode?: string;
+            /** @description Role tier (dev|tech|reviewer|product) the agent claims AS (IS-1096). Empty defaults to 'dev'. */
+            persona?: string;
         };
         "Agent-claimRequest": {
             /**
@@ -5905,6 +5907,8 @@ export interface components {
             mode?: string;
             scope_issue_id?: string;
             slug: string;
+            /** @description Role tier (dev|tech|reviewer|product) the agent claims AS (IS-1096). Empty defaults to 'dev'. */
+            persona?: string;
         };
         "Agent-evaluateRequest": {
             /**
@@ -6863,6 +6867,8 @@ export interface components {
             /** Format: int32 */
             todo_id?: number;
             trigger: string;
+            /** @description Role tier (dev|tech|reviewer|product) the agent claims AS (IS-1096). Empty defaults to 'dev'. */
+            persona?: string;
         };
         "Create-agent-sessionResponse": {
             /**

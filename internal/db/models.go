@@ -136,6 +136,7 @@ type ZdxClaudeSession struct {
 	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
 	TodoID    pgtype.Int4        `db:"todo_id" json:"todo_id"`
+	Persona   string             `db:"persona" json:"persona"`
 }
 
 type ZdxCodeRef struct {
@@ -1072,6 +1073,7 @@ type ZdxTodo struct {
 	ReferenceIssueID string             `db:"reference_issue_id" json:"reference_issue_id"`
 	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
 	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
+	ClaimPersona     string             `db:"claim_persona" json:"claim_persona"`
 }
 
 type ZdxTodoIncompleteReport struct {

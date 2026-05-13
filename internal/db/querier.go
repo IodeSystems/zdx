@@ -56,6 +56,8 @@ type Querier interface {
 	// Atomically claim the highest-priority unclaimed open todo for an agent.
 	// Skips locked rows (concurrent agents get different items).
 	// target_branch is resolved from the referenced issue (default 'dev').
+	// claim_persona records the role the agent claimed AS (IS-1096); separate
+	// from zdx_todos.persona which advertises the persona the todo is FOR.
 	ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (ClaimNextTodoRow, error)
 	// Cross-project atomic claim for unpinned global agents. Picks the
 	// single best todo across every project, ordered by project.priority

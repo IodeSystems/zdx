@@ -383,6 +383,9 @@ type AgentClaimAnyRequest struct {
 	AgentId      string  `json:"agent_id"`
 	LeaseMinutes *int32  `json:"lease_minutes,omitempty"`
 	Mode         *string `json:"mode,omitempty"`
+
+	// Persona Role tier (dev|tech|reviewer|product) the agent claims AS (IS-1096). Empty defaults to 'dev'.
+	Persona *string `json:"persona,omitempty"`
 }
 
 // AgentClaimRequest defines model for Agent-claimRequest.
@@ -392,6 +395,9 @@ type AgentClaimRequest struct {
 	AgentId      string  `json:"agent_id"`
 	LeaseMinutes *int32  `json:"lease_minutes,omitempty"`
 	Mode         *string `json:"mode,omitempty"`
+
+	// Persona Role tier (dev|tech|reviewer|product) the agent claims AS (IS-1096). Empty defaults to 'dev'.
+	Persona      *string `json:"persona,omitempty"`
 	ScopeIssueId *string `json:"scope_issue_id,omitempty"`
 	Slug         string  `json:"slug"`
 }
@@ -1179,10 +1185,13 @@ type CreateAgentSessionRequest struct {
 	AgentType        *string `json:"agent_type,omitempty"`
 	Alias            string  `json:"alias"`
 	IssueId          string  `json:"issue_id"`
-	Provider         string  `json:"provider"`
-	Title            *string `json:"title,omitempty"`
-	TodoId           *int32  `json:"todo_id,omitempty"`
-	Trigger          string  `json:"trigger"`
+
+	// Persona Role tier (dev|tech|reviewer|product) the agent claims AS (IS-1096). Empty defaults to 'dev'.
+	Persona  *string `json:"persona,omitempty"`
+	Provider string  `json:"provider"`
+	Title    *string `json:"title,omitempty"`
+	TodoId   *int32  `json:"todo_id,omitempty"`
+	Trigger  string  `json:"trigger"`
 }
 
 // CreateAgentSessionResponse defines model for Create-agent-sessionResponse.

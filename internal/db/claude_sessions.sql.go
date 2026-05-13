@@ -153,9 +153,9 @@ func (q *Queries) CreateClaudeEvent(ctx context.Context, arg CreateClaudeEventPa
 }
 
 const createClaudeSession = `-- name: CreateClaudeSession :one
-INSERT INTO zdx_claude_sessions (project_id, issue_id, session_id, title, alias, todo_id)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at, todo_id
+INSERT INTO zdx_claude_sessions (project_id, issue_id, session_id, title, alias, todo_id, persona)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at, todo_id, persona
 `
 
 type CreateClaudeSessionParams struct {
@@ -165,6 +165,7 @@ type CreateClaudeSessionParams struct {
 	Title     string      `db:"title" json:"title"`
 	Alias     string      `db:"alias" json:"alias"`
 	TodoID    pgtype.Int4 `db:"todo_id" json:"todo_id"`
+	Persona   string      `db:"persona" json:"persona"`
 }
 
 type CreateClaudeSessionRow struct {
@@ -181,6 +182,7 @@ type CreateClaudeSessionRow struct {
 	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
 	TodoID    pgtype.Int4        `db:"todo_id" json:"todo_id"`
+	Persona   string             `db:"persona" json:"persona"`
 }
 
 func (q *Queries) CreateClaudeSession(ctx context.Context, arg CreateClaudeSessionParams) (CreateClaudeSessionRow, error) {
@@ -191,6 +193,7 @@ func (q *Queries) CreateClaudeSession(ctx context.Context, arg CreateClaudeSessi
 		arg.Title,
 		arg.Alias,
 		arg.TodoID,
+		arg.Persona,
 	)
 	var i CreateClaudeSessionRow
 	err := row.Scan(
@@ -207,6 +210,7 @@ func (q *Queries) CreateClaudeSession(ctx context.Context, arg CreateClaudeSessi
 		&i.UpdatedAt,
 		&i.ClosedAt,
 		&i.TodoID,
+		&i.Persona,
 	)
 	return i, err
 }
