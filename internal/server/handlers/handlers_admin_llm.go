@@ -32,7 +32,7 @@ type LLMConfigBody struct {
 	ModelLow       string `json:"model_low"`
 	ModelMedium    string `json:"model_medium"`
 	ModelHigh      string `json:"model_high"`
-	TimeoutSeconds int    `json:"timeout_seconds"`
+	TimeoutSeconds int    `json:"timeout_seconds,omitempty"`
 }
 
 func textOrNull(s string) pgtype.Text {

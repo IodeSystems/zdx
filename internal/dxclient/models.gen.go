@@ -2365,7 +2365,7 @@ type LLMConfigBody struct {
 	ModelMedium    string  `json:"model_medium"`
 	Name           string  `json:"name"`
 	Priority       int32   `json:"priority"`
-	TimeoutSeconds int64   `json:"timeout_seconds"`
+	TimeoutSeconds *int64  `json:"timeout_seconds,omitempty"`
 	Type           string  `json:"type"`
 	Url            string  `json:"url"`
 }

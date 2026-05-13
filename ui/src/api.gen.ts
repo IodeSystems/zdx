@@ -8285,7 +8285,7 @@ export interface components {
             /** Format: int32 */
             priority: number;
             /** Format: int64 */
-            timeout_seconds: number;
+            timeout_seconds?: number;
             type: string;
             url: string;
         };
