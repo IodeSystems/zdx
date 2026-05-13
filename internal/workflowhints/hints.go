@@ -237,16 +237,32 @@ func DevTaskText(taskID, title, issueRef string) Hint {
 
 // ClosableIssueText builds a Hint for an issue with all tasks done. Includes
 // the close-and-ship sequence and the DX-analysis footer.
+//
+// This is a CLOSE-only task — every task on the issue is already resolved,
+// so the agent's job is bookkeeping (resolve → close → todo done), not
+// implementation. Broad reconnaissance (grep, list, read prompt files,
+// re-derive the design) wastes turns and tokens for no signal. Step 1
+// scopes verification to a single targeted check; anything beyond that
+// belongs in a fresh impl task, not in this session.
 func ClosableIssueText(issueID, title string) Hint {
 	return Hint{
 		Title:       fmt.Sprintf("Close %s: %s", issueID, title),
 		Description: "All tasks done — close and ship.",
 		Instructions: fmt.Sprintf(
-			"All tasks done on %s: %s.\n\n"+
-				"1. Verify the work is complete — read `dx issue show %s`, spot-check linked code refs, run targeted tests if in doubt.\n"+
-				"2. If anything is missing, add a task instead of leaving the issue open: `dx todo tech add --issue=%s ...`.\n"+
-				"3. Close: `dx issue close %s --reason=done`.",
-			issueID, title, issueID, issueID, issueID,
+			"All tasks done on %s: %s. This is a CLOSE task, not an IMPL task — every child task is already resolved.\n\n"+
+				"DO NOT grep the codebase, list directories, or re-derive the implementation from filesystem state. "+
+				"DO NOT add new tasks to make the issue \"complete\" — if work is genuinely missing, file an incomplete-report and stop (step 5).\n\n"+
+				"Deterministic sequence:\n"+
+				"1. `dx issue show %s` — read once. If the issue body names an explicit verification command, run that ONE command. Otherwise skip to step 2.\n"+
+				"2. `git log --grep=%s --oneline -10` — locate the implementing commits and record their SHAs.\n"+
+				"3. `dx issue resolve %s <sha1> [<sha2> ...]` — attribute the resolution to those commits.\n"+
+				"4. `dx issue close %s --reason=done`.\n"+
+				"5. `dx todo dev done <todo-key-or-id>` — release the closable todo. "+
+				"If the close hook fails on a preexisting environment issue (lint, missing binary, missing module dir), "+
+				"`dx todo incomplete <todo-key-or-id> --reason=environment_broken --explanation=\"<what failed>\"` instead. "+
+				"If verification in step 1 fails or the work is genuinely missing, "+
+				"`dx todo incomplete <todo-key-or-id> --reason=capability_gap --explanation=\"<what's missing>\"` and STOP — do not start implementing.",
+			issueID, title, issueID, issueID, issueID, issueID,
 		) + CloseAndShipFragment + PostWorkDXAnalysisFragment + StopAfterVerticalFragment +
 			ContractFooter("closable"),
 	}

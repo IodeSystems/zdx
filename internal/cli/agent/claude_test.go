@@ -303,7 +303,7 @@ func TestFetchProjectVision(t *testing.T) {
 }
 
 func TestBuildSessionPrompt(t *testing.T) {
-	todo := &claimedTodo{ID: 42, Kind: "dev", TargetType: "task", TargetID: "TK-1", Text: "Do the thing"}
+	todo := &claimedTodo{ID: 42, Key: "dev-TK-1", Kind: "dev", TargetType: "task", TargetID: "TK-1", Text: "Do the thing"}
 
 	cases := []struct {
 		name    string
@@ -399,7 +399,7 @@ func TestBuildSessionPrompt(t *testing.T) {
 			check: func(t *testing.T, got string) {
 				wantSubstrings := []string{
 					"INCOMPLETE-REPORT PROTOCOL",
-					"dx todo incomplete TK-1",
+					"dx todo incomplete dev-TK-1",
 					"--reason=",
 					"--explanation=",
 					"capability_gap",

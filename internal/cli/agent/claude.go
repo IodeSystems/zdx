@@ -501,7 +501,7 @@ Example --suggested-next values:
   "block on IS-N"
   "ask user: what should X do when Y?"
   "file capability request: need ability to read network responses"
----`, todo.TargetID)
+---`, todo.Key)
 	} else if issueID != "" {
 		prompt += fmt.Sprintf("Work on issue %s. Use ./bin/dx CLI commands (issue show, comment add, todo dev done) to interact with the project tracker.", issueID)
 	}
