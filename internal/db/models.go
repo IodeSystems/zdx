@@ -565,6 +565,8 @@ type ZdxLlmConfig struct {
 	Name           string             `db:"name" json:"name"`
 	Priority       int32              `db:"priority" json:"priority"`
 	TimeoutSeconds int32              `db:"timeout_seconds" json:"timeout_seconds"`
+	ModelXhigh     pgtype.Text        `db:"model_xhigh" json:"model_xhigh"`
+	ModelMax       pgtype.Text        `db:"model_max" json:"model_max"`
 }
 
 type ZdxLogEvent struct {

@@ -2362,7 +2362,9 @@ type LLMConfigBody struct {
 	Id             *int64  `json:"id,omitempty"`
 	ModelHigh      string  `json:"model_high"`
 	ModelLow       string  `json:"model_low"`
+	ModelMax       *string `json:"model_max,omitempty"`
 	ModelMedium    string  `json:"model_medium"`
+	ModelXhigh     *string `json:"model_xhigh,omitempty"`
 	Name           string  `json:"name"`
 	Priority       int32   `json:"priority"`
 	TimeoutSeconds *int64  `json:"timeout_seconds,omitempty"`

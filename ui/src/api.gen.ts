@@ -8280,7 +8280,9 @@ export interface components {
             id?: number;
             model_high: string;
             model_low: string;
+            model_max?: string;
             model_medium: string;
+            model_xhigh?: string;
             name: string;
             /** Format: int32 */
             priority: number;

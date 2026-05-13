@@ -14,14 +14,14 @@ import (
 const createLLMConfig = `-- name: CreateLLMConfig :one
 INSERT INTO zdx_llm_configs (
     name, priority, type, url, embedding_model, api_key,
-    agent_type, model_low, model_medium, model_high, timeout_seconds
+    agent_type, model_low, model_medium, model_high, model_xhigh, model_max, timeout_seconds
 )
 VALUES (
     $1, $2, $3, $4, $5, $6,
-    $7, $8, $9, $10, $11
+    $7, $8, $9, $10, $11, $12, $13
 )
 RETURNING id, name, priority, type, url, embedding_model, api_key,
-          agent_type, model_low, model_medium, model_high, timeout_seconds, created_at
+          agent_type, model_low, model_medium, model_high, model_xhigh, model_max, timeout_seconds, created_at
 `
 
 type CreateLLMConfigParams struct {
@@ -35,6 +35,8 @@ type CreateLLMConfigParams struct {
 	ModelLow       pgtype.Text `db:"model_low" json:"model_low"`
 	ModelMedium    pgtype.Text `db:"model_medium" json:"model_medium"`
 	ModelHigh      pgtype.Text `db:"model_high" json:"model_high"`
+	ModelXhigh     pgtype.Text `db:"model_xhigh" json:"model_xhigh"`
+	ModelMax       pgtype.Text `db:"model_max" json:"model_max"`
 	TimeoutSeconds int32       `db:"timeout_seconds" json:"timeout_seconds"`
 }
 
@@ -50,6 +52,8 @@ type CreateLLMConfigRow struct {
 	ModelLow       pgtype.Text        `db:"model_low" json:"model_low"`
 	ModelMedium    pgtype.Text        `db:"model_medium" json:"model_medium"`
 	ModelHigh      pgtype.Text        `db:"model_high" json:"model_high"`
+	ModelXhigh     pgtype.Text        `db:"model_xhigh" json:"model_xhigh"`
+	ModelMax       pgtype.Text        `db:"model_max" json:"model_max"`
 	TimeoutSeconds int32              `db:"timeout_seconds" json:"timeout_seconds"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
@@ -66,6 +70,8 @@ func (q *Queries) CreateLLMConfig(ctx context.Context, arg CreateLLMConfigParams
 		arg.ModelLow,
 		arg.ModelMedium,
 		arg.ModelHigh,
+		arg.ModelXhigh,
+		arg.ModelMax,
 		arg.TimeoutSeconds,
 	)
 	var i CreateLLMConfigRow
@@ -81,6 +87,8 @@ func (q *Queries) CreateLLMConfig(ctx context.Context, arg CreateLLMConfigParams
 		&i.ModelLow,
 		&i.ModelMedium,
 		&i.ModelHigh,
+		&i.ModelXhigh,
+		&i.ModelMax,
 		&i.TimeoutSeconds,
 		&i.CreatedAt,
 	)
@@ -98,7 +106,7 @@ func (q *Queries) DeleteLLMConfig(ctx context.Context, id int64) error {
 
 const getLLMConfigByID = `-- name: GetLLMConfigByID :one
 SELECT id, name, priority, type, url, embedding_model, api_key,
-       agent_type, model_low, model_medium, model_high, timeout_seconds, created_at
+       agent_type, model_low, model_medium, model_high, model_xhigh, model_max, timeout_seconds, created_at
 FROM zdx_llm_configs
 WHERE id = $1
 `
@@ -115,6 +123,8 @@ type GetLLMConfigByIDRow struct {
 	ModelLow       pgtype.Text        `db:"model_low" json:"model_low"`
 	ModelMedium    pgtype.Text        `db:"model_medium" json:"model_medium"`
 	ModelHigh      pgtype.Text        `db:"model_high" json:"model_high"`
+	ModelXhigh     pgtype.Text        `db:"model_xhigh" json:"model_xhigh"`
+	ModelMax       pgtype.Text        `db:"model_max" json:"model_max"`
 	TimeoutSeconds int32              `db:"timeout_seconds" json:"timeout_seconds"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
@@ -134,6 +144,8 @@ func (q *Queries) GetLLMConfigByID(ctx context.Context, id int64) (GetLLMConfigB
 		&i.ModelLow,
 		&i.ModelMedium,
 		&i.ModelHigh,
+		&i.ModelXhigh,
+		&i.ModelMax,
 		&i.TimeoutSeconds,
 		&i.CreatedAt,
 	)
@@ -142,7 +154,7 @@ func (q *Queries) GetLLMConfigByID(ctx context.Context, id int64) (GetLLMConfigB
 
 const getPrimaryLLMConfigWithEmbedding = `-- name: GetPrimaryLLMConfigWithEmbedding :one
 SELECT id, name, priority, type, url, embedding_model, api_key,
-       agent_type, model_low, model_medium, model_high, timeout_seconds, created_at
+       agent_type, model_low, model_medium, model_high, model_xhigh, model_max, timeout_seconds, created_at
 FROM zdx_llm_configs
 WHERE agent_type <> 'claude'
   AND embedding_model IS NOT NULL
@@ -163,6 +175,8 @@ type GetPrimaryLLMConfigWithEmbeddingRow struct {
 	ModelLow       pgtype.Text        `db:"model_low" json:"model_low"`
 	ModelMedium    pgtype.Text        `db:"model_medium" json:"model_medium"`
 	ModelHigh      pgtype.Text        `db:"model_high" json:"model_high"`
+	ModelXhigh     pgtype.Text        `db:"model_xhigh" json:"model_xhigh"`
+	ModelMax       pgtype.Text        `db:"model_max" json:"model_max"`
 	TimeoutSeconds int32              `db:"timeout_seconds" json:"timeout_seconds"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
@@ -184,6 +198,8 @@ func (q *Queries) GetPrimaryLLMConfigWithEmbedding(ctx context.Context) (GetPrim
 		&i.ModelLow,
 		&i.ModelMedium,
 		&i.ModelHigh,
+		&i.ModelXhigh,
+		&i.ModelMax,
 		&i.TimeoutSeconds,
 		&i.CreatedAt,
 	)
@@ -192,7 +208,7 @@ func (q *Queries) GetPrimaryLLMConfigWithEmbedding(ctx context.Context) (GetPrim
 
 const listLLMConfigs = `-- name: ListLLMConfigs :many
 SELECT id, name, priority, type, url, embedding_model, api_key,
-       agent_type, model_low, model_medium, model_high, timeout_seconds, created_at
+       agent_type, model_low, model_medium, model_high, model_xhigh, model_max, timeout_seconds, created_at
 FROM zdx_llm_configs
 ORDER BY priority ASC, id ASC
 `
@@ -209,6 +225,8 @@ type ListLLMConfigsRow struct {
 	ModelLow       pgtype.Text        `db:"model_low" json:"model_low"`
 	ModelMedium    pgtype.Text        `db:"model_medium" json:"model_medium"`
 	ModelHigh      pgtype.Text        `db:"model_high" json:"model_high"`
+	ModelXhigh     pgtype.Text        `db:"model_xhigh" json:"model_xhigh"`
+	ModelMax       pgtype.Text        `db:"model_max" json:"model_max"`
 	TimeoutSeconds int32              `db:"timeout_seconds" json:"timeout_seconds"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
@@ -234,6 +252,8 @@ func (q *Queries) ListLLMConfigs(ctx context.Context) ([]ListLLMConfigsRow, erro
 			&i.ModelLow,
 			&i.ModelMedium,
 			&i.ModelHigh,
+			&i.ModelXhigh,
+			&i.ModelMax,
 			&i.TimeoutSeconds,
 			&i.CreatedAt,
 		); err != nil {
@@ -269,10 +289,12 @@ SET name            = $1,
     model_low       = $7,
     model_medium    = $8,
     model_high      = $9,
-    timeout_seconds = $10
-WHERE id = $11
+    model_xhigh     = $10,
+    model_max       = $11,
+    timeout_seconds = $12
+WHERE id = $13
 RETURNING id, name, priority, type, url, embedding_model, api_key,
-          agent_type, model_low, model_medium, model_high, timeout_seconds, created_at
+          agent_type, model_low, model_medium, model_high, model_xhigh, model_max, timeout_seconds, created_at
 `
 
 type UpdateLLMConfigParams struct {
@@ -285,6 +307,8 @@ type UpdateLLMConfigParams struct {
 	ModelLow       pgtype.Text `db:"model_low" json:"model_low"`
 	ModelMedium    pgtype.Text `db:"model_medium" json:"model_medium"`
 	ModelHigh      pgtype.Text `db:"model_high" json:"model_high"`
+	ModelXhigh     pgtype.Text `db:"model_xhigh" json:"model_xhigh"`
+	ModelMax       pgtype.Text `db:"model_max" json:"model_max"`
 	TimeoutSeconds int32       `db:"timeout_seconds" json:"timeout_seconds"`
 	ID             int64       `db:"id" json:"id"`
 }
@@ -301,6 +325,8 @@ type UpdateLLMConfigRow struct {
 	ModelLow       pgtype.Text        `db:"model_low" json:"model_low"`
 	ModelMedium    pgtype.Text        `db:"model_medium" json:"model_medium"`
 	ModelHigh      pgtype.Text        `db:"model_high" json:"model_high"`
+	ModelXhigh     pgtype.Text        `db:"model_xhigh" json:"model_xhigh"`
+	ModelMax       pgtype.Text        `db:"model_max" json:"model_max"`
 	TimeoutSeconds int32              `db:"timeout_seconds" json:"timeout_seconds"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
@@ -316,6 +342,8 @@ func (q *Queries) UpdateLLMConfig(ctx context.Context, arg UpdateLLMConfigParams
 		arg.ModelLow,
 		arg.ModelMedium,
 		arg.ModelHigh,
+		arg.ModelXhigh,
+		arg.ModelMax,
 		arg.TimeoutSeconds,
 		arg.ID,
 	)
@@ -332,6 +360,8 @@ func (q *Queries) UpdateLLMConfig(ctx context.Context, arg UpdateLLMConfigParams
 		&i.ModelLow,
 		&i.ModelMedium,
 		&i.ModelHigh,
+		&i.ModelXhigh,
+		&i.ModelMax,
 		&i.TimeoutSeconds,
 		&i.CreatedAt,
 	)
