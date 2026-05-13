@@ -5903,6 +5903,7 @@ export interface components {
             /** Format: int32 */
             lease_minutes?: number;
             mode?: string;
+            scope_issue_id?: string;
             slug: string;
         };
         "Agent-evaluateRequest": {
@@ -6036,6 +6037,7 @@ export interface components {
             project_slug?: string;
             reference_issue_id?: string;
             resolved_at?: string;
+            scope?: components["schemas"]["AgentClaimScope"];
             status: string;
             suggested_action?: string;
             target_branch?: string;
@@ -6043,6 +6045,12 @@ export interface components {
             target_type: string;
             text: string;
             title?: string;
+        };
+        AgentClaimScope: {
+            issue_id: string;
+            open_blockers?: string[] | null;
+            reason?: string;
+            state: string;
         };
         AgentItem: {
             /**
@@ -8276,6 +8284,7 @@ export interface components {
             name: string;
             /** Format: int32 */
             priority: number;
+            /** Format: int64 */
             timeout_seconds: number;
             type: string;
             url: string;

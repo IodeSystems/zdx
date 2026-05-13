@@ -3,7 +3,7 @@
 --
 
 
--- Dumped from database version 18.3 (Debian 18.3-1.pgdg13+1)
+-- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1123,7 +1123,7 @@ CREATE TABLE public.zdx_incomplete_report_side_effects (
     id bigint NOT NULL,
     project_id integer NOT NULL,
     reason text NOT NULL,
-    evidence_fingerprint text CONSTRAINT zdx_incomplete_report_side_effect_evidence_fingerprint_not_null NOT NULL,
+    evidence_fingerprint text NOT NULL,
     action_type text NOT NULL,
     meta jsonb DEFAULT '{}'::jsonb NOT NULL,
     fired_at timestamp with time zone DEFAULT now() NOT NULL
@@ -1467,10 +1467,10 @@ CREATE TABLE public.zdx_llm_configs (
     model_low text,
     model_medium text,
     model_high text,
-    timeout_seconds integer NOT NULL DEFAULT 600,
     id bigint NOT NULL,
     name text DEFAULT 'default'::text NOT NULL,
     priority integer NOT NULL,
+    timeout_seconds integer DEFAULT 600 NOT NULL,
     CONSTRAINT zdx_llm_configs_claude_no_embedding CHECK (((agent_type <> 'claude'::text) OR (embedding_model IS NULL)))
 );
 

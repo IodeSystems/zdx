@@ -392,6 +392,7 @@ type AgentClaimRequest struct {
 	AgentId      string  `json:"agent_id"`
 	LeaseMinutes *int32  `json:"lease_minutes,omitempty"`
 	Mode         *string `json:"mode,omitempty"`
+	ScopeIssueId *string `json:"scope_issue_id,omitempty"`
 	Slug         string  `json:"slug"`
 }
 
@@ -475,35 +476,44 @@ type AgentUnblockAllResponse struct {
 // AgentClaimBody defines model for AgentClaimBody.
 type AgentClaimBody struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema           *string      `json:"$schema,omitempty"`
-	Blocked          bool         `json:"blocked"`
-	BlockedReason    *string      `json:"blocked_reason,omitempty"`
-	ClaimBaseBranch  *string      `json:"claim_base_branch,omitempty"`
-	ClaimBaseSha     *string      `json:"claim_base_sha,omitempty"`
-	ClaimContract    *string      `json:"claim_contract,omitempty"`
-	ClaimedAt        *string      `json:"claimed_at,omitempty"`
-	ClaimedBy        *string      `json:"claimed_by,omitempty"`
-	CreatedAt        string       `json:"created_at"`
-	CycleCount       *int32       `json:"cycle_count,omitempty"`
-	Debug            *DebugOutput `json:"debug,omitempty"`
-	Description      *string      `json:"description,omitempty"`
-	Id               int32        `json:"id"`
-	Instructions     *string      `json:"instructions,omitempty"`
-	IssueRef         string       `json:"issue_ref"`
-	Key              string       `json:"key"`
-	Kind             string       `json:"kind"`
-	Persona          string       `json:"persona"`
-	Priority         int32        `json:"priority"`
-	ProjectSlug      *string      `json:"project_slug,omitempty"`
-	ReferenceIssueId *string      `json:"reference_issue_id,omitempty"`
-	ResolvedAt       *string      `json:"resolved_at,omitempty"`
-	Status           string       `json:"status"`
-	SuggestedAction  *string      `json:"suggested_action,omitempty"`
-	TargetBranch     *string      `json:"target_branch,omitempty"`
-	TargetId         string       `json:"target_id"`
-	TargetType       string       `json:"target_type"`
-	Text             string       `json:"text"`
-	Title            *string      `json:"title,omitempty"`
+	Schema           *string          `json:"$schema,omitempty"`
+	Blocked          bool             `json:"blocked"`
+	BlockedReason    *string          `json:"blocked_reason,omitempty"`
+	ClaimBaseBranch  *string          `json:"claim_base_branch,omitempty"`
+	ClaimBaseSha     *string          `json:"claim_base_sha,omitempty"`
+	ClaimContract    *string          `json:"claim_contract,omitempty"`
+	ClaimedAt        *string          `json:"claimed_at,omitempty"`
+	ClaimedBy        *string          `json:"claimed_by,omitempty"`
+	CreatedAt        string           `json:"created_at"`
+	CycleCount       *int32           `json:"cycle_count,omitempty"`
+	Debug            *DebugOutput     `json:"debug,omitempty"`
+	Description      *string          `json:"description,omitempty"`
+	Id               int32            `json:"id"`
+	Instructions     *string          `json:"instructions,omitempty"`
+	IssueRef         string           `json:"issue_ref"`
+	Key              string           `json:"key"`
+	Kind             string           `json:"kind"`
+	Persona          string           `json:"persona"`
+	Priority         int32            `json:"priority"`
+	ProjectSlug      *string          `json:"project_slug,omitempty"`
+	ReferenceIssueId *string          `json:"reference_issue_id,omitempty"`
+	ResolvedAt       *string          `json:"resolved_at,omitempty"`
+	Scope            *AgentClaimScope `json:"scope,omitempty"`
+	Status           string           `json:"status"`
+	SuggestedAction  *string          `json:"suggested_action,omitempty"`
+	TargetBranch     *string          `json:"target_branch,omitempty"`
+	TargetId         string           `json:"target_id"`
+	TargetType       string           `json:"target_type"`
+	Text             string           `json:"text"`
+	Title            *string          `json:"title,omitempty"`
+}
+
+// AgentClaimScope defines model for AgentClaimScope.
+type AgentClaimScope struct {
+	IssueId      string    `json:"issue_id"`
+	OpenBlockers *[]string `json:"open_blockers,omitempty"`
+	Reason       *string   `json:"reason,omitempty"`
+	State        string    `json:"state"`
 }
 
 // AgentItem defines model for AgentItem.
@@ -2355,6 +2365,7 @@ type LLMConfigBody struct {
 	ModelMedium    string  `json:"model_medium"`
 	Name           string  `json:"name"`
 	Priority       int32   `json:"priority"`
+	TimeoutSeconds int64   `json:"timeout_seconds"`
 	Type           string  `json:"type"`
 	Url            string  `json:"url"`
 }

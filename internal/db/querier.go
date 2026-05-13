@@ -66,6 +66,12 @@ type Querier interface {
 	// collide. Returns project_slug so the caller can route follow-up
 	// API calls to the right project namespace.
 	ClaimNextTodoAny(ctx context.Context, arg ClaimNextTodoAnyParams) (ClaimNextTodoAnyRow, error)
+	// Scoped variant of ClaimNextTodo: only considers todos whose issue_ref
+	// is in the provided scope set (typically the scope issue + its
+	// composition descendants from ListIssueCompositionDescendants).
+	// Preserves FOR UPDATE SKIP LOCKED and priority ordering so concurrent
+	// scoped agents don't collide.
+	ClaimNextTodoInScope(ctx context.Context, arg ClaimNextTodoInScopeParams) (ClaimNextTodoInScopeRow, error)
 	// Atomically mark a ready, unclaimed task as active. The caller must
 	// separately INSERT a zdx_reservations row to record who claimed it.
 	ClaimTask(ctx context.Context, arg ClaimTaskParams) (ClaimTaskRow, error)
@@ -451,6 +457,14 @@ type Querier interface {
 	ListIssueBlockers(ctx context.Context, issueID string) ([]string, error)
 	ListIssueBlockersWithStatus(ctx context.Context, issueID string) ([]ListIssueBlockersWithStatusRow, error)
 	ListIssueCompositionChildrenWithStatus(ctx context.Context, issueID string) ([]ListIssueCompositionChildrenWithStatusRow, error)
+	// Walk composition edges downward from a seed issue, returning the seed
+	// itself plus every transitively-composed child. Used by the scoped
+	// agent claim path to restrict candidate todos to a tracker's subtree.
+	// Composition edge layout (matches queries/issue_blocks.sql): the row
+	// (issue_id=parent, blocked_by_id=child, kind='composition') means
+	// "child belongs to parent". Walking parent→children means joining
+	// descendants.id = blocks.issue_id and emitting blocks.blocked_by_id.
+	ListIssueCompositionDescendants(ctx context.Context, issueID string) ([]string, error)
 	ListIssueGoals(ctx context.Context, issueID string) ([]ListIssueGoalsRow, error)
 	ListIssueResolutions(ctx context.Context, issueID string) ([]ZdxIssueResolution, error)
 	ListIssueSequencingBlockersWithStatus(ctx context.Context, issueID string) ([]ListIssueSequencingBlockersWithStatusRow, error)
@@ -488,6 +502,10 @@ type Querier interface {
 	// at a named branch is its own canonical home and does not get a backport
 	// task on top.
 	ListOpenIssuesEligibleForBackport(ctx context.Context, arg ListOpenIssuesEligibleForBackportParams) ([]ZdxIssue, error)
+	// Return the subset of @ids that are currently open issues. Used by
+	// the scoped-claim stall path to distinguish "all descendants closed"
+	// (tracker-closable) from "some open but all blocked/reserved".
+	ListOpenIssuesInSet(ctx context.Context, ids []string) ([]string, error)
 	// Open issues whose duplicate_of or link_of targets the given issue. Used to
 	// cascade-close narrow-slice links (and full duplicates) when the target closes.
 	ListOpenLinkedIssues(ctx context.Context, arg ListOpenLinkedIssuesParams) ([]ZdxIssue, error)
