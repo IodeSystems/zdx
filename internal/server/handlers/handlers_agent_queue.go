@@ -1209,6 +1209,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 					})
 					item := toTodoItemFromScopeClaim(row)
 					item.ProjectSlug = p.Slug
+					item.Text += h.buildIssueContextSeed(ctx, p.ID, item.IssueRef)
 					return &item, nil
 				}
 				row, err := h.Q.ClaimNextTodo(ctx, db.ClaimNextTodoParams{
@@ -1238,6 +1239,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 				})
 				item := toTodoItemFromClaim(row)
 				item.ProjectSlug = p.Slug
+				item.Text += h.buildIssueContextSeed(ctx, p.ID, item.IssueRef)
 				return &item, nil
 			}
 
@@ -1452,6 +1454,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 				LeaseExpiresAt: row.LeaseExpiresAt,
 			})
 			item := toTodoItemFromAnyClaim(row)
+			item.Text += h.buildIssueContextSeed(ctx, row.ProjectID, item.IssueRef)
 			return &struct{ Body agentClaimBody }{Body: agentClaimBody{TodoItem: item, Debug: debugOutput(ctx)}}, nil
 		})
 
@@ -2085,4 +2088,179 @@ func (h *Handler) maybeAutoFileQueueStall(ctx context.Context, projectID int32, 
 		Note: fmt.Sprintf("[auto-filed] Queue fully stalled: %d/%d todos blocked. Dominant reason: %q. Unblock todos or close this issue to resume agent work.",
 			health.BlockedCount, health.TotalOpen, dominantReason),
 	})
+}
+
+// buildIssueContextSeed assembles a markdown block summarizing graph context
+// around the leaf issue: parent tracker, siblings, blocked-by chain, open
+// blocker questions on leaf+parent, and the last 5 comments on the leaf. Pre-
+// loading this on the claim response saves the agent ~6-10 turns of separate
+// `dx issue show` calls before it can act (IS-1080). Returns "" when issueID
+// is empty or unreadable — never fatal to the claim path.
+func (h *Handler) buildIssueContextSeed(ctx context.Context, projectID int32, issueID string) string {
+	if issueID == "" {
+		return ""
+	}
+	leaf, err := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: projectID, ID: issueID})
+	if err != nil {
+		return ""
+	}
+
+	var sb strings.Builder
+	sb.WriteString("\n\n---\n## Issue context (auto-seeded)\n\n")
+	fmt.Fprintf(&sb, "**Leaf:** %s — %s [%s, %s", leaf.ID, leaf.Title, leaf.Status, leaf.IssueType)
+	if leaf.Priority != "" {
+		fmt.Fprintf(&sb, ", P%s", leaf.Priority)
+	}
+	sb.WriteString("]\n\n")
+
+	// (a) Parent tracker: composition edges point parent → child as
+	// (issue_id=parent, blocked_by_id=child). Find rows where this leaf is
+	// blocked_by_id and pick the first composition-kind parent.
+	var parent *db.ZdxIssue
+	if parentIDs, err := h.Q.ListIssuesBlockedBy(ctx, issueID); err == nil {
+		for _, pid := range parentIDs {
+			candidate, gErr := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: projectID, ID: pid})
+			if gErr != nil {
+				continue
+			}
+			children, cErr := h.Q.ListIssueCompositionChildrenWithStatus(ctx, candidate.ID)
+			if cErr != nil {
+				continue
+			}
+			for _, c := range children {
+				if c.ID == issueID {
+					parent = &candidate
+					break
+				}
+			}
+			if parent != nil {
+				break
+			}
+		}
+	}
+	if parent != nil {
+		fmt.Fprintf(&sb, "### Parent tracker: %s — %s [%s]\n", parent.ID, parent.Title, parent.Status)
+		if body := strings.TrimSpace(parent.Context); body != "" {
+			sb.WriteString(truncateSeedBody(body, 500))
+			sb.WriteString("\n\n")
+		}
+
+		// (b) Siblings — composition children of the parent, excluding leaf.
+		children, _ := h.Q.ListIssueCompositionChildrenWithStatus(ctx, parent.ID)
+		var siblings []db.ZdxIssue
+		for _, c := range children {
+			if c.ID == issueID {
+				continue
+			}
+			ci, gErr := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: projectID, ID: c.ID})
+			if gErr != nil {
+				continue
+			}
+			siblings = append(siblings, ci)
+		}
+		if len(siblings) > 0 {
+			sb.WriteString("### Siblings\n")
+			for _, s := range siblings {
+				fmt.Fprintf(&sb, "- %s — %s [%s, %s]\n", s.ID, s.Title, s.Status, s.IssueType)
+			}
+			sb.WriteString("\n")
+		}
+	}
+
+	// (c) Blocked-by chain on the leaf. Filter out composition edges (those
+	// are the parent relationship already shown above) so this section is
+	// the "X waits for Y" sequencing chain only.
+	if blockers, err := h.Q.ListIssueBlockersWithStatus(ctx, issueID); err == nil && len(blockers) > 0 {
+		var rendered []string
+		for _, b := range blockers {
+			if b.Kind == "composition" {
+				continue
+			}
+			marker := "[ ]"
+			if b.Status == "closed" {
+				marker = "[x]"
+			}
+			bi, gErr := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: projectID, ID: b.ID})
+			if gErr != nil {
+				rendered = append(rendered, fmt.Sprintf("- %s %s [%s]", marker, b.ID, b.Status))
+				continue
+			}
+			rendered = append(rendered, fmt.Sprintf("- %s %s — %s [%s]", marker, bi.ID, bi.Title, bi.Status))
+		}
+		if len(rendered) > 0 {
+			sb.WriteString("### Blocked-by\n")
+			for _, line := range rendered {
+				sb.WriteString(line)
+				sb.WriteString("\n")
+			}
+			sb.WriteString("\n")
+		}
+	}
+
+	// (d) Open blocker questions on leaf or parent — these gate the issue
+	// and the agent must surface them before acting.
+	var pendingQs []db.ZdxBlockerQuestion
+	if leafQs, err := h.Q.ListBlockerQuestionsByTarget(ctx, db.ListBlockerQuestionsByTargetParams{
+		ProjectID: projectID, TargetType: "issue", TargetID: issueID,
+	}); err == nil {
+		for _, q := range leafQs {
+			if q.Status == "pending" {
+				pendingQs = append(pendingQs, q)
+			}
+		}
+	}
+	if parent != nil {
+		if parentQs, err := h.Q.ListBlockerQuestionsByTarget(ctx, db.ListBlockerQuestionsByTargetParams{
+			ProjectID: projectID, TargetType: "issue", TargetID: parent.ID,
+		}); err == nil {
+			for _, q := range parentQs {
+				if q.Status == "pending" {
+					pendingQs = append(pendingQs, q)
+				}
+			}
+		}
+	}
+	if len(pendingQs) > 0 {
+		sb.WriteString("### Open blocker questions\n")
+		for _, q := range pendingQs {
+			fmt.Fprintf(&sb, "- BQ-%d on %s/%s: %s\n", q.ID, q.TargetType, q.TargetID, truncateSeedBody(strings.TrimSpace(q.Context), 200))
+		}
+		sb.WriteString("\n")
+	}
+
+	// (e) Last 5 comments on the leaf. ListComments returns oldest-first;
+	// take the tail so the agent sees the most recent context.
+	if comments, err := h.Q.ListComments(ctx, db.ListCommentsParams{
+		ProjectID: projectID, TargetType: "issue", TargetID: issueID,
+	}); err == nil && len(comments) > 0 {
+		start := 0
+		if len(comments) > 5 {
+			start = len(comments) - 5
+		}
+		sb.WriteString("### Recent comments (last 5)\n")
+		for _, c := range comments[start:] {
+			author := c.Author
+			if c.AuthorAlias != "" {
+				author = c.AuthorAlias
+			}
+			fmt.Fprintf(&sb, "- @%s: %s\n", author, truncateSeedBody(strings.TrimSpace(c.Body), 240))
+		}
+		sb.WriteString("\n")
+	}
+
+	return sb.String()
+}
+
+// truncateSeedBody clamps a body string to maxRunes and appends an ellipsis
+// when truncation actually occurs. Operates on runes so multi-byte chars
+// aren't sliced mid-codepoint.
+func truncateSeedBody(s string, maxRunes int) string {
+	if maxRunes <= 0 {
+		return s
+	}
+	runes := []rune(s)
+	if len(runes) <= maxRunes {
+		return s
+	}
+	return string(runes[:maxRunes]) + "…"
 }

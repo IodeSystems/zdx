@@ -6,6 +6,31 @@ import (
 	"testing"
 )
 
+func TestTruncateSeedBody(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		max  int
+		want string
+	}{
+		{"empty stays empty", "", 10, ""},
+		{"under limit unchanged", "hello", 10, "hello"},
+		{"equal to limit unchanged", "12345", 5, "12345"},
+		{"over limit gets ellipsis", "abcdefgh", 4, "abcd…"},
+		{"zero max returns input", "abc", 0, "abc"},
+		{"negative max returns input", "abc", -1, "abc"},
+		// Multi-byte: 3 emoji = 3 runes; clamp at 2 should keep first 2 runes intact.
+		{"multi-byte clamped on rune boundary", "🙂🙃😀", 2, "🙂🙃…"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := truncateSeedBody(tc.in, tc.max); got != tc.want {
+				t.Errorf("truncateSeedBody(%q, %d) = %q, want %q", tc.in, tc.max, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestEvaluateDiffEmptySlices(t *testing.T) {
 	diff := EvaluateDiff{
 		Added:     []AgentQueueItem{},
