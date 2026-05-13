@@ -153,7 +153,8 @@ func runGen() {
 	// will fail sqlc against the stale shipped.sql. The merge-train regens
 	// shipped.sql via bin/regen-schema before re-running sqlc, so this failure
 	// is expected and recoverable without worker action.
-	if hasNewMigrationsVsDev() && looksLikeShippedSQLDrift(stderr.String()) {
+	stderrStr := stderr.String()
+	if hasNewMigrationsVsDev() && looksLikeShippedSQLDrift(stderrStr) {
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "[db gen] sqlc failed against schema/shipped.sql, but this branch")
 		fmt.Fprintln(os.Stderr, "[db gen] adds new migrations vs dev. shipped.sql is owned by the")
@@ -162,6 +163,13 @@ func runGen() {
 		fmt.Fprintln(os.Stderr, "[db gen] Otherwise the merge-train will regen shipped.sql and rerun sqlc.")
 		fmt.Fprintln(os.Stderr, "[db gen] skipping sqlc generate.")
 		return
+	}
+	if cols := parseMissingColumns(stderrStr); len(cols) > 0 {
+		const migDir = "internal/migrate/sql"
+		hint := formatHint(migDir, cols, func(col, table string) string {
+			return findAddingMigration(migDir, col, table)
+		})
+		fmt.Fprint(os.Stderr, hint)
 	}
 	log.Fatalf("sqlc generate: %v", err)
 }
