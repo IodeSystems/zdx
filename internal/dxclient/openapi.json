@@ -514,7 +514,7 @@
             "type": "string"
           },
           "reopen_count": {
-            "description": "Number of times this issue has been reopened \u2014 a churn signal for stabilization candidates",
+            "description": "Number of times this issue has been reopened — a churn signal for stabilization candidates",
             "format": "int32",
             "type": "integer"
           },
@@ -1210,7 +1210,6 @@
             "type": "string"
           },
           "persona": {
-            "description": "Role tier (dev|tech|reviewer|product) the agent claims AS (IS-1096). Empty defaults to 'dev'.",
             "type": "string"
           }
         },
@@ -1241,14 +1240,13 @@
           "mode": {
             "type": "string"
           },
+          "persona": {
+            "type": "string"
+          },
           "scope_issue_id": {
             "type": "string"
           },
           "slug": {
-            "type": "string"
-          },
-          "persona": {
-            "description": "Role tier (dev|tech|reviewer|product) the agent claims AS (IS-1096). Empty defaults to 'dev'.",
             "type": "string"
           }
         },
@@ -3368,6 +3366,9 @@
             "readOnly": true,
             "type": "string"
           },
+          "abort_reason": {
+            "type": "string"
+          },
           "duration_ms": {
             "format": "int64",
             "type": "integer"
@@ -3379,6 +3380,9 @@
           "exit_code": {
             "format": "int32",
             "type": "integer"
+          },
+          "spin_lock": {
+            "$ref": "#/components/schemas/SpinLockAbort"
           },
           "tokens": {
             "$ref": "#/components/schemas/TokensStruct"
@@ -3433,7 +3437,7 @@
             "$ref": "#/components/schemas/BranchState"
           },
           "closed_dirty": {
-            "description": "True when the close occurred against an unclean working tree \u2014 the CLI sets this when --force overrides the clean-tree gate (IS-1062).",
+            "description": "True when the close occurred against an unclean working tree — the CLI sets this when --force overrides the clean-tree gate (IS-1062).",
             "type": "boolean"
           },
           "completed_in_sha": {
@@ -3943,6 +3947,9 @@
           "issue_id": {
             "type": "string"
           },
+          "persona": {
+            "type": "string"
+          },
           "provider": {
             "type": "string"
           },
@@ -3954,10 +3961,6 @@
             "type": "integer"
           },
           "trigger": {
-            "type": "string"
-          },
-          "persona": {
-            "description": "Role tier (dev|tech|reviewer|product) the agent claims AS (IS-1096). Empty defaults to 'dev'.",
             "type": "string"
           }
         },
@@ -7353,7 +7356,7 @@
             "type": "string"
           },
           "kind": {
-            "description": "Edge type: 'sequencing' for real waits-for deps, 'composition' for tracker \u2192 child relationships",
+            "description": "Edge type: 'sequencing' for real waits-for deps, 'composition' for tracker → child relationships",
             "type": "string"
           },
           "status": {
@@ -7458,7 +7461,7 @@
             "type": "string"
           },
           "reopen_count": {
-            "description": "Number of times this issue has been reopened \u2014 a churn signal for stabilization candidates",
+            "description": "Number of times this issue has been reopened — a churn signal for stabilization candidates",
             "format": "int32",
             "type": "integer"
           },
@@ -15241,6 +15244,32 @@
           "name",
           "layer",
           "status"
+        ],
+        "type": "object"
+      },
+      "SpinLockAbort": {
+        "additionalProperties": false,
+        "properties": {
+          "args_digest": {
+            "type": "string"
+          },
+          "last_turn": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "repeat_count": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "tool": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool",
+          "args_digest",
+          "repeat_count",
+          "last_turn"
         ],
         "type": "object"
       },

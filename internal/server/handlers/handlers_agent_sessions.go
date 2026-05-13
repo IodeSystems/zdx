@@ -27,6 +27,33 @@ import (
 // getOrCreateAgentSession). The batch /ingest endpoint is left intact; a later
 // task removes it.
 
+// SpinLockAbort describes the consecutive identical-tool_call pattern that
+// caused the dispatch loop to terminate the session. Populated by the
+// client-side detector (TK-1792) on close-agent-session when AbortReason is
+// "spin_lock"; consumed here to emit the session.aborted_spin_lock tracelog
+// downstream consumers (reviewer IS-1172, churn-hint pipeline) read.
+type SpinLockAbort struct {
+	Tool        string `json:"tool"`
+	ArgsDigest  string `json:"args_digest"`
+	RepeatCount int32  `json:"repeat_count"`
+	LastTurn    int32  `json:"last_turn"`
+}
+
+// spinLockTraceArgs builds the variadic kv slice traceEvent expects when
+// emitting session.aborted_spin_lock. Factored out so the kv shape is
+// independently unit-testable without a DB.
+func spinLockTraceArgs(sessionID, alias, issueID string, sl SpinLockAbort) []any {
+	return []any{
+		"sid", sessionID,
+		"alias", alias,
+		"tool", sl.Tool,
+		"args_digest", sl.ArgsDigest,
+		"repeat_count", sl.RepeatCount,
+		"last_turn", sl.LastTurn,
+		"issue_id", issueID,
+	}
+}
+
 func (h *Handler) registerAgentSessionRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "create-agent-session",
@@ -103,6 +130,8 @@ func (h *Handler) registerAgentSessionRoutes(api huma.API) {
 				CacheRead  int64 `json:"cache_read" required:"false"`
 				CacheWrite int64 `json:"cache_write" required:"false"`
 			} `json:"tokens"`
+			AbortReason string         `json:"abort_reason,omitempty" required:"false"`
+			SpinLock    *SpinLockAbort `json:"spin_lock,omitempty" required:"false"`
 		}
 	}) (*struct {
 		Body struct {
@@ -123,6 +152,11 @@ func (h *Handler) registerAgentSessionRoutes(api huma.API) {
 		}
 
 		_ = h.Q.CloseClaudeSession(ctx, sess.ID)
+
+		if in.Body.AbortReason == "spin_lock" && in.Body.SpinLock != nil {
+			traceEvent(ctx, h.Q, p.ID, "session.aborted_spin_lock",
+				spinLockTraceArgs(sess.SessionID, sess.Alias, sess.IssueID, *in.Body.SpinLock)...)
+		}
 
 		h.Broker.PublishAgentSessionLifecycle(in.Slug, sess.SessionID, "agent.session-closed", map[string]any{
 			"session_id":  sess.SessionID,
