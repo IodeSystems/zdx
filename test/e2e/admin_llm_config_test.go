@@ -169,6 +169,70 @@ func TestAdminLLMConfigCRUD(t *testing.T) {
 	}
 }
 
+// TestAdminLLMConfigXHighMaxRoundTrip verifies that the two extended
+// complexity tier slots (xhigh, max) introduced in IS-1175 round-trip
+// through Create / Get / Update / List and that the fields are optional
+// on the wire (omitted in the create body still succeeds).
+func TestAdminLLMConfigXHighMaxRoundTrip(t *testing.T) {
+	var created struct {
+		ID         int64  `json:"id"`
+		ModelXHigh string `json:"model_xhigh"`
+		ModelMax   string `json:"model_max"`
+	}
+	mustOK(t, apiDo(t, http.MethodPost, "/api/admin/llm-configs", map[string]any{
+		"name":            "e2e-xhigh-max",
+		"type":            "openai",
+		"agent_type":      "openai",
+		"url":             "",
+		"embedding_model": "text-embedding-3-small",
+		"model_low":       "gpt-4o-mini",
+		"model_medium":    "gpt-4o-mini",
+		"model_high":      "gpt-4o",
+		"model_xhigh":     "o1",
+		"model_max":       "o1-pro",
+		"priority":        0,
+	}, &created))
+	t.Cleanup(func() {
+		apiDo(t, http.MethodDelete, fmt.Sprintf("/api/admin/llm-configs/%d", created.ID), nil, nil)
+	})
+	if created.ModelXHigh != "o1" {
+		t.Errorf("create: model_xhigh want %q got %q", "o1", created.ModelXHigh)
+	}
+	if created.ModelMax != "o1-pro" {
+		t.Errorf("create: model_max want %q got %q", "o1-pro", created.ModelMax)
+	}
+
+	var fetched struct {
+		ModelXHigh string `json:"model_xhigh"`
+		ModelMax   string `json:"model_max"`
+	}
+	mustOK(t, apiDo(t, http.MethodGet, fmt.Sprintf("/api/admin/llm-configs/%d", created.ID), nil, &fetched))
+	if fetched.ModelXHigh != "o1" || fetched.ModelMax != "o1-pro" {
+		t.Errorf("get: xhigh/max want o1/o1-pro got %q/%q", fetched.ModelXHigh, fetched.ModelMax)
+	}
+
+	// Absent new fields on update should clear the columns (round-trip
+	// empty → empty), proving they are optional rather than required.
+	var updated struct {
+		ModelXHigh string `json:"model_xhigh"`
+		ModelMax   string `json:"model_max"`
+	}
+	mustOK(t, apiDo(t, http.MethodPut, fmt.Sprintf("/api/admin/llm-configs/%d", created.ID), map[string]any{
+		"name":            "e2e-xhigh-max",
+		"type":            "openai",
+		"agent_type":      "openai",
+		"url":             "",
+		"embedding_model": "text-embedding-3-small",
+		"model_low":       "gpt-4o-mini",
+		"model_medium":    "gpt-4o-mini",
+		"model_high":      "gpt-4o",
+		"priority":        0,
+	}, &updated))
+	if updated.ModelXHigh != "" || updated.ModelMax != "" {
+		t.Errorf("update (omitted): xhigh/max want empty got %q/%q", updated.ModelXHigh, updated.ModelMax)
+	}
+}
+
 // TestDemoAPI_AdminLLMConfigClaudeEmbeddingRejected demonstrates that a config
 // with agent_type=claude rejects any non-null embedding_model on update — covering spec 96.
 func TestDemoAPI_AdminLLMConfigClaudeEmbeddingRejected(t *testing.T) {

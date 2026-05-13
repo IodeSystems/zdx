@@ -16,9 +16,9 @@ import (
 )
 
 // LLMConfigBody is the JSON shape of a single LLM configuration on the wire.
-// Empty strings in embedding_model / model_low / model_medium / model_high
-// are treated as "not set" (DB NULL). On GET, api_key is omitted; has_api_key
-// indicates whether a key is stored server-side.
+// Empty strings in embedding_model / model_low / model_medium / model_high /
+// model_xhigh / model_max are treated as "not set" (DB NULL). On GET, api_key
+// is omitted; has_api_key indicates whether a key is stored server-side.
 type LLMConfigBody struct {
 	ID             int64  `json:"id,omitempty"`
 	Name           string `json:"name"`
@@ -32,6 +32,11 @@ type LLMConfigBody struct {
 	ModelLow       string `json:"model_low"`
 	ModelMedium    string `json:"model_medium"`
 	ModelHigh      string `json:"model_high"`
+	// ModelXHigh / ModelMax were added in IS-1175 and are optional on the wire
+	// so existing clients that don't yet send them continue to work; absent
+	// values resolve via the IS-1176 fall-through-to-high path.
+	ModelXHigh     string `json:"model_xhigh,omitempty"`
+	ModelMax       string `json:"model_max,omitempty"`
 	TimeoutSeconds int    `json:"timeout_seconds,omitempty"`
 }
 
@@ -61,6 +66,8 @@ type llmConfigRow interface {
 	getModelLow() pgtype.Text
 	getModelMedium() pgtype.Text
 	getModelHigh() pgtype.Text
+	getModelXHigh() pgtype.Text
+	getModelMax() pgtype.Text
 	getTimeoutSeconds() int32
 }
 
@@ -76,6 +83,8 @@ func toBody(r llmConfigRow, includeKey bool) LLMConfigBody {
 		ModelLow:       textString(r.getModelLow()),
 		ModelMedium:    textString(r.getModelMedium()),
 		ModelHigh:      textString(r.getModelHigh()),
+		ModelXHigh:     textString(r.getModelXHigh()),
+		ModelMax:       textString(r.getModelMax()),
 		TimeoutSeconds: int(r.getTimeoutSeconds()),
 		HasAPIKey:      r.getAPIKey() != "",
 	}
@@ -99,6 +108,8 @@ func (r listRow) getAgentType() string           { return r.AgentType }
 func (r listRow) getModelLow() pgtype.Text       { return r.ModelLow }
 func (r listRow) getModelMedium() pgtype.Text    { return r.ModelMedium }
 func (r listRow) getModelHigh() pgtype.Text      { return r.ModelHigh }
+func (r listRow) getModelXHigh() pgtype.Text     { return r.ModelXhigh }
+func (r listRow) getModelMax() pgtype.Text       { return r.ModelMax }
 func (r listRow) getTimeoutSeconds() int32       { return r.TimeoutSeconds }
 
 type getRow db.GetLLMConfigByIDRow
@@ -114,6 +125,8 @@ func (r getRow) getAgentType() string           { return r.AgentType }
 func (r getRow) getModelLow() pgtype.Text       { return r.ModelLow }
 func (r getRow) getModelMedium() pgtype.Text    { return r.ModelMedium }
 func (r getRow) getModelHigh() pgtype.Text      { return r.ModelHigh }
+func (r getRow) getModelXHigh() pgtype.Text     { return r.ModelXhigh }
+func (r getRow) getModelMax() pgtype.Text       { return r.ModelMax }
 func (r getRow) getTimeoutSeconds() int32       { return r.TimeoutSeconds }
 
 type createRow db.CreateLLMConfigRow
@@ -129,6 +142,8 @@ func (r createRow) getAgentType() string           { return r.AgentType }
 func (r createRow) getModelLow() pgtype.Text       { return r.ModelLow }
 func (r createRow) getModelMedium() pgtype.Text    { return r.ModelMedium }
 func (r createRow) getModelHigh() pgtype.Text      { return r.ModelHigh }
+func (r createRow) getModelXHigh() pgtype.Text     { return r.ModelXhigh }
+func (r createRow) getModelMax() pgtype.Text       { return r.ModelMax }
 func (r createRow) getTimeoutSeconds() int32       { return r.TimeoutSeconds }
 
 type updateRow db.UpdateLLMConfigRow
@@ -144,6 +159,8 @@ func (r updateRow) getAgentType() string           { return r.AgentType }
 func (r updateRow) getModelLow() pgtype.Text       { return r.ModelLow }
 func (r updateRow) getModelMedium() pgtype.Text    { return r.ModelMedium }
 func (r updateRow) getModelHigh() pgtype.Text      { return r.ModelHigh }
+func (r updateRow) getModelXHigh() pgtype.Text     { return r.ModelXhigh }
+func (r updateRow) getModelMax() pgtype.Text       { return r.ModelMax }
 func (r updateRow) getTimeoutSeconds() int32       { return r.TimeoutSeconds }
 
 func (h *Handler) registerAdminLLMConfigRoutes(api huma.API) {
@@ -233,6 +250,8 @@ func (h *Handler) registerAdminLLMConfigRoutes(api huma.API) {
 				ModelLow:       textOrNull(in.Body.ModelLow),
 				ModelMedium:    textOrNull(in.Body.ModelMedium),
 				ModelHigh:      textOrNull(in.Body.ModelHigh),
+				ModelXhigh:     textOrNull(in.Body.ModelXHigh),
+				ModelMax:       textOrNull(in.Body.ModelMax),
 				TimeoutSeconds: int32(timeout),
 			})
 			if err != nil {
@@ -293,6 +312,8 @@ func (h *Handler) registerAdminLLMConfigRoutes(api huma.API) {
 				ModelLow:       textOrNull(in.Body.ModelLow),
 				ModelMedium:    textOrNull(in.Body.ModelMedium),
 				ModelHigh:      textOrNull(in.Body.ModelHigh),
+				ModelXhigh:     textOrNull(in.Body.ModelXHigh),
+				ModelMax:       textOrNull(in.Body.ModelMax),
 				TimeoutSeconds: int32(timeout),
 			})
 			if err != nil {
