@@ -1577,6 +1577,8 @@ CREATE TABLE public.zdx_llm_configs (
     name text DEFAULT 'default'::text NOT NULL,
     priority integer NOT NULL,
     timeout_seconds integer DEFAULT 600 NOT NULL,
+    model_xhigh text,
+    model_max text,
     CONSTRAINT zdx_llm_configs_claude_no_embedding CHECK (((agent_type <> 'claude'::text) OR (embedding_model IS NULL)))
 );
 
