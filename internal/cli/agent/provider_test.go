@@ -18,8 +18,13 @@ func TestNormalizeComplexity(t *testing.T) {
 		{"HIGH", "high", false},
 		{"  Medium  ", "medium", false},
 		{"", "high", false}, // empty → DefaultComplexity
-		{"xhigh", "", true},
-		{"max", "", true},
+		{"xhigh", "xhigh", false},
+		{"xh", "xhigh", false},
+		{"x", "xhigh", false},
+		{"XHIGH", "xhigh", false},
+		{"max", "max", false},
+		{"MAX", "max", false},
+		{"  max  ", "max", false},
 		{"unknown", "", true},
 	}
 	for _, tc := range cases {

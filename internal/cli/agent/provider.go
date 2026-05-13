@@ -70,12 +70,16 @@ func NormalizeContainer(s string) (string, error) {
 	return "", fmt.Errorf("--container must be one of docker|local (got %q)", s)
 }
 
-// Complexity tiers exposed via --complexity. See IS-1031 for the planned
-// expansion to {low, medium, high, xhigh, max}; for now we settle on three.
+// Complexity tiers exposed via --complexity. IS-1031 expanded the gradient
+// from three slots to five so model coverage (haiku → sonnet → opus →
+// opus+thinking → opus+max-output) maps to meaningful tiers without forcing
+// under-/over-provisioning at any single rung.
 const (
 	ComplexityLow    = "low"
 	ComplexityMedium = "medium"
 	ComplexityHigh   = "high"
+	ComplexityXHigh  = "xhigh"
+	ComplexityMax    = "max"
 
 	// DefaultComplexity is the value applied when --complexity is omitted.
 	// We bias toward "high" so the operator opts down for cheap tasks
@@ -94,6 +98,8 @@ const (
 //	low    | l
 //	medium | med | m
 //	high   | h
+//	xhigh  | xh | x
+//	max
 func NormalizeComplexity(s string) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
 	case "", "auto":
@@ -104,6 +110,10 @@ func NormalizeComplexity(s string) (string, error) {
 		return ComplexityMedium, nil
 	case "high", "h":
 		return ComplexityHigh, nil
+	case "xhigh", "xh", "x":
+		return ComplexityXHigh, nil
+	case "max":
+		return ComplexityMax, nil
 	}
-	return "", fmt.Errorf("--complexity must be one of auto|low|medium|high (got %q)", s)
+	return "", fmt.Errorf("--complexity must be one of auto|low|medium|high|xhigh|max (got %q)", s)
 }
