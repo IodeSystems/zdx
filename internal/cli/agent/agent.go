@@ -413,18 +413,19 @@ func loadManagedOptsFromCmd(cmd *cobra.Command, provider, alias, issue, model, t
 	}
 
 	return ProviderOpts{
-		RC:         rt.RC,
-		AgentCfg:   rt.AgentCfg,
-		LLMLocal:   rt.LLMLocal,
-		IssueID:    issue,
-		Alias:      alias,
-		Model:      resolved,
-		Complexity: tier,
-		Srcless:    rt.Srcless,
-		WorkDir:    rt.WorkDir,
-		Chrome:     true,
-		MaxTurns:   maxTurns,
-		MCPCommand: mcpCommand,
+		RC:                rt.RC,
+		AgentCfg:          rt.AgentCfg,
+		LLMLocal:          rt.LLMLocal,
+		IssueID:           issue,
+		Alias:             alias,
+		Model:             resolved,
+		Complexity:        tier,
+		Srcless:           rt.Srcless,
+		WorkDir:           rt.WorkDir,
+		Chrome:            true,
+		MaxTurns:          maxTurns,
+		MCPCommand:        mcpCommand,
+		SpinLockThreshold: rt.AgentCfg.SpinLockThreshold,
 	}, nil
 }
 

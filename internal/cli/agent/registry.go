@@ -37,6 +37,14 @@ type ProviderOpts struct {
 	// opencode/local-specific (ignored by claude)
 	MaxTurns int
 
+	// SpinLockThreshold is the IS-1116 detector knob: number of consecutive
+	// identical (tool, args_digest) tool_calls before the dispatch loop
+	// terminates the session with abort_reason="spin_lock". 0 ⇒ provider
+	// applies its own default (3); negative ⇒ disabled. Sourced from
+	// config.AgentConfig.SpinLockThreshold by the manager so config-driven
+	// overrides flow through without per-provider opts plumbing.
+	SpinLockThreshold int
+
 	// MCPCommand, when non-empty, makes opencode/local dispatch tool
 	// calls through a remote MCP server spawned via this argv (typically
 	// `docker exec -i <container> dx-agent --mcp-stdio`) instead of the

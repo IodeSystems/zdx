@@ -275,8 +275,13 @@ func RunLifecycle(
 	durationMs := time.Since(startedAt).Milliseconds()
 	emitted := state.GlobalSeq - eventCountAtStart
 
+	var abort *AbortInfo
+	if rep, ok := adapter.(AbortReporter); ok {
+		abort = rep.AbortInfo()
+	}
+
 	if rc.valid() {
-		if cErr := postAgentSessionClose(rc, sid, exitCode, durationMs, emitted); cErr != nil {
+		if cErr := postAgentSessionClose(rc, sid, exitCode, durationMs, emitted, abort); cErr != nil {
 			fmt.Fprintf(os.Stderr, "[lifecycle] close: %v\n", cErr)
 		}
 	}
@@ -733,7 +738,7 @@ func postAgentSessionCreate(rc remoteConfig, sid, issueID, alias, provider, trig
 	return resp.Id, nil
 }
 
-func postAgentSessionClose(rc remoteConfig, sid string, exitCode int, durationMs int64, eventCount int32) error {
+func postAgentSessionClose(rc remoteConfig, sid string, exitCode int, durationMs int64, eventCount int32, abort *AbortInfo) error {
 	body := dxclient.CloseAgentSessionRequest{
 		ExitCode:   int32(exitCode),
 		DurationMs: durationMs,
@@ -742,6 +747,18 @@ func postAgentSessionClose(rc remoteConfig, sid string, exitCode int, durationMs
 		// zeros and let the server's GetClaudeSessionTokenUsage be the
 		// source of truth.
 		Tokens: dxclient.TokensStruct{},
+	}
+	if abort != nil && abort.Reason != "" {
+		reason := abort.Reason
+		body.AbortReason = &reason
+		if abort.SpinLock != nil {
+			body.SpinLock = &dxclient.SpinLockAbort{
+				Tool:        abort.SpinLock.Tool,
+				ArgsDigest:  abort.SpinLock.ArgsDigest,
+				RepeatCount: abort.SpinLock.RepeatCount,
+				LastTurn:    abort.SpinLock.LastTurn,
+			}
+		}
 	}
 	path := fmt.Sprintf("/api/dx/agent/sessions/%s/close?slug=%s",
 		url.PathEscape(sid), url.QueryEscape(rc.slug))

@@ -53,14 +53,15 @@ func init() {
 			}
 		}
 		return &opencodeAdapter{
-			rc:         opts.RC,
-			llmCfg:     llmCfg,
-			maxTurns:   opts.MaxTurns, // 0 = unlimited
-			seedPrompt: opts.SeedPrompt,
-			mcpCommand: opts.MCPCommand,
-			complexity: opts.Complexity,
-			persona:    opts.Persona,
-			tlog:       opts.TraceLog,
+			rc:            opts.RC,
+			llmCfg:        llmCfg,
+			maxTurns:      opts.MaxTurns, // 0 = unlimited
+			seedPrompt:    opts.SeedPrompt,
+			mcpCommand:    opts.MCPCommand,
+			complexity:    opts.Complexity,
+			persona:       opts.Persona,
+			spinThreshold: opts.SpinLockThreshold,
+			tlog:          opts.TraceLog,
 		}, nil
 	}
 	RegisterProvider("openai", ctor)
@@ -75,17 +76,19 @@ func init() {
 // JSONL to .zdx/agent/openai/<sid>.jsonl. Session state is persisted as
 // JSON in .zdx/state/openai/<sid>.json for resume.
 type opencodeAdapter struct {
-	rc         remoteConfig // populated by callers that need ResolveModel; safe to leave zero otherwise
-	llmCfg     config.LLMLocal
-	maxTurns   int
-	seedPrompt string
-	mcpCommand []string // when non-empty, dispatch tools via newRemoteDispatcher (dev-container mode)
-	complexity string   // canonical tier — surfaced in setup events for review/escalation telemetry
-	persona    string   // role tier (NormalizePersona-d); empty defaults to "dev" (IS-1096)
-	tlog       *tracelog.Logger
+	rc            remoteConfig // populated by callers that need ResolveModel; safe to leave zero otherwise
+	llmCfg        config.LLMLocal
+	maxTurns      int
+	seedPrompt    string
+	mcpCommand    []string // when non-empty, dispatch tools via newRemoteDispatcher (dev-container mode)
+	complexity    string   // canonical tier — surfaced in setup events for review/escalation telemetry
+	persona       string   // role tier (NormalizePersona-d); empty defaults to "dev" (IS-1096)
+	spinThreshold int      // IS-1116 spin-lock detector threshold; ≤0 disables
+	tlog          *tracelog.Logger
 
 	doneCh chan struct{}
 	runErr error
+	cs     *opencodeChatSession // captured post-Start so AbortInfo can surface spin-lock state
 
 	toolNames map[string]string
 }
@@ -173,14 +176,14 @@ func (a *opencodeAdapter) Start(ctx context.Context, sid, issueID, alias string)
 	}
 
 	a.doneCh = make(chan struct{})
+	a.cs = newOpenCodeChatSession(a.llmCfg, disp, sessLog, a.maxTurns, a.spinThreshold)
 	go func() {
 		defer close(a.doneCh)
 		defer disp.Close()
 		defer dispCancel()
 		defer sessLog.Close()
 
-		cs := newOpenCodeChatSession(a.llmCfg, disp, sessLog, a.maxTurns)
-		a.runErr = cs.Run(ctx, system, user)
+		a.runErr = a.cs.Run(ctx, system, user)
 	}()
 
 	return sessLog.path, nil
@@ -221,6 +224,16 @@ func (a *opencodeAdapter) Wait() (int, error) {
 		return 1, a.runErr
 	}
 	return 0, nil
+}
+
+// AbortInfo implements AbortReporter — RunLifecycle calls this post-Wait
+// and forwards any non-nil reason to close-agent-session so server-side
+// telemetry (TK-1791) emits session.aborted_spin_lock.
+func (a *opencodeAdapter) AbortInfo() *AbortInfo {
+	if a.cs == nil {
+		return nil
+	}
+	return a.cs.abort
 }
 
 func (a *opencodeAdapter) SubagentDir(_ string) string { return "" }
@@ -397,9 +410,15 @@ type opencodeChatSession struct {
 	// 1=raw, 2=tombstone, 3=compact.
 	nCtx  int
 	phase int
+
+	// IS-1116 spin-lock detector. Trips when the most recent N tool_calls
+	// are bit-identical (tool + canonical args). When set, abort holds the
+	// reason the adapter surfaces back to RunLifecycle via AbortReporter.
+	spin  *spinTracker
+	abort *AbortInfo
 }
 
-func newOpenCodeChatSession(llmCfg config.LLMLocal, disp *localDispatcher, log *opencodeSessionLog, maxTurns int) *opencodeChatSession {
+func newOpenCodeChatSession(llmCfg config.LLMLocal, disp *localDispatcher, log *opencodeSessionLog, maxTurns, spinThreshold int) *opencodeChatSession {
 	client := llm.New(llm.Config{
 		Type:   "openai",
 		URL:    llmCfg.BaseURL,
@@ -415,6 +434,7 @@ func newOpenCodeChatSession(llmCfg config.LLMLocal, disp *localDispatcher, log *
 		maxTurns:   maxTurns,
 		timeout:    time.Duration(llmCfg.TimeoutSeconds) * time.Second,
 		phase:      1,
+		spin:       newSpinTracker(spinThreshold),
 	}
 }
 
@@ -508,6 +528,32 @@ func (cs *opencodeChatSession) Run(ctx context.Context, system, user string) err
 
 		for _, tc := range resp.ToolCalls {
 			fmt.Printf("→ tool: %s(%s)\n", tc.Function.Name, cli.Truncate(tc.Function.Arguments, 200))
+
+			// IS-1116 spin-lock detection. Push the agent-issued payload
+			// (not the dispatcher's result) so internal retries in the tool
+			// client don't masquerade as agent churn. Trip → set abort
+			// metadata on the session and bail out before Dispatch so we
+			// don't burn another tool turn on the same stuck call.
+			if cs.spin.enabled() {
+				digest := argsDigest(tc.Function.Arguments)
+				cs.spin.Push(tc.Function.Name, digest)
+				if entry, count, ok := cs.spin.Tripped(); ok {
+					cs.abort = &AbortInfo{
+						Reason: "spin_lock",
+						SpinLock: &SpinLockInfo{
+							Tool:        entry.tool,
+							ArgsDigest:  entry.digest,
+							RepeatCount: int32(count),
+							LastTurn:    int32(turn),
+						},
+					}
+					fmt.Fprintf(os.Stderr, "[spin-lock] turn=%d tool=%s repeat=%d digest=%s — aborting session\n",
+						turn, entry.tool, count, entry.digest)
+					_ = cs.log.AssistantText(fmt.Sprintf("(stopped: spin-lock — tool %s repeated %d turns with identical args)", entry.tool, count), nil)
+					return nil
+				}
+			}
+
 			toolCtx, cancel := context.WithTimeout(ctx, cs.timeout)
 			result, isErr, dispErr := cs.dispatcher.Dispatch(toolCtx, tc.Function.Name, tc.Function.Arguments)
 			cancel()
