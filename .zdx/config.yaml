@@ -22,17 +22,24 @@ components:
       go:
         dirs: [internal, cmd]
     close:
+      # intent_skip steps are codegen-only and the merge-train owns regen on
+      # top of the worker's intent diff. RunCloseHooks skips these on worker
+      # branches (branch != dev/main); lint still runs as --intent. TK-1787.
       steps:
         - name: gen
           run: ./bin/db gen
+          intent_skip: true
         - name: gen-dxclient
           run: make gen-dxclient
+          intent_skip: true
         - name: gen-ui
           run: cd ui && pnpm exec openapi-typescript ../internal/dxclient/openapi.json -o src/api.gen.ts
+          intent_skip: true
         - name: lint
           run: ./bin/lint --intent
         - name: restore-gen
           run: git checkout -- internal/dxclient/models.gen.go internal/db schema/shipped.sql ui/src/api.gen.ts 2>/dev/null; git clean -f internal/db internal/dxclient 2>/dev/null; true
+          intent_skip: true
     ship:
       strategy: rolling-pair
       secrets_file: home/deploy.secret.properties  # IS-892: loader resolves ${secret.*} refs below

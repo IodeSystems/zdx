@@ -16,7 +16,10 @@ const closeCachePath = ".zdx/.close-cache"
 
 // RunCloseHooks executes all close hooks defined in .zdx/config.yaml.
 // Called when an issue or task is closed via the CLI. Skips when the git
-// worktree hash matches the last successful run (see worktreeHash).
+// worktree hash matches the last successful run (see worktreeHash). On
+// worker branches (anything but dev/main), steps marked intent_skip are
+// skipped — the merge-train regenerates those artifacts on top of the
+// worker's intent diff before merging into dev. See TK-1787.
 func RunCloseHooks() error {
 	cfg := config.Load()
 	if cfg == nil {
@@ -26,6 +29,8 @@ func RunCloseHooks() error {
 	if len(steps) == 0 {
 		return nil
 	}
+
+	intent := isWorkerBranch(currentBranch())
 
 	root, rootErr := GitRepoRoot()
 	hash, hashErr := worktreeHash(root)
@@ -41,6 +46,10 @@ func RunCloseHooks() error {
 		if label == "" {
 			label = ns.Run
 		}
+		if intent && ns.IntentSkip {
+			fmt.Printf("[close] %s: %s — skipped (intent mode — merge-train will regenerate)\n", ns.Component, label)
+			continue
+		}
 		fmt.Printf("[close] %s: %s\n", ns.Component, label)
 		if err := RunShell(ns.Run, ns.CWD); err != nil {
 			return fmt.Errorf("close hook %q failed: %w", label, err)
@@ -51,6 +60,29 @@ func RunCloseHooks() error {
 		writeCloseCache(root, hash)
 	}
 	return nil
+}
+
+// currentBranch returns the current git branch name, or "" if it cannot be
+// determined. Detached HEAD returns "HEAD"; callers should treat that as
+// non-worker (don't skip codegen) since we can't tell what's downstream.
+func currentBranch() string {
+	out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// isWorkerBranch reports whether branch is a worker branch — anything other
+// than dev (merge-train owns regen here) and main (post-deploy-finalize
+// regen). Empty or "HEAD" (detached) is treated as non-worker so codegen
+// still runs when the branch is unknown.
+func isWorkerBranch(branch string) bool {
+	switch branch {
+	case "", "HEAD", "dev", "main":
+		return false
+	}
+	return true
 }
 
 // worktreeHash returns a stable hash of HEAD + uncommitted changes + untracked

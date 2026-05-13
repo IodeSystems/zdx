@@ -222,6 +222,11 @@ type Step struct {
 	Name string `yaml:"name"`
 	Run  string `yaml:"run"`
 	CWD  string `yaml:"cwd"`
+	// IntentSkip marks a close step as a codegen step that the merge-train
+	// owns. RunCloseHooks skips it on worker branches (any branch other than
+	// dev/main), since committing generated artifacts on a worker branch only
+	// creates rebase churn the merge-train will overwrite anyway. See TK-1787.
+	IntentSkip bool `yaml:"intent_skip"`
 }
 
 type Suite struct {
