@@ -206,7 +206,7 @@ func (a *opencodeAdapter) dispatcherTransport() string {
 // the host process runs the chat loop, the subprocess executes tools.
 func (a *opencodeAdapter) buildDispatcher(ctx context.Context, root string) (*localDispatcher, error) {
 	if len(a.mcpCommand) > 0 {
-		return newRemoteDispatcher(ctx, a.mcpCommand)
+		return newRemoteDispatcher(ctx, a.mcpCommand, a.persona)
 	}
 	srv := mcp.NewServer(&mcp.Implementation{
 		Name:    "dx-agent-opencode",
@@ -215,7 +215,7 @@ func (a *opencodeAdapter) buildDispatcher(ctx context.Context, root string) (*lo
 	mcpcmd.RegisterFSTools(srv, root)
 	mcpcmd.RegisterShellTools(srv, root)
 	mcpcmd.RegisterOutlineTools(srv, root)
-	return newLocalDispatcher(ctx, srv)
+	return newLocalDispatcher(ctx, srv, a.persona)
 }
 
 func (a *opencodeAdapter) Wait() (int, error) {

@@ -8,7 +8,7 @@ import (
 )
 
 func TestNewRemoteDispatcher_EmptyCommandErrors(t *testing.T) {
-	_, err := newRemoteDispatcher(context.Background(), nil)
+	_, err := newRemoteDispatcher(context.Background(), nil, PersonaDev)
 	if err == nil {
 		t.Fatal("expected error for empty command, got nil")
 	}
@@ -20,7 +20,7 @@ func TestNewRemoteDispatcher_EmptyCommandErrors(t *testing.T) {
 func TestNewRemoteDispatcher_BogusCommandErrors(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_, err := newRemoteDispatcher(ctx, []string{"/nonexistent/binary-that-cannot-exist", "--mcp-stdio"})
+	_, err := newRemoteDispatcher(ctx, []string{"/nonexistent/binary-that-cannot-exist", "--mcp-stdio"}, PersonaDev)
 	if err == nil {
 		t.Fatal("expected error spawning a missing binary, got nil")
 	}

@@ -17,15 +17,25 @@ import (
 // (newRemoteDispatcher, dx-agent --mcp-stdio inside a dev container). The
 // dispatch surface is identical; the chat loop never knows which transport
 // it's talking through.
+//
+// persona gates which tools the agent is allowed to invoke (IS-1097): the
+// IS-1090 design matrix lives in CheckToolPermission and is enforced here at
+// the dispatch boundary, before the tool call crosses the wire. Empty
+// persona normalizes to DefaultPersona inside CheckToolPermission so older
+// callsites that don't supply one degrade to the dev-tier permission set.
 type localDispatcher struct {
 	serverSession *mcp.ServerSession // nil for remote dispatchers (no in-process server)
 	clientSession *mcp.ClientSession
 	tools         []*mcp.Tool
+	persona       string
 }
 
 // newLocalDispatcher wires an in-memory MCP client/server pair and lists the
 // registered tools. The caller owns the server and must keep it alive.
-func newLocalDispatcher(ctx context.Context, srv *mcp.Server) (*localDispatcher, error) {
+//
+// persona is plumbed through so Dispatch can apply the IS-1097 permission
+// matrix without the chat loop having to filter tool_calls itself.
+func newLocalDispatcher(ctx context.Context, srv *mcp.Server, persona string) (*localDispatcher, error) {
 	t1, t2 := mcp.NewInMemoryTransports()
 	ss, err := srv.Connect(ctx, t1, nil)
 	if err != nil {
@@ -49,6 +59,7 @@ func newLocalDispatcher(ctx context.Context, srv *mcp.Server) (*localDispatcher,
 		serverSession: ss,
 		clientSession: cs,
 		tools:         list.Tools,
+		persona:       persona,
 	}, nil
 }
 
@@ -58,10 +69,13 @@ func newLocalDispatcher(ctx context.Context, srv *mcp.Server) (*localDispatcher,
 // the boundary into the subprocess where dx-agent --mcp-stdio executes
 // them against /workspace inside the container.
 //
+// persona is enforced host-side before tool calls cross the wire, so the
+// remote subprocess never sees banned tool calls regardless of transport.
+//
 // The subprocess's stderr is forwarded to the host's stderr so panics and
 // permission errors are visible during dev. Closing the dispatcher closes
 // stdin → SIGTERM → SIGKILL via mcp.CommandTransport's Close ladder.
-func newRemoteDispatcher(ctx context.Context, command []string) (*localDispatcher, error) {
+func newRemoteDispatcher(ctx context.Context, command []string, persona string) (*localDispatcher, error) {
 	if len(command) == 0 {
 		return nil, fmt.Errorf("remote dispatcher: command must not be empty")
 	}
@@ -81,6 +95,7 @@ func newRemoteDispatcher(ctx context.Context, command []string) (*localDispatche
 	return &localDispatcher{
 		clientSession: cs,
 		tools:         list.Tools,
+		persona:       persona,
 	}, nil
 }
 
@@ -126,7 +141,19 @@ func (d *localDispatcher) OpenAIFunctions() []llm.ToolDef {
 
 // Dispatch invokes a tool by name with JSON-encoded arguments and returns a
 // stringified result suitable for feeding back as a tool message.
+//
+// Enforces the IS-1097 persona/tool permission matrix before the call
+// crosses the wire: banned tool/persona combinations short-circuit with a
+// structured isError=true result so the LLM observes the denial as a normal
+// tool failure and can route a question to the suggested tier.
 func (d *localDispatcher) Dispatch(ctx context.Context, name, argsJSON string) (string, bool, error) {
+	if decision := CheckToolPermission(d.persona, name, argsJSON); !decision.Allowed {
+		persona := d.persona
+		if persona == "" {
+			persona = DefaultPersona
+		}
+		return FormatToolPermissionError(persona, name, decision), true, nil
+	}
 	var args any
 	if argsJSON == "" {
 		args = map[string]any{}
