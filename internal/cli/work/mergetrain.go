@@ -74,10 +74,11 @@ func mergeTrainRun(branch string, dryRun bool, workerPrefix string) error {
 		"fetch origin (if remote exists)",
 		"git checkout " + branch + " && git rebase dev",
 		"dx migrate renumber --auto (if NNN collision)",
-		"go build ./cmd/dx ./cmd/dx-server",
+		"go build ./cmd/dx-server  (regen needs the just-built binary)",
 		"bin/regen-schema (if new migrations on branch)",
 		"sqlc generate",
 		"dx ui gen-api",
+		"go build ./cmd/dx ./cmd/db ./cmd/dx-agent  (consumes new dxclient)",
 		"git commit regen output (if dirty)",
 		"bin/lint (full mode — no --intent)",
 		"git checkout dev && git merge --ff-only " + branch,
@@ -107,15 +108,32 @@ func mergeTrainRun(branch string, dryRun bool, workerPrefix string) error {
 		return err
 	}
 
-	// 6. Build binaries (embed new migrations; get current OpenAPI spec).
-	fmt.Println("merge-train: building binaries...")
-	if err := cli.RunShell("go build -o bin/dx ./cmd/dx && go build -o bin/dx-server ./cmd/dx-server", root); err != nil {
-		return fmt.Errorf("build failed: %w", err)
+	// 6a. Build dx-server only — `dx ui gen-api` (step 7) shells out to
+	// bin/dx-server --openapi to get the current spec, so the server binary
+	// must reflect any handler changes on this branch before regen.
+	// CRITICALLY we do NOT build bin/dx here: when intent on this branch
+	// changes the OpenAPI shape (e.g. a new field on a response), the CLI
+	// code that calls into dxclient cannot compile until the dxclient is
+	// regenerated. Building dx-server first works because handlers do not
+	// import internal/dxclient (only internal/dxclient/gen).
+	fmt.Println("merge-train: building dx-server (pre-regen)...")
+	if err := cli.RunShell("go build -o bin/dx-server ./cmd/dx-server", root); err != nil {
+		return fmt.Errorf("dx-server build failed: %w", err)
 	}
 
-	// 7. Regen artifacts.
+	// 7. Regen artifacts. Runs sqlc generate + dx ui gen-api with the
+	// just-built dx-server, so models.gen.go and api.gen.ts reflect the
+	// current OpenAPI shape before the CLI build below tries to consume them.
 	if err := mtRegen(root, branch); err != nil {
 		return err
+	}
+
+	// 7a. Build the rest of the binaries against the freshly-regenerated
+	// dxclient. This is the build step that used to fail when worker
+	// branches committed intent that changed the openapi shape.
+	fmt.Println("merge-train: building dx/db/dx-agent (post-regen)...")
+	if err := cli.RunShell("go build -o bin/dx ./cmd/dx && go build -o bin/db ./cmd/db && go build -o bin/dx-agent ./cmd/dx-agent", root); err != nil {
+		return fmt.Errorf("post-regen build failed: %w", err)
 	}
 
 	// 8. Commit regen output if dirty.
