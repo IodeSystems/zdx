@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Pre-push branch contract hook.
+#
+# Refuses direct pushes to main/master from a developer workstation.
+# main moves via the release/promotion process only — agent loops and
+# manual edits must reach it through dev (via merge-train) then through
+# whatever release tooling exists. The 32-commit main divergence with
+# broken builds that prompted this hook was the exact failure mode of
+# "agent committed straight to main, operator (or auto-push) shipped it."
+#
+# To override for a genuine hotfix or release operation, push with
+# --no-verify. The override is deliberately friction-ful so accidental
+# pushes are caught but intentional ones are not blocked.
+
+set -euo pipefail
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    case "$remote_ref" in
+        refs/heads/main|refs/heads/master)
+            echo "pre-push: refusing to push $remote_ref directly." >&2
+            echo "  main/master move only via the release process (dev → main promotion)." >&2
+            echo "  Override with --no-verify if this is genuinely a release/hotfix push." >&2
+            exit 1
+            ;;
+    esac
+done
+
+exit 0

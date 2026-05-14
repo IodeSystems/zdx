@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Install zdx-go's tracked git hooks into .git/hooks/.
+#
+# Run from the repo root after cloning or whenever the hook scripts in
+# bin/git-hook-* change. Idempotent — re-running just refreshes the
+# symlinks.
+#
+# We use symlinks rather than copies so future updates to bin/git-hook-*
+# auto-apply without re-running this script. Symlinks are relative so
+# the hooks directory works regardless of where the repo is checked out.
+
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+if [ ! -d .git ]; then
+    echo "install-git-hooks: not at a git repo root (no .git/ here)" >&2
+    exit 1
+fi
+
+mkdir -p .git/hooks
+
+for src in bin/git-hook-*; do
+    [ -e "$src" ] || continue
+    name="${src#bin/git-hook-}"
+    dst=".git/hooks/$name"
+    ln -sf "../../$src" "$dst"
+    echo "installed: $dst -> $src"
+done
