@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery"
@@ -398,6 +400,7 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				IssueType *string `json:"issue_type,omitempty"`
 				Component *string `json:"component,omitempty"`
 				URL       *string `json:"url,omitempty"`
+				EnvName   *string `json:"env_name,omitempty" doc:"Name of the zdx_environments row this issue belongs to. Sets env_id on the issue; empty string clears. TK-1801."`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
@@ -449,6 +452,38 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				}
 				if oldValMap[field] != *val {
 					h.recordRevision(ctx, p.ID, "issue", issueID, field, oldValMap[field], *val)
+				}
+			}
+
+			if in.Body.EnvName != nil {
+				newEnv := pgtype.Int4{}
+				newName := strings.TrimSpace(*in.Body.EnvName)
+				if newName != "" {
+					env, envErr := h.Q.GetEnvironment(ctx, db.GetEnvironmentParams{ProjectID: p.ID, Name: newName})
+					if envErr != nil {
+						if errors.Is(envErr, pgx.ErrNoRows) {
+							return nil, apiErr(http.StatusBadRequest, "no env named "+newName+" on this project")
+						}
+						return nil, apiErr(500, envErr.Error())
+					}
+					newEnv = pgtype.Int4{Int32: env.ID, Valid: true}
+				}
+				if err := h.Q.SetIssueEnv(ctx, db.SetIssueEnvParams{
+					EnvID:     newEnv,
+					ProjectID: p.ID,
+					ID:        issueID,
+				}); err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				oldStr, newStr := "", ""
+				if oldIssue.EnvID.Valid {
+					oldStr = strconv.Itoa(int(oldIssue.EnvID.Int32))
+				}
+				if newEnv.Valid {
+					newStr = strconv.Itoa(int(newEnv.Int32))
+				}
+				if oldStr != newStr {
+					h.recordRevision(ctx, p.ID, "issue", issueID, "env_id", oldStr, newStr)
 				}
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -1552,6 +1587,39 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			}{Body: struct {
 				Todos []TodoItem `json:"todos"`
 			}{Todos: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "resolve-issue-branches", Method: http.MethodGet, Path: "/api/dx/projects/{slug}/issues/{id}/branches"},
+		func(ctx context.Context, in *struct {
+			Slug string `path:"slug" required:"true"`
+			ID   string `path:"id" required:"true" doc:"Issue ref formatted as IS-N"`
+		}) (*struct {
+			Body IssueBranchesItem
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if _, err := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: in.ID}); err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					return nil, apiErr(http.StatusNotFound, "issue not found: "+in.ID)
+				}
+				return nil, apiErr(500, err.Error())
+			}
+			row, err := h.Q.ResolveIssueBranches(ctx, db.ResolveIssueBranchesParams{ProjectID: p.ID, ID: in.ID})
+			if err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					return nil, apiErr(http.StatusUnprocessableEntity,
+						"issue "+in.ID+" has no env_id and project has no default_env_id — set one with `dx issue edit "+in.ID+" --env=NAME` or seed `default_env_id` on the project")
+				}
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body IssueBranchesItem }{Body: IssueBranchesItem{
+				EnvID:         row.EnvID,
+				EnvName:       row.EnvName,
+				TrunkBranch:   row.TrunkBranch,
+				ReleaseBranch: row.ReleaseBranch,
+			}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "reconcile-branch", Method: http.MethodPost, Path: "/api/dx/todo/issue/reconcile"},

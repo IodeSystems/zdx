@@ -1,10 +1,10 @@
 -- name: ListIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id
 FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC;
 
 
 -- name: ListOpenIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY updated_at DESC;
 
 -- name: ListOpenIssuesEligibleForBackport :many
@@ -16,7 +16,7 @@ FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY updated_at DE
 -- Only issues currently targeting 'dev' qualify; an issue already targeted
 -- at a named branch is its own canonical home and does not get a backport
 -- task on top.
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id
 FROM zdx_issues
 WHERE project_id = @project_id
   AND status = 'open'
@@ -26,27 +26,27 @@ WHERE project_id = @project_id
 ORDER BY (priority)::int ASC, updated_at DESC;
 
 -- name: SearchIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id
 FROM zdx_issues
 WHERE project_id = @project_id
   AND (title ILIKE '%' || @query::text || '%' OR context ILIKE '%' || @query::text || '%')
 ORDER BY updated_at DESC;
 
 -- name: GetIssue :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id
 FROM zdx_issues WHERE project_id = $1 AND id = $2;
 
 -- name: GetIssueByAnyProject :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id
 FROM zdx_issues WHERE id = $1;
 
 -- name: CreateIssue :one
 INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url, source_error_id, node_ref)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty;
+RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id;
 
 -- name: GetIssueBySourceErrorID :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id
 FROM zdx_issues WHERE project_id = $1 AND source_error_id = $2
 LIMIT 1;
 
@@ -80,7 +80,7 @@ WHERE project_id = @project_id AND id = @id;
 -- name: ListIssuesClosedDirty :many
 -- IS-1062: surfacing hook for `dx issue list --closed-dirty`. Returns issues
 -- that were force-closed against an unclean working tree, newest first.
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id
 FROM zdx_issues
 WHERE project_id = $1 AND closed_dirty = true
 ORDER BY closed_at DESC NULLS LAST;
@@ -96,11 +96,32 @@ WHERE project_id = $1 AND id = $2;
 -- name: ListOpenLinkedIssues :many
 -- Open issues whose duplicate_of or link_of targets the given issue. Used to
 -- cascade-close narrow-slice links (and full duplicates) when the target closes.
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id
 FROM zdx_issues
 WHERE project_id = @project_id
   AND status = 'open'
   AND (duplicate_of = @target_id OR link_of = @target_id);
+
+-- name: SetIssueEnv :exec
+-- TK-1801: set the env_id FK on an issue. NULL clears the assignment.
+UPDATE zdx_issues
+SET env_id = sqlc.narg('env_id')::int,
+    updated_at = NOW()
+WHERE project_id = @project_id AND id = @id;
+
+-- name: ResolveIssueBranches :one
+-- TK-1801: resolve (env_name, trunk_branch, release_branch) for an issue.
+-- Falls back from issue.env_id → project.default_env_id. Returns no rows
+-- when neither is set so the handler can fail closed with 422.
+SELECT e.id AS env_id,
+       e.name AS env_name,
+       e.trunk_branch AS trunk_branch,
+       e.release_branch AS release_branch
+FROM zdx_issues i
+JOIN zdx_projects p ON p.id = i.project_id
+JOIN zdx_environments e
+  ON e.id = COALESCE(i.env_id, p.default_env_id)
+WHERE i.project_id = @project_id AND i.id = @id;
 
 -- name: SetIssueField :exec
 UPDATE zdx_issues

@@ -332,6 +332,15 @@ func issueShowCmd() *cobra.Command {
 			}
 			cli.PrintIssueItem(cli.IssueToCli(showResp.JSON200.Issue))
 
+			// TK-1801: display env_name + resolved (trunk, release) branches when
+			// the issue resolves to one. 404/422 fall through silently so the
+			// command stays usable on unmigrated projects.
+			if brResp, brErr := c.ResolveIssueBranchesWithResponse(cmd.Context(), slug, args[0]); brErr == nil &&
+				brResp.JSON200 != nil && brResp.JSON200.EnvName != "" {
+				fmt.Printf("Env:       %s  (trunk=%s, release=%s)\n",
+					brResp.JSON200.EnvName, brResp.JSON200.TrunkBranch, brResp.JSON200.ReleaseBranch)
+			}
+
 			resResp, err := c.ListIssueResolutionsWithResponse(cmd.Context(), &dxclient.ListIssueResolutionsParams{
 				Slug: slug,
 				Id:   args[0],
@@ -945,7 +954,7 @@ func issueUnblockCmd() *cobra.Command {
 }
 
 func issueEditCmd() *cobra.Command {
-	var title, ctx, component, issueType string
+	var title, ctx, component, issueType, envName string
 	var priority int
 	cmd := &cobra.Command{
 		Use:   "edit <IS-N>",
@@ -980,6 +989,9 @@ func issueEditCmd() *cobra.Command {
 			if cmd.Flags().Changed("type") {
 				body.IssueType = &issueType
 			}
+			if cmd.Flags().Changed("env") {
+				body.EnvName = &envName
+			}
 			resp, err := c.EditIssueWithResponse(cmd.Context(), body)
 			if err != nil {
 				return err
@@ -996,6 +1008,7 @@ func issueEditCmd() *cobra.Command {
 	cmd.Flags().IntVar(&priority, "priority", 0, "priority (1-4)")
 	cmd.Flags().StringVar(&component, "component", "", "component")
 	cmd.Flags().StringVar(&issueType, "type", "", "issue type: ops, impl, or tracker")
+	cmd.Flags().StringVar(&envName, "env", "", "environment name (sets env_id; empty clears so branches fall through to project default)")
 	return cmd
 }
 

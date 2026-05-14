@@ -1,17 +1,17 @@
 -- name: ListProjects :many
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects ORDER BY name;
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority, default_env_id FROM zdx_projects ORDER BY name;
 
 -- name: ListProjectsByPriority :many
 -- Used by the cross-project claim path so generateAgentQueue runs first
 -- against the highest-priority project and the persisted queue is
 -- freshest where it matters most. Tie-break by name for stable order.
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects ORDER BY priority, name;
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority, default_env_id FROM zdx_projects ORDER BY priority, name;
 
 -- name: GetProjectBySlug :one
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects WHERE slug = $1;
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority, default_env_id FROM zdx_projects WHERE slug = $1;
 
 -- name: GetProjectByID :one
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects WHERE id = $1;
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority, default_env_id FROM zdx_projects WHERE id = $1;
 
 -- name: SetProjectPriority :exec
 UPDATE zdx_projects SET priority = @priority WHERE slug = @slug;
@@ -37,6 +37,11 @@ UPDATE zdx_projects SET upstream_url = @upstream_url, upstream_credentials = @up
 
 -- name: SetProjectVision :exec
 UPDATE zdx_projects SET title = @title, description = @description WHERE slug = @slug;
+
+-- name: SetProjectDefaultEnv :exec
+-- TK-1801: per-project fallback for the (trunk_branch, release_branch)
+-- resolver. NULL clears the default so the resolver returns no row.
+UPDATE zdx_projects SET default_env_id = sqlc.narg('env_id')::int WHERE slug = @slug;
 
 -- name: NextID :one
 INSERT INTO zdx_id_seq (kind, next_val) VALUES ($1, 2)

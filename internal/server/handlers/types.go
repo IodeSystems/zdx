@@ -27,6 +27,17 @@ type IssueItem struct {
 	UpdatedAt       string            `json:"updated_at"`
 }
 
+// IssueBranchesItem is the resolved (trunk_branch, release_branch) pair for
+// an issue, looked up via COALESCE(issue.env_id, project.default_env_id) →
+// zdx_environments. Source of truth for `dx ship`, the agent slot, and the
+// merge-train. TK-1801.
+type IssueBranchesItem struct {
+	EnvID         int32  `json:"env_id"`
+	EnvName       string `json:"env_name"`
+	TrunkBranch   string `json:"trunk_branch"`
+	ReleaseBranch string `json:"release_branch"`
+}
+
 type IssueBlockerRef struct {
 	ID     string `json:"id" doc:"Blocking issue ID formatted as IS-N"`
 	Status string `json:"status" doc:"Current status of the blocking issue (open, closed, ...)"`
