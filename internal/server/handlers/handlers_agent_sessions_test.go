@@ -41,3 +41,30 @@ func TestSpinLockTraceArgs_EvenLength(t *testing.T) {
 		t.Fatalf("kv slice must be even-length pairs; got %d entries: %#v", len(args), args)
 	}
 }
+
+// TestIneffectiveTraceArgs_KVShape pins the kv contract for session.ineffective
+// (IS-1100). The dashboard at IS-1101 aggregates by every key listed here;
+// if the shape drifts, the dashboard silently loses a column.
+func TestIneffectiveTraceArgs_KVShape(t *testing.T) {
+	got := ineffectiveTraceArgs("sid-7", "smoke4-1", "claude-sonnet-4-6", "high", "dev", "IS-1100", 23)
+	want := []any{
+		"sid", "sid-7",
+		"alias", "smoke4-1",
+		"model", "claude-sonnet-4-6",
+		"complexity", "high",
+		"persona", "dev",
+		"issue_id", "IS-1100",
+		"turn_count", int32(23),
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("kv mismatch:\n got=%#v\nwant=%#v", got, want)
+	}
+}
+
+// TestIneffectiveTraceArgs_EvenLength: same parity guarantee as SpinLockArgs.
+func TestIneffectiveTraceArgs_EvenLength(t *testing.T) {
+	args := ineffectiveTraceArgs("sid", "alias", "", "", "", "IS-1", 0)
+	if len(args)%2 != 0 {
+		t.Fatalf("kv slice must be even-length pairs; got %d entries: %#v", len(args), args)
+	}
+}

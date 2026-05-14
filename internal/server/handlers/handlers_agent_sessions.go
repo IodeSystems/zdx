@@ -54,6 +54,29 @@ func spinLockTraceArgs(sessionID, alias, issueID string, sl SpinLockAbort) []any
 	}
 }
 
+// ineffectiveSessionMinTurns is the turn-count floor below which we do NOT
+// emit session.ineffective — short sessions are noise (a single-turn probe,
+// a fast yes/no answer). 5 matches the IS-1100 spec.
+const ineffectiveSessionMinTurns = 5
+
+// ineffectiveTraceArgs builds the variadic kv slice traceEvent expects when
+// emitting session.ineffective. Factored out so the kv shape is
+// independently unit-testable without a DB. v1: model/complexity/persona
+// callers pass "" if unknown (persona column landed in IS-1096 but model
+// and complexity are still not stamped on zdx_claude_sessions — see
+// IS-1101 dashboard ticket for the enrichment path).
+func ineffectiveTraceArgs(sessionID, alias, model, complexity, persona, issueID string, turnCount int32) []any {
+	return []any{
+		"sid", sessionID,
+		"alias", alias,
+		"model", model,
+		"complexity", complexity,
+		"persona", persona,
+		"issue_id", issueID,
+		"turn_count", turnCount,
+	}
+}
+
 func (h *Handler) registerAgentSessionRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "create-agent-session",
@@ -158,6 +181,11 @@ func (h *Handler) registerAgentSessionRoutes(api huma.API) {
 				spinLockTraceArgs(sess.SessionID, sess.Alias, sess.IssueID, *in.Body.SpinLock)...)
 		}
 
+		if computeIneffective(ctx, h.Q, p.ID, sess, in.Body.EventCount) {
+			traceEvent(ctx, h.Q, p.ID, "session.ineffective",
+				ineffectiveTraceArgs(sess.SessionID, sess.Alias, "", "", sess.Persona, sess.IssueID, in.Body.EventCount)...)
+		}
+
 		h.Broker.PublishAgentSessionLifecycle(in.Slug, sess.SessionID, "agent.session-closed", map[string]any{
 			"session_id":  sess.SessionID,
 			"session_pk":  sess.ID,
@@ -193,6 +221,49 @@ func (h *Handler) registerAgentSessionRoutes(api huma.API) {
 
 	// Events ingestion: raw ndjson body, wrapped-event format per line.
 	h.Mux.Post("/api/dx/agent/sessions/{sid}/events", h.handleAgentSessionEvents)
+}
+
+// computeIneffective is the IS-1100 conjunction. Returns true when the
+// session ran more than ineffectiveSessionMinTurns AND produced none of the
+// durable-mutation signals tracked via zdx_revisions/zdx_comments. v1 caveats
+// (telemetry-only; promotion to a hard gate is a separate ticket):
+//
+//   - turnCount is the EventCount the client reported. One Claude "turn" =
+//     one assistant message + tool roundtrip; EventCount is a coarse upper
+//     bound (it counts all NDJSON events). Good enough to filter out trivially
+//     short sessions, which is all we need for v1.
+//   - zdx_questions has no session_id column yet (route columns from IS-1091
+//     not on main), so questions are NOT counted as a signal in v1.
+//   - "commits attached" is approximated via issue-close revisions; we do not
+//     join zdx_issues.completed_in_sha here because the close revision already
+//     fires the same not-ineffective path.
+//   - Comment attribution is approximated by (author_alias, created_at) since
+//     zdx_comments lacks a session_id column.
+func computeIneffective(ctx context.Context, q *db.Queries, projectID int32, sess db.GetClaudeSessionBySessionIDRow, turnCount int32) bool {
+	if turnCount <= ineffectiveSessionMinTurns {
+		return false
+	}
+	sigs, err := q.CountSessionEffectiveSignals(ctx, db.CountSessionEffectiveSignalsParams{
+		ProjectID: projectID,
+		SessionID: sess.SessionID,
+	})
+	if err != nil {
+		return false
+	}
+	if sigs.TotalRevisions > 0 {
+		return false
+	}
+	if sess.Alias != "" {
+		comments, err := q.CountSessionLongCommentsByAlias(ctx, db.CountSessionLongCommentsByAliasParams{
+			ProjectID:   projectID,
+			AuthorAlias: sess.Alias,
+			CreatedAt:   sess.CreatedAt,
+		})
+		if err == nil && comments > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // ── Shared helpers ─────────────────────────────────────────────────────────
