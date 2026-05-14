@@ -26,7 +26,7 @@ func TestDemoCLI_ShipBranchGate(t *testing.T) {
 		t.Fatalf("find root: %v", err)
 	}
 
-	const refusedMarker = "does not match deploy.release_branch"
+	const refusedMarker = "does not match release_branch"
 
 	// ── Case 1: feature branch vs main release branch → refused ───────────────
 	repo1 := newShipRepo(t, root)

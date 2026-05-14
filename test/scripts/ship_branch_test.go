@@ -8,9 +8,11 @@ import (
 )
 
 // spec 172 (must): bin/ship refuses deploy when current branch does not match
-// deploy.release_branch in home/deploy.secret.properties.
+// the configured release_branch. Source of truth is the server when
+// deploy.environment_name is set; otherwise falls back to deploy.release_branch
+// in home/deploy.secret.properties (legacy path).
 
-const branchRefusalMarker = "does not match deploy.release_branch"
+const branchRefusalMarker = "does not match release_branch"
 
 func TestShipRefusesBranchMismatch(t *testing.T) {
 	repo := newTempShipRepo(t)

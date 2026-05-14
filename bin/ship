@@ -108,20 +108,55 @@ if $IS_DIRTY && ! $ALLOW_DIRTY; then
 fi
 
 # ── Release-branch gate ───────────────────────────────────────────────────────
-# Optional: when deploy.release_branch is set in home/deploy.secret.properties,
-# refuse to ship from any other branch. Prevents shipping a feature branch to
-# an environment whose release branch is e.g. main.
+# Source of truth for release_branch is the server's zdx_environments row, not
+# the local properties file. Properties file used to mirror release_branch and
+# drifted (see IS-1221). When deploy.environment_name is set in properties,
+# query `dx env show <name> --json` for the canonical release_branch and
+# compare against HEAD.
+#
+# Fallback: if env_name is unset, or if the server lookup fails (no dx binary,
+# server unreachable, env not found), fall back to the legacy
+# deploy.release_branch grep. The server path is the authoritative one; the
+# legacy grep is opt-in safety only and goes away once all callers migrate
+# (planned: IS-1224).
 
 RELEASE_BRANCH=""
+RELEASE_SOURCE=""
 CURRENT_BRANCH=""
 
+prop_value() { grep "^$1=" "$DEPLOY_PROPS" 2>/dev/null | cut -d= -f2- | tr -d '[:space:]' || true; }
+
 if [ -f "$DEPLOY_PROPS" ]; then
-  RELEASE_BRANCH=$(grep "^deploy.release_branch=" "$DEPLOY_PROPS" | cut -d= -f2- | tr -d '[:space:]' || true)
+  ENV_FOR_GATE=$(prop_value deploy.environment_name)
+  if [ -n "$ENV_FOR_GATE" ] && [ -x ./bin/dx ]; then
+    ENV_JSON=$(./bin/dx env show "$ENV_FOR_GATE" --json 2>/dev/null || true)
+    if [ -n "$ENV_JSON" ]; then
+      RELEASE_BRANCH=$(printf '%s' "$ENV_JSON" | jq -r '.release_branch // empty' 2>/dev/null || true)
+      if [ -n "$RELEASE_BRANCH" ]; then
+        RELEASE_SOURCE="server"
+      fi
+    fi
+    if [ -z "$RELEASE_BRANCH" ]; then
+      echo "[ship] WARN: could not resolve release_branch for env '$ENV_FOR_GATE' from server (falling back to legacy properties grep)."
+    fi
+  fi
+
+  if [ -z "$RELEASE_BRANCH" ]; then
+    RELEASE_BRANCH=$(prop_value deploy.release_branch)
+    if [ -n "$RELEASE_BRANCH" ]; then
+      RELEASE_SOURCE="properties"
+    fi
+  fi
+
   if [ -n "$RELEASE_BRANCH" ]; then
     CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
     if [ "$CURRENT_BRANCH" != "$RELEASE_BRANCH" ]; then
-      echo "[ship] REFUSING: current branch '$CURRENT_BRANCH' does not match deploy.release_branch '$RELEASE_BRANCH'."
-      echo "[ship] Switch to '$RELEASE_BRANCH' or update deploy.release_branch in $DEPLOY_PROPS."
+      echo "[ship] REFUSING: current branch '$CURRENT_BRANCH' does not match release_branch '$RELEASE_BRANCH' (source: $RELEASE_SOURCE)."
+      if [ "$RELEASE_SOURCE" = "server" ]; then
+        echo "[ship] Switch to '$RELEASE_BRANCH' or update with: ./bin/dx env edit $ENV_FOR_GATE --release-branch=<branch>"
+      else
+        echo "[ship] Switch to '$RELEASE_BRANCH' or update deploy.release_branch in $DEPLOY_PROPS."
+      fi
       exit 1
     fi
   fi

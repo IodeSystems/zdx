@@ -1,6 +1,7 @@
 package project
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -102,7 +103,8 @@ func envAddCmd() *cobra.Command {
 }
 
 func envShowCmd() *cobra.Command {
-	return &cobra.Command{
+	var asJSON bool
+	cmd := &cobra.Command{
 		Use:   "show <name>",
 		Short: "Show environment detail and deploy history",
 		Args:  cobra.ExactArgs(1),
@@ -122,6 +124,11 @@ func envShowCmd() *cobra.Command {
 				return fmt.Errorf("empty response")
 			}
 			e := resp.JSON200
+			if asJSON {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(e)
+			}
 			fmt.Printf("Name:           %s\n", e.Name)
 			fmt.Printf("URL:            %s\n", e.Url)
 			fmt.Printf("Release branch: %s\n", e.ReleaseBranch)
@@ -159,6 +166,8 @@ func envShowCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&asJSON, "json", false, "output environment as JSON (omits deploy history)")
+	return cmd
 }
 
 func envDeployCmd() *cobra.Command {
