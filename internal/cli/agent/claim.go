@@ -77,7 +77,7 @@ func fromAgentClaimBody(b *dxclient.AgentClaimBody) *claimedTodo {
 // ordered by project.priority then todo.priority. When rc.slug is set the
 // daemon stays on the project-scoped /claim path. The wire response shape
 // is identical (claim-any populates project_slug; /claim leaves it blank).
-func claimNextTodo(rc remoteConfig, agentID, persona string, leaseMinutes int32) (*claimedTodo, error) {
+func claimNextTodo(rc remoteConfig, agentID, persona string, leaseMinutes int32, scopeIssueID string) (*claimedTodo, error) {
 	c := cli.NewClient(rc.url, rc.key)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -86,6 +86,10 @@ func claimNextTodo(rc remoteConfig, agentID, persona string, leaseMinutes int32)
 	}
 
 	if rc.slug == "" {
+		// Global (claim-any) path. scope_issue_id is project-scoped and not
+		// supported here — pass it through silently as nil; if an operator
+		// supplied --scope-issue on a global agent the loop entry point
+		// should already have rejected it (TODO at the cobra layer).
 		resp, err := c.AgentClaimAnyWithResponse(ctx, &dxclient.AgentClaimAnyParams{}, dxclient.AgentClaimAnyJSONRequestBody{
 			AgentId:      agentID,
 			LeaseMinutes: &leaseMinutes,
@@ -100,12 +104,16 @@ func claimNextTodo(rc remoteConfig, agentID, persona string, leaseMinutes int32)
 		return fromAgentClaimBody(resp.JSON200), nil
 	}
 
-	resp, err := c.AgentClaimWithResponse(ctx, &dxclient.AgentClaimParams{}, dxclient.AgentClaimJSONRequestBody{
+	body := dxclient.AgentClaimJSONRequestBody{
 		Slug:         rc.slug,
 		AgentId:      agentID,
 		LeaseMinutes: &leaseMinutes,
 		Persona:      &persona,
-	})
+	}
+	if scopeIssueID != "" {
+		body.ScopeIssueId = &scopeIssueID
+	}
+	resp, err := c.AgentClaimWithResponse(ctx, &dxclient.AgentClaimParams{}, body)
 	if err != nil {
 		return nil, err
 	}

@@ -137,6 +137,14 @@ type ProviderOpts struct {
 	// understand the risk can opt in via --allow-protected.
 	AllowProtected bool
 
+	// ScopeIssueID, when non-empty, restricts the loop's claim path to
+	// todos whose issue_ref is this issue OR a descendant of it (the
+	// server walks the parent/composition graph per TK-1754). Surfaced
+	// via `dx agent loop --scope-issue=IS-N`; useful for "claude, work
+	// these N tickets autonomously and stop" without competing against
+	// the full project queue. Empty means no scope (claim from anywhere).
+	ScopeIssueID string
+
 	// TraceLog is the session-scoped structured logger (initialized in
 	// DispatchSingle / managed wrappers). When non-nil, providers and the
 	// shared lifecycle code emit setup events (worktree.create,

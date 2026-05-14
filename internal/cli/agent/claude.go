@@ -216,7 +216,7 @@ func claudeProjectDir() string {
 // each claimed todo carries a project_slug; the loop ensures a persistent main
 // clone exists at ${workDir}/${slug}/main and creates a per-session worktree
 // to run the session in. workDir is empty when srcless is false.
-func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcless bool, workDir string, agentCfg config.AgentConfig, persona string) error {
+func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcless bool, workDir string, agentCfg config.AgentConfig, persona string, scopeIssueID string) error {
 	// In srcless mode the cwd is the agent home; .zdx state lives next to the
 	// global config (the cwd has no project to attach state to).
 	stateFile := ".zdx/cache/claude-work-state"
@@ -343,23 +343,24 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 		// the same iteration_id tag.
 		iterationID := uuid.New().String()
 		takeCfg := TakeConfig{
-			RC:          rc,
-			AgentID:     agentID,
-			Alias:       alias,
-			Chrome:      chrome,
-			Srcless:     srcless,
-			WorkDir:     workDir,
-			HomeCwd:     homeCwd,
-			AgentCfg:    agentCfg,
-			ModelSel:    sel,
-			Persona:     persona,
-			SessionIdx:  sessionIdx,
-			SelfPath:    selfPath,
-			StateFile:   stateFile,
-			Holder:      holder,
-			LogFn:       log,
-			LoopLog:     loopLog,
-			IterationID: iterationID,
+			RC:           rc,
+			AgentID:      agentID,
+			Alias:        alias,
+			Chrome:       chrome,
+			Srcless:      srcless,
+			WorkDir:      workDir,
+			HomeCwd:      homeCwd,
+			AgentCfg:     agentCfg,
+			ModelSel:     sel,
+			Persona:      persona,
+			ScopeIssueID: scopeIssueID,
+			SessionIdx:   sessionIdx,
+			SelfPath:     selfPath,
+			StateFile:    stateFile,
+			Holder:       holder,
+			LogFn:        log,
+			LoopLog:      loopLog,
+			IterationID:  iterationID,
 		}
 
 		// Check for crash-recovery state from a previous interrupted session.
@@ -676,7 +677,7 @@ func init() {
 // Manager dispatches here automatically when --provider=claude in loop mode.
 func (a *claudeAdapter) RunLoop(_ context.Context, opts ProviderOpts) error {
 	sel := modelSelector{modelFlag: opts.Model, complexity: opts.Complexity, agentCfg: opts.AgentCfg}
-	return runLoop(opts.RC, opts.Alias, opts.Chrome, sel, opts.Srcless, opts.WorkDir, opts.AgentCfg, opts.Persona)
+	return runLoop(opts.RC, opts.Alias, opts.Chrome, sel, opts.Srcless, opts.WorkDir, opts.AgentCfg, opts.Persona, opts.ScopeIssueID)
 }
 
 // claudeAdapter implements AgentAdapter against the real `claude` CLI. It

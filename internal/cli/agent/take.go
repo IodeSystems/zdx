@@ -52,6 +52,10 @@ type TakeConfig struct {
 	AgentCfg config.AgentConfig
 	ModelSel modelSelector
 	Persona  string // role tier (NormalizePersona-d); empty defaults to "dev"
+	// ScopeIssueID, when non-empty, restricts the claim to todos whose
+	// issue_ref is the issue OR a descendant of it (server-side descendant
+	// walk per TK-1754). Wired from the loop's --scope-issue flag.
+	ScopeIssueID string
 	// SessionIdx is the model-rotation counter; caller increments after each Take.
 	SessionIdx int
 	SelfPath   string // for ensureProjectInit (srcless)
@@ -125,7 +129,7 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 		log("resuming interrupted session: issue=%s sid=%s", issueID, sid)
 	} else {
 		// Claim the next available todo via the API.
-		todo, err := claimNextTodo(cfg.RC, cfg.AgentID, cfg.Persona, int32(cfg.AgentCfg.LeaseMinutes))
+		todo, err := claimNextTodo(cfg.RC, cfg.AgentID, cfg.Persona, int32(cfg.AgentCfg.LeaseMinutes), cfg.ScopeIssueID)
 		if err != nil || todo == nil {
 			return TakeResult{Err: ErrNoWork}
 		}

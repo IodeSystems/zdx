@@ -293,7 +293,7 @@ func rejectUnimplementedExplicit(flag, value string) error {
 // the parent. Loop-only flags (--max-turns, --keep-container,
 // --concurrency, --chrome, --mcp-container) live here.
 func agentLoopCmd() *cobra.Command {
-	var mcpContainer string
+	var mcpContainer, scopeIssue string
 	var maxTurns, concurrency, maxClaims int
 	var keepContainer, chrome, allowProtected bool
 	var maxRuntime, maxRuntimeHard time.Duration
@@ -364,6 +364,7 @@ that aborts a mid-LLM session, see ` + "`--max-runtime-hard`" + `.`,
 			opts.MaxRuntime = maxRuntime
 			opts.MaxRuntimeHard = maxRuntimeHard
 			opts.AllowProtected = allowProtected
+			opts.ScopeIssueID = scopeIssue
 
 			// Acquire the per-checkout loop lock before any other startup
 			// work. flock on <git-common-dir>/zdx-agent-loop.lock prevents
@@ -448,6 +449,7 @@ that aborts a mid-LLM session, see ` + "`--max-runtime-hard`" + `.`,
 	cmd.Flags().DurationVar(&maxRuntime, "max-runtime", 0, "exit after wall-clock duration once the in-flight session finishes (e.g. 30m, 1h; 0 = unlimited)")
 	cmd.Flags().DurationVar(&maxRuntimeHard, "max-runtime-hard", 0, "hard wall-clock cap that interrupts any in-flight session (0 = unlimited; for CI smoke tests where graceful exit could exceed the budget)")
 	cmd.Flags().BoolVar(&allowProtected, "allow-protected", false, "permit `dx agent loop` to run on the project's integration branch in host mode (commits land directly on it; container mode is unaffected and never blocked)")
+	cmd.Flags().StringVar(&scopeIssue, "scope-issue", "", "restrict claims to this issue and its descendants (composition children, TK-1754 walk) — useful for chewing through a tracker's children without competing with the full project queue")
 	return cmd
 }
 
