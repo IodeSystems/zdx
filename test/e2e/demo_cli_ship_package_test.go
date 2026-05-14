@@ -277,8 +277,10 @@ func TestDemoCLI_ShipDeployRecordPost(t *testing.T) {
 		"exit 0\n")
 	writeShim(t, shimDir, "sqlc", "#!/usr/bin/env bash\nexit 0\n")
 
-	// curl shim — captures POST body + Authorization header for /deploys, logs
+	// curl shim — captures POST body + auth header for /deploys, logs
 	// every invocation to CALL_LOG so we can assert ordering vs 'rolling finalize'.
+	// Captures either Authorization: or X-Api-Key: since bin/ship switched to
+	// X-Api-Key in 89634386 to match the server's dual-auth scheme.
 	writeShim(t, shimDir, "curl", "#!/usr/bin/env bash\n"+logPreamble+
 		"echo \"curl $*\" >> \"$CALL_LOG\"\n"+
 		"body=\"\"\n"+
@@ -289,7 +291,7 @@ func TestDemoCLI_ShipDeployRecordPost(t *testing.T) {
 		"  case \"$prev\" in\n"+
 		"    -d|--data) body=\"$arg\" ;;\n"+
 		"    -H)\n"+
-		"      case \"$arg\" in Authorization:*) auth=\"$arg\" ;; esac\n"+
+		"      case \"$arg\" in Authorization:*|X-Api-Key:*) auth=\"$arg\" ;; esac\n"+
 		"      ;;\n"+
 		"  esac\n"+
 		"  case \"$arg\" in http://*|https://*) url=\"$arg\" ;; esac\n"+
@@ -418,14 +420,18 @@ func TestDemoCLI_ShipDeployRecordPost(t *testing.T) {
 		t.Errorf("log missing from body: %s", bodyBytes)
 	}
 
-	// (c) Authorization: Bearer header present with the configured token.
+	// (c) X-Api-Key header present with the configured token. bin/ship was
+	// changed in 89634386 from `Authorization: Bearer <token>` to
+	// `X-Api-Key: <token>` so the deploy-record POST matches the dual-auth
+	// scheme the server already supports (X-Api-Key is the primary, Bearer
+	// the legacy fallback). This assertion mirrors that change.
 	authBytes, err := os.ReadFile(deployAuth)
 	if err != nil {
 		t.Fatalf("read deploy auth file: %v\nship output:\n%s", err, out)
 	}
 	auth := strings.TrimSpace(string(authBytes))
-	if !strings.HasPrefix(auth, "Authorization: Bearer ") {
-		t.Errorf("expected Authorization: Bearer header; got %q", auth)
+	if !strings.HasPrefix(auth, "X-Api-Key: ") {
+		t.Errorf("expected X-Api-Key header; got %q", auth)
 	}
 	if !strings.Contains(auth, "stub-api-token") {
 		t.Errorf("expected configured api token in auth header; got %q", auth)
