@@ -406,6 +406,9 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 				Priority:   2,
 				Status:     "open",
 				Persona:    "owner",
+				// Source: environment-sync todos are operator-initiated, not
+				// candidate emissions from generateAgentQueue. Empty by design.
+				Source: "",
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -474,6 +477,9 @@ func (h *Handler) maybeQueueReleaseSyncs(ctx context.Context, projectID int32, r
 			Priority:   3,
 			Status:     "open",
 			Persona:    "agent",
+			// Source: release-sync todos are auto-created by passing-test signals,
+			// not candidate emissions from generateAgentQueue. Empty by design.
+			Source: "",
 		})
 	}
 }

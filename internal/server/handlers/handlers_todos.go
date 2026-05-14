@@ -200,6 +200,7 @@ func (h *Handler) registerTodoRoutes(api huma.API) {
 				ClaimedAt:        fmtTS(t.ClaimedAt),
 				CreatedAt:        fmtTS(t.CreatedAt),
 				ResolvedAt:       fmtTS(t.ResolvedAt),
+				Source:           t.Source,
 			}
 
 			resRows, err := h.Q.ListReservationsByTodoKey(ctx, db.ListReservationsByTodoKeyParams{

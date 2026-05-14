@@ -35,6 +35,13 @@ type agentCandidate struct {
 	Blocked       bool
 	BlockedReason string
 	Persona       string
+	// Source is a structured "QueryName(k=v,k=v)" snapshot of the predicate
+	// the originating emission branch consulted (IS-991). Stamped at the
+	// `candidates = append(...)` site and persisted on zdx_todos.source via
+	// UpsertTodo so cycle-detection diagnostics can name the originating
+	// query and the predicate values it saw. Format is intentionally simple
+	// so a future parser can split QueryName / args without parsing SQL.
+	Source string
 }
 
 // candidateLane returns the queue lane a candidate belongs to, derived from
@@ -219,6 +226,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 							Blocked:       true,
 							BlockedReason: fmt.Sprintf("Blocker question BQ-%d pending: owner must answer before this issue can proceed", q.ID),
 							Persona:       "owner",
+							Source:        fmt.Sprintf("ListPendingBlockerQuestions(project=%d,issue=%s,bq=%d)", projectID, iss.ID, q.ID),
 						})
 					} else {
 						bqBlocked[q.TargetID] = true
@@ -259,6 +267,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 					Blocked:       true,
 					BlockedReason: reason,
 					Persona:       "owner",
+					Source:        fmt.Sprintf("ListAncestorSequencingBlockers(project=%d,issue=%s)", projectID, iss.ID),
 				})
 			}
 		}
@@ -327,6 +336,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 				IssueRef:    iss.ID,
 				Priority:    5,
 				Persona:     "dev",
+				Source:      fmt.Sprintf("ListTargetsWithUnreadComments(project=%d,target_type=issue,issue=%s)", projectID, iss.ID),
 			})
 		}
 		if issueFilter == "" {
@@ -343,6 +353,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 					TargetID:    featureID,
 					Priority:    8,
 					Persona:     "dev",
+					Source:      fmt.Sprintf("ListFeaturesWithPendingComments(project=%d,feature=%s)", projectID, featureID),
 				})
 			}
 		}
@@ -362,6 +373,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 				TargetID:    fmt.Sprintf("QA-%d", q.ID),
 				Priority:    10,
 				Persona:     "dev",
+				Source:      fmt.Sprintf("ListUnansweredQuestions(project=%d,qa=%d)", projectID, q.ID),
 			})
 		}
 	}
@@ -387,6 +399,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 				TargetID:    dsID,
 				Priority:    10,
 				Persona:     "dev",
+				Source:      fmt.Sprintf("ListDiscussionsAwaitingResponse(project=%d,discussion=%s)", projectID, dsID),
 			})
 		}
 	}
@@ -399,6 +412,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 			candidates = append(candidates, agentCandidate{
 				Key: "health-goals", Title: gh.Title, Description: gh.Description, Text: gh.Instructions,
 				Kind: "owner:goals", TargetType: "project", Priority: 15, Persona: "owner",
+				Source: fmt.Sprintf("CountProjectGoals(project=%d,count=0)", projectID),
 			})
 		}
 		closedTaskCount, _ := h.Q.CountClosedTasks(ctx, projectID)
@@ -417,6 +431,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 					candidates = append(candidates, agentCandidate{
 						Key: "health-owner-standup", Title: oh.Title, Description: oh.Description, Text: oh.Instructions,
 						Kind: "owner:standup", TargetType: "project", Priority: 18, Persona: "owner",
+						Source: fmt.Sprintf("GetLatestJournalEntry(project=%d,role=owner,date=%s,overdue=true)", projectID, ownerDate),
 					})
 				}
 			}
@@ -426,6 +441,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 					candidates = append(candidates, agentCandidate{
 						Key: "health-tech-standup", Title: th.Title, Description: th.Description, Text: th.Instructions,
 						Kind: "tech:standup", TargetType: "project", Priority: 18, Persona: "tech",
+						Source: fmt.Sprintf("GetLatestJournalEntry(project=%d,role=tech,date=%s,overdue=true)", projectID, techDate),
 					})
 				}
 			}
@@ -437,6 +453,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 				candidates = append(candidates, agentCandidate{
 					Key: fmt.Sprintf("journal-review-%s", r), Title: jh.Title, Description: jh.Description, Text: jh.Instructions,
 					Kind: r + ":journal-review", TargetType: "project", Priority: 20, Persona: r,
+					Source: fmt.Sprintf("GetUnreviewedJournalEntry(project=%d,role=%s)", projectID, r),
 				})
 			}
 		}
@@ -457,6 +474,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 				IssueRef:    iss.ID,
 				Priority:    20,
 				Persona:     "product",
+				Source:      fmt.Sprintf("ListIssues(project=%d,issue=%s,priority=)", projectID, iss.ID),
 			})
 		}
 	}
@@ -477,6 +495,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 					TargetID:    f.Name,
 					Priority:    25,
 					Persona:     "owner",
+					Source:      fmt.Sprintf("ListSpecs(project=%d,feature=%s,specs=0)", projectID, f.Name),
 				})
 			}
 		}
@@ -494,6 +513,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 				TargetID:    f.Name,
 				Priority:    28,
 				Persona:     "owner",
+				Source:      fmt.Sprintf("ListStaleFeatures(project=%d,feature=%s,stale_days=30)", projectID, f.Name),
 			})
 		}
 
@@ -521,6 +541,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 				TargetID:    fmt.Sprintf("%d", sp.ID),
 				Priority:    30,
 				Persona:     "tech",
+				Source:      fmt.Sprintf("ListUncoveredSpecs(project=%d,spec=%d)", projectID, sp.ID),
 			})
 		}
 
@@ -537,6 +558,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 				TargetID:    fmt.Sprintf("%d", sp.ID),
 				Priority:    32,
 				Persona:     "owner",
+				Source:      fmt.Sprintf("ListSpecsWithoutDemos(project=%d,spec=%d)", projectID, sp.ID),
 			})
 		}
 
@@ -575,6 +597,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 				TargetID:    targetID,
 				Priority:    it.PriorityHint,
 				Persona:     persona,
+				Source:      fmt.Sprintf("ListOpenMaturityItems(project=%d,item=%d,kind=%s)", projectID, it.ID, it.Kind),
 			})
 		}
 	}
@@ -601,6 +624,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 				IssueRef:    iss.ID,
 				Priority:    11,
 				Persona:     "tech",
+				Source:      fmt.Sprintf("ListIssueCompositionChildrenWithStatus(project=%d,type=tracker,issue=%s,children=0)", projectID, iss.ID),
 			})
 			continue
 		}
@@ -626,6 +650,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 			IssueRef:    iss.ID,
 			Priority:    foldIssuePriority(36, iss.Priority),
 			Persona:     "owner",
+			Source:      fmt.Sprintf("ListIssueCompositionChildrenWithStatus(project=%d,type=tracker,issue=%s,all_closed=true)", projectID, iss.ID),
 		})
 	}
 
@@ -645,6 +670,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 				TargetID:    fmt.Sprintf("%d", sp.ID),
 				Priority:    37,
 				Persona:     "owner",
+				Source:      fmt.Sprintf("ListSpecsWithAllBlockersClosed(project=%d,spec=%d)", projectID, sp.ID),
 			})
 		}
 	}
@@ -679,6 +705,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 					TargetBranch: iss.TargetBranch,
 					Priority:     foldIssuePriority(35, iss.Priority),
 					Persona:      "dev",
+					Source:       fmt.Sprintf("ListTasksByIssue(project=%d,issue=%s,all_done=true)", projectID, iss.ID),
 				})
 			} else if len(tasks) == 0 {
 				dih := workflowhints.DecomposeIssueText(iss.ID, iss.Title)
@@ -694,6 +721,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 					TargetBranch: iss.TargetBranch,
 					Priority:     foldIssuePriority(38, iss.Priority),
 					Persona:      "dev",
+					Source:       fmt.Sprintf("ListTasksByIssue(project=%d,issue=%s,tasks=0)", projectID, iss.ID),
 				})
 			}
 		}
@@ -724,6 +752,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 					TargetBranch: targetBranch,
 					Priority:     foldIssuePriority(40, iss.Priority),
 					Persona:      "dev",
+					Source:       fmt.Sprintf("ListTasksByIssue(project=%d,issue=%s,task=%s,status=ready)", projectID, iss.ID, t.ID),
 				})
 			}
 		}
@@ -744,6 +773,7 @@ func (h *Handler) generateAgentQueue(ctx context.Context, projectID int32, issue
 				TargetID:    t.ID,
 				Priority:    42,
 				Persona:     "owner",
+				Source:      fmt.Sprintf("ListOrphanReadyTasks(project=%d,task=%s)", projectID, t.ID),
 			})
 		}
 	}
@@ -773,6 +803,9 @@ type AgentQueueItem struct {
 	Persona         string `json:"persona"`
 	Status          string `json:"status"`
 	SuggestedAction string `json:"suggested_action,omitempty"`
+	// Source: structured "QueryName(predicate=value)" snapshot of the
+	// emission branch (IS-991). Mirrors zdx_todos.source.
+	Source string `json:"source,omitempty"`
 }
 
 // suggestedActionForKind returns a ready-to-run CLI command for the given queue item
@@ -908,6 +941,7 @@ func (h *Handler) refreshQueueAsync(projectID int32) {
 				IssueRef:      c.IssueRef,
 				Blocked:       blocked,
 				BlockedReason: blockedReason,
+				Source:        c.Source,
 			})
 		}
 		if len(keys) > 0 {
@@ -1015,6 +1049,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 					IssueRef: c.IssueRef, TargetBranch: c.TargetBranch, Priority: c.Priority,
 					Blocked: c.Blocked, BlockedReason: c.BlockedReason, Persona: c.Persona, Status: "open",
 					SuggestedAction: suggestedActionForKind(c.Kind, c.TargetType, c.TargetID),
+					Source:          c.Source,
 				}
 				if existing, ok := currentByKey[c.Key]; ok {
 					if existing.Priority != c.Priority || existing.Text != c.Text || existing.Blocked != c.Blocked {
@@ -1068,6 +1103,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 					IssueRef:      item.IssueRef,
 					Blocked:       item.Blocked,
 					BlockedReason: item.BlockedReason,
+					Source:        item.Source,
 				})
 				if err != nil {
 					return nil, apiErr(500, err.Error())
@@ -1177,6 +1213,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 						IssueRef:      c.IssueRef,
 						Blocked:       blocked,
 						BlockedReason: blockedReason,
+						Source:        c.Source,
 					})
 				}
 				baseSha, baseBranch := resolveGitHead()
@@ -1423,6 +1460,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 						IssueRef:      c.IssueRef,
 						Blocked:       blocked,
 						BlockedReason: blockedReason,
+						Source:        c.Source,
 					})
 				}
 			}
@@ -1647,6 +1685,7 @@ func (h *Handler) registerAgentQueueRoutes(api huma.API) {
 					ClaimedAt:        fmtTS(r.ClaimedAt),
 					CreatedAt:        fmtTS(r.CreatedAt),
 					ResolvedAt:       fmtTS(r.ResolvedAt),
+					Source:           r.Source,
 				}
 			}
 			tasks := make([]AgentTaskItem, len(taskRows))
@@ -1848,6 +1887,7 @@ func toTodoItemFromScopeClaim(r db.ClaimNextTodoInScopeRow) TodoItem {
 		ClaimedAt:        fmtTS(r.ClaimedAt),
 		CreatedAt:        fmtTS(r.CreatedAt),
 		ResolvedAt:       fmtTS(r.ResolvedAt),
+		Source:           r.Source,
 	}
 }
 
@@ -1877,6 +1917,7 @@ func toTodoItemFromAnyClaim(r db.ClaimNextTodoAnyRow) TodoItem {
 		ClaimedAt:        fmtTS(r.ClaimedAt),
 		CreatedAt:        fmtTS(r.CreatedAt),
 		ResolvedAt:       fmtTS(r.ResolvedAt),
+		Source:           r.Source,
 	}
 }
 
@@ -1905,6 +1946,7 @@ func toTodoItemFromClaim(r db.ClaimNextTodoRow) TodoItem {
 		ClaimedAt:        fmtTS(r.ClaimedAt),
 		CreatedAt:        fmtTS(r.CreatedAt),
 		ResolvedAt:       fmtTS(r.ResolvedAt),
+		Source:           r.Source,
 	}
 }
 
@@ -1931,6 +1973,7 @@ func toTodoItemFromFiltered(r db.ListTodosFilteredRow) TodoItem {
 		ClaimedAt:        fmtTS(r.ClaimedAt),
 		CreatedAt:        fmtTS(r.CreatedAt),
 		ResolvedAt:       fmtTS(r.ResolvedAt),
+		Source:           r.Source,
 	}
 }
 

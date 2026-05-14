@@ -133,6 +133,11 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 					Kind:        t.Kind,
 					IssueRef:    t.IssueRef,
 					Blocked:     t.Blocked,
+					// Source intentionally empty: this is the legacy bulk-replace
+					// endpoint, not a generateAgentQueue candidate emission. The
+					// payload doesn't carry a source query; IS-991 only stamps
+					// real candidate provenance.
+					Source: "",
 				})
 				if err != nil {
 					return nil, apiErr(500, err.Error())
@@ -1142,5 +1147,6 @@ func toTodoItemFromRow(r db.ListTodosRow) TodoItem {
 		ClaimedAt:        fmtTS(r.ClaimedAt),
 		CreatedAt:        fmtTS(r.CreatedAt),
 		ResolvedAt:       fmtTS(r.ResolvedAt),
+		Source:           r.Source,
 	}
 }

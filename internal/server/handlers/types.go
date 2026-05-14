@@ -214,6 +214,12 @@ type TodoItem struct {
 	ClaimedAt        string `json:"claimed_at,omitempty"`
 	CreatedAt        string `json:"created_at"`
 	ResolvedAt       string `json:"resolved_at,omitempty"`
+	// Source: structured "QueryName(predicate=value)" snapshot of the
+	// generateAgentQueue branch that emitted this candidate (IS-991). Empty
+	// for non-candidate writers (CreateTodo callers, cycle-detection-only
+	// paths). Surfaced so cycle-detection diagnostics and the operator can
+	// answer "which query produced this todo, and what did it consult?"
+	Source string `json:"source,omitempty"`
 }
 
 type ErrorReportItem struct {

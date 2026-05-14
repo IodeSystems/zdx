@@ -2,14 +2,14 @@
 SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-       claim_base_sha, claim_base_branch
+       claim_base_sha, claim_base_branch, source, claim_predicate_snapshot
 FROM zdx_todos WHERE project_id = $1 ORDER BY priority, created_at;
 
 -- name: ListTodosFiltered :many
 SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-       claim_base_sha, claim_base_branch
+       claim_base_sha, claim_base_branch, source, claim_predicate_snapshot
 FROM zdx_todos
 WHERE project_id = @project_id
   AND (sqlc.narg('blocked')::boolean IS NULL OR blocked = sqlc.narg('blocked')::boolean)
@@ -23,22 +23,22 @@ DELETE FROM zdx_todos WHERE project_id = $1;
 
 -- name: CreateTodo :one
 INSERT INTO zdx_todos (project_id, text, title, description, key, persona, priority, status,
-                       target_type, target_id, kind, issue_ref, blocked, blocked_reason)
+                       target_type, target_id, kind, issue_ref, blocked, blocked_reason, source)
 VALUES (@project_id, @text, @title, @description, @key, @persona, @priority, @status,
-        @target_type, @target_id, @kind, @issue_ref, @blocked, @blocked_reason)
+        @target_type, @target_id, @kind, @issue_ref, @blocked, @blocked_reason, @source)
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-          claim_base_sha, claim_base_branch;
+          claim_base_sha, claim_base_branch, source, claim_predicate_snapshot;
 
 -- name: UpsertTodo :one
 -- Upsert a todo item, preserving existing claim state (claimed_by, claimed_at, lease_expires_at).
 -- Tracks resolve→open churn: reopen_count increments each time a resolved key is re-emitted.
 -- Auto-blocks at 3+ reopens so agents don't churn indefinitely on an untriageable item.
 INSERT INTO zdx_todos (project_id, text, title, description, key, persona, priority, status,
-                       target_type, target_id, kind, issue_ref, blocked, blocked_reason)
+                       target_type, target_id, kind, issue_ref, blocked, blocked_reason, source)
 VALUES (@project_id, @text, @title, @description, @key, @persona, @priority, @status,
-        @target_type, @target_id, @kind, @issue_ref, @blocked, @blocked_reason)
+        @target_type, @target_id, @kind, @issue_ref, @blocked, @blocked_reason, @source)
 ON CONFLICT (project_id, key) DO UPDATE SET
   text = EXCLUDED.text,
   title = EXCLUDED.title,
@@ -71,12 +71,22 @@ ON CONFLICT (project_id, key) DO UPDATE SET
   reopen_count = CASE
     WHEN zdx_todos.status = 'resolved' THEN zdx_todos.reopen_count + 1
     ELSE zdx_todos.reopen_count
+  END,
+  -- source: re-stamp from the latest emission so cycle detection diagnostics
+  -- reflect the query/predicate that produced the most recent regen. An empty
+  -- new source (non-candidate writer) leaves the prior stamp in place so the
+  -- last candidate-emission provenance survives intervening operator pokes.
+  source = CASE
+    WHEN EXCLUDED.source = '' THEN zdx_todos.source
+    ELSE EXCLUDED.source
   END
-  -- claimed_by, claimed_at, lease_expires_at, cycle_count, reference_issue_id intentionally NOT updated
+  -- claimed_by, claimed_at, lease_expires_at, cycle_count, reference_issue_id intentionally NOT updated.
+  -- claim_predicate_snapshot intentionally NOT touched here — IS-992 writes it
+  -- at claim time, not at upsert time.
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-          claim_base_sha, claim_base_branch;
+          claim_base_sha, claim_base_branch, source, claim_predicate_snapshot;
 
 -- name: ResolveTodo :exec
 UPDATE zdx_todos SET status = 'resolved', resolved_at = NOW()
@@ -86,14 +96,14 @@ WHERE project_id = $1 AND key = $2;
 SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-       claim_base_sha, claim_base_branch
+       claim_base_sha, claim_base_branch, source, claim_predicate_snapshot
 FROM zdx_todos WHERE project_id = $1 AND key = $2;
 
 -- name: GetTodoByID :one
 SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-       claim_base_sha, claim_base_branch
+       claim_base_sha, claim_base_branch, source, claim_predicate_snapshot
 FROM zdx_todos WHERE id = $1;
 
 -- name: SetTodoPriority :exec
@@ -134,12 +144,12 @@ WITH claimed AS (
   RETURNING id, project_id, text, title, description, key, persona, priority, status,
             target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
             claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-            claim_base_sha, claim_base_branch, claim_persona
+            claim_base_sha, claim_base_branch, claim_persona, source, claim_predicate_snapshot
 )
 SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
        c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
        c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
-       c.claim_base_sha, c.claim_base_branch, c.claim_persona,
+       c.claim_base_sha, c.claim_base_branch, c.claim_persona, c.source, c.claim_predicate_snapshot,
        COALESCE(i.target_branch, 'dev') AS target_branch
 FROM claimed c
 LEFT JOIN zdx_issues i ON i.id = c.issue_ref;
@@ -190,12 +200,12 @@ WITH claimed AS (
   RETURNING id, project_id, text, title, description, key, persona, priority, status,
             target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
             claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-            claim_base_sha, claim_base_branch, claim_persona
+            claim_base_sha, claim_base_branch, claim_persona, source, claim_predicate_snapshot
 )
 SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
        c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
        c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
-       c.claim_base_sha, c.claim_base_branch, c.claim_persona,
+       c.claim_base_sha, c.claim_base_branch, c.claim_persona, c.source, c.claim_predicate_snapshot,
        COALESCE(i.target_branch, 'dev') AS target_branch
 FROM claimed c
 LEFT JOIN zdx_issues i ON i.id = c.issue_ref;
@@ -240,12 +250,12 @@ WITH claimed AS (
   RETURNING id, project_id, text, title, description, key, persona, priority, status,
             target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
             claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-            claim_base_sha, claim_base_branch, claim_persona
+            claim_base_sha, claim_base_branch, claim_persona, source, claim_predicate_snapshot
 )
 SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
        c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
        c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
-       c.claim_base_sha, c.claim_base_branch, c.claim_persona,
+       c.claim_base_sha, c.claim_base_branch, c.claim_persona, c.source, c.claim_predicate_snapshot,
        COALESCE(i.target_branch, 'dev') AS target_branch,
        p.slug AS project_slug
 FROM claimed c
@@ -292,7 +302,7 @@ WHERE project_id = @project_id AND key = @key
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-          claim_base_sha, claim_base_branch;
+          claim_base_sha, claim_base_branch, source, claim_predicate_snapshot;
 
 -- name: SetTodoReferenceIssue :exec
 -- Store the auto-filed issue ID on a blocked todo so the UI can link to it.
@@ -327,14 +337,14 @@ WHERE project_id = $1
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-          claim_base_sha, claim_base_branch;
+          claim_base_sha, claim_base_branch, source, claim_predicate_snapshot;
 
 -- name: ListActiveTodoClaims :many
 -- Return all todos that are currently claimed and whose lease has not expired.
 SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-       claim_base_sha, claim_base_branch
+       claim_base_sha, claim_base_branch, source, claim_predicate_snapshot
 FROM zdx_todos
 WHERE project_id = $1
   AND claimed_by != ''
