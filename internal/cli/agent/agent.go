@@ -352,6 +352,17 @@ that aborts a mid-LLM session, see ` + "`--max-runtime-hard`" + `.`,
 			opts.MaxRuntime = maxRuntime
 			opts.MaxRuntimeHard = maxRuntimeHard
 			opts.AllowProtected = allowProtected
+
+			// Acquire the per-checkout loop lock before any other startup
+			// work. flock on <git-common-dir>/zdx-agent-loop.lock prevents
+			// a second `dx agent loop` invocation in the same repo from
+			// racing this one on HEAD-flip operations. flock is released
+			// automatically on process exit, including hard kills.
+			loopLock, lockErr := acquireLoopLock()
+			if lockErr != nil {
+				return lockErr
+			}
+			defer releaseLoopLock(loopLock)
 			if mode != ContainerDocker {
 				// Local execution. enforceContainerExecution still gates on
 				// DX_AGENT_FORCE_CONTAINER (spec 117) — operators can refuse
