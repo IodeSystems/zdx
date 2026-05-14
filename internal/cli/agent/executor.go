@@ -6,7 +6,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/config"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 func nowRFC3339() string { return time.Now().Format(time.RFC3339) }
@@ -80,6 +82,11 @@ type ContainerExecutor struct {
 	cwd          string
 	agentCfg     config.AgentConfig
 	envPairs     []string
+	// baseBranch is the integration ref (e.g. "dev") that each slot worktree
+	// will branch off of. Populated from opts.BaseBranch in NewContainerExecutor;
+	// passed down to provisionSlot → slotWorktree, where it becomes the
+	// start-point arg to `git worktree add`.
+	baseBranch string
 }
 
 // NewContainerExecutor builds the docker image, resolves cwd, and
@@ -89,6 +96,25 @@ type ContainerExecutor struct {
 func NewContainerExecutor(providerName string, opts ProviderOpts) (*ContainerExecutor, error) {
 	if opts.RC.slug == "" {
 		return nil, fmt.Errorf("--container=docker requires a project config with a remote slug")
+	}
+
+	// BaseBranch fallback: the loop entrypoint sets opts.BaseBranch from
+	// the server before constructing us, but the single-session
+	// (`dx agent --container=docker`) and connect paths don't. Resolve it
+	// here so all entry points reach slotWorktree with a populated base
+	// branch instead of falling through to cwd HEAD.
+	if opts.BaseBranch == "" {
+		c := cli.MustClient()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		pInfo, perr := c.GetProjectInfoWithResponse(ctx, &dxclient.GetProjectInfoParams{Slug: opts.RC.slug})
+		if perr != nil || pInfo == nil || pInfo.JSON200 == nil {
+			return nil, fmt.Errorf("resolve integration branch for project %q: %v", opts.RC.slug, perr)
+		}
+		if pInfo.JSON200.GitBranch == "" {
+			return nil, fmt.Errorf("project %q has no git_branch configured on the server; set it via the admin UI or PUT /api/admin/project-git-config before using --container=docker", opts.RC.slug)
+		}
+		opts.BaseBranch = pInfo.JSON200.GitBranch
 	}
 	agentCfg := opts.AgentCfg
 	if agentCfg.ContainerMemory == "" {
@@ -115,8 +141,8 @@ func NewContainerExecutor(providerName string, opts ProviderOpts) (*ContainerExe
 	// recreate them. Reaping at startup recovers the cluster.
 	reapOrphanSlotContainers(providerName, opts.Alias)
 
-	fmt.Printf("[%s] container executor: provider=%s image=%s memory=%s cpus=%s\n",
-		nowRFC3339(), providerName, imageTag, agentCfg.ContainerMemory, agentCfg.ContainerCPUs)
+	fmt.Printf("[%s] container executor: provider=%s image=%s memory=%s cpus=%s base=%s\n",
+		nowRFC3339(), providerName, imageTag, agentCfg.ContainerMemory, agentCfg.ContainerCPUs, opts.BaseBranch)
 
 	return &ContainerExecutor{
 		providerName: providerName,
@@ -124,13 +150,14 @@ func NewContainerExecutor(providerName string, opts ProviderOpts) (*ContainerExe
 		cwd:          cwd,
 		agentCfg:     agentCfg,
 		envPairs:     envPairs,
+		baseBranch:   opts.BaseBranch,
 	}, nil
 }
 
 func (e *ContainerExecutor) Name() string { return "container" }
 
 func (e *ContainerExecutor) Provision(ctx context.Context, opts ProviderOpts, slotIdx int) (*Workspace, error) {
-	s, err := provisionSlot(ctx, e.providerName, e.imageTag, e.cwd, opts, slotIdx, e.agentCfg, e.envPairs)
+	s, err := provisionSlot(ctx, e.providerName, e.imageTag, e.cwd, opts, slotIdx, e.agentCfg, e.envPairs, e.baseBranch)
 	if err != nil {
 		return nil, err
 	}

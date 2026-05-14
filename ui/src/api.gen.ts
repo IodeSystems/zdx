@@ -7730,6 +7730,7 @@ export interface components {
             readonly $schema?: string;
             classification: string;
             description: string;
+            git_branch: string;
             /** Format: int32 */
             id: number;
             name: string;

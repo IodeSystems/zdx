@@ -101,9 +101,12 @@ func buildMCPSlotArgs(name, imageTag, projectRoot, worktreePath string, agentCfg
 // bin/dx-agent (the in-slot MCP server) is gitignored, so a fresh
 // worktree won't have it. Copy it from the host's bin/ so docker exec
 // /workspace/bin/dx-agent --mcp-stdio resolves inside the slot.
-func slotWorktree(cwd, slug, alias string, slotIdx int) (path, branch string, err error) {
+func slotWorktree(cwd, slug, alias string, slotIdx int, baseBranch string) (path, branch string, err error) {
 	if slug == "" {
 		return "", "", fmt.Errorf("slotWorktree: empty slug — workspace path is rooted at ~/.zdx/projects/<slug>/")
+	}
+	if baseBranch == "" {
+		return "", "", fmt.Errorf("slotWorktree: empty baseBranch — slots must branch from the project's integration branch (zdx_projects.git_branch), not cwd HEAD")
 	}
 	home, herr := os.UserHomeDir()
 	if herr != nil {
@@ -140,9 +143,31 @@ func slotWorktree(cwd, slug, alias string, slotIdx int) (path, branch string, er
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return "", "", fmt.Errorf("mkdir worktree parent: %w", err)
 	}
-	out, addErr := exec.Command("git", "worktree", "add", "-b", branch, path).CombinedOutput()
+
+	// Fetch the integration branch from origin so the worktree starts from
+	// the latest server-side tip rather than the operator's possibly-stale
+	// local ref. Non-fatal: a network outage shouldn't kill slot startup if
+	// the local branch is already current.
+	if fetchOut, fetchErr := exec.Command("git", "-C", cwd, "fetch", "origin", baseBranch).CombinedOutput(); fetchErr != nil {
+		fmt.Fprintf(os.Stderr, "slotWorktree: git fetch origin %s: %s (continuing with local ref)\n", baseBranch, strings.TrimSpace(string(fetchOut)))
+	}
+
+	// Resolve the start-point: prefer origin/<baseBranch> (server tip) and
+	// fall back to local <baseBranch> if the remote ref isn't available
+	// (e.g. fetch failed and we never had the remote). Refuse to silently
+	// fall through to cwd HEAD — that's the old broken behavior we're
+	// fixing.
+	startPoint := "origin/" + baseBranch
+	if exec.Command("git", "-C", cwd, "rev-parse", "--verify", startPoint).Run() != nil {
+		if exec.Command("git", "-C", cwd, "rev-parse", "--verify", baseBranch).Run() != nil {
+			return "", "", fmt.Errorf("slotWorktree: neither origin/%s nor local %s resolves — cannot branch worktree from configured integration branch", baseBranch, baseBranch)
+		}
+		startPoint = baseBranch
+	}
+
+	out, addErr := exec.Command("git", "worktree", "add", "-b", branch, path, startPoint).CombinedOutput()
 	if addErr != nil {
-		return "", "", fmt.Errorf("git worktree add %s: %s", branch, strings.TrimSpace(string(out)))
+		return "", "", fmt.Errorf("git worktree add %s from %s: %s", branch, startPoint, strings.TrimSpace(string(out)))
 	}
 
 	if err := copyDxBinaries(cwd, path); err != nil {
@@ -216,9 +241,9 @@ type provisionedSlot struct {
 //
 // On failure, partial state is rolled back before returning the error —
 // callers don't need to clean up after a failed provisionSlot call.
-func provisionSlot(ctx context.Context, providerName, imageTag, cwd string, opts ProviderOpts, slotIdx int, agentCfg config.AgentConfig, envPairs []string) (*provisionedSlot, error) {
+func provisionSlot(ctx context.Context, providerName, imageTag, cwd string, opts ProviderOpts, slotIdx int, agentCfg config.AgentConfig, envPairs []string, baseBranch string) (*provisionedSlot, error) {
 	wtStart := time.Now()
-	wtPath, branch, err := slotWorktree(cwd, opts.RC.slug, opts.Alias, slotIdx)
+	wtPath, branch, err := slotWorktree(cwd, opts.RC.slug, opts.Alias, slotIdx, baseBranch)
 	if err != nil {
 		return nil, fmt.Errorf("slot %d worktree: %w", slotIdx, err)
 	}

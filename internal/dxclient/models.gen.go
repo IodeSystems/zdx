@@ -1884,6 +1884,7 @@ type GetProjectInfoResponse struct {
 	Schema         *string `json:"$schema,omitempty"`
 	Classification string  `json:"classification"`
 	Description    string  `json:"description"`
+	GitBranch      string  `json:"git_branch"`
 	Id             int32   `json:"id"`
 	Name           string  `json:"name"`
 	Slug           string  `json:"slug"`

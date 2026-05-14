@@ -283,7 +283,7 @@ func rejectUnimplementedExplicit(flag, value string) error {
 func agentLoopCmd() *cobra.Command {
 	var mcpContainer string
 	var maxTurns, concurrency, maxClaims int
-	var keepContainer, chrome bool
+	var keepContainer, chrome, allowProtected bool
 	var maxRuntime, maxRuntimeHard time.Duration
 	cmd := &cobra.Command{
 		Use:   "loop",
@@ -351,6 +351,7 @@ that aborts a mid-LLM session, see ` + "`--max-runtime-hard`" + `.`,
 			opts.MaxClaims = maxClaims
 			opts.MaxRuntime = maxRuntime
 			opts.MaxRuntimeHard = maxRuntimeHard
+			opts.AllowProtected = allowProtected
 			if mode != ContainerDocker {
 				// Local execution. enforceContainerExecution still gates on
 				// DX_AGENT_FORCE_CONTAINER (spec 117) — operators can refuse
@@ -359,6 +360,36 @@ that aborts a mid-LLM session, see ` + "`--max-runtime-hard`" + `.`,
 					return err
 				}
 			}
+
+			// Resolve integration branch from the server. The agent loop's
+			// slot worktrees branch from origin/<integrationBranch>; host-
+			// mode loops on the integration branch itself would commit
+			// straight onto it, so we refuse unless --allow-protected.
+			c := cli.MustClient()
+			slug := c.SlugOrDie()
+			pInfo, perr := c.GetProjectInfoWithResponse(cmd.Context(), &dxclient.GetProjectInfoParams{Slug: slug})
+			if perr != nil || pInfo == nil || pInfo.JSON200 == nil {
+				return fmt.Errorf("fetch project info for slug %q: %v (server must respond before loop can resolve base branch)", slug, perr)
+			}
+			integrationBranch := pInfo.JSON200.GitBranch
+			if integrationBranch == "" {
+				return fmt.Errorf("project %q has no git_branch configured on the server; set it via the admin UI or PUT /api/admin/project-git-config before running `dx agent loop`", slug)
+			}
+			opts.BaseBranch = integrationBranch
+
+			cwdBranch := loopCwdBranch()
+			fmt.Fprintf(os.Stderr, "[%s] loop starting: provider=%s mode=%s cwd=%s integration=%s\n",
+				nowRFC3339(), provider, mode, cwdBranch, integrationBranch)
+
+			// Protected-branch refuse: host-mode commits land directly on
+			// cwd HEAD, so running on the integration branch ships agent
+			// work without merge-train review. Container mode branches
+			// each slot from origin/<integrationBranch>, so the operator's
+			// cwd doesn't determine where work lands — no refuse there.
+			if !allowProtected && mode != ContainerDocker && cwdBranch == integrationBranch {
+				return fmt.Errorf("refusing to start: cwd is on integration branch %q in --container=%s mode (commits would land directly on it); use --container=docker, check out a different branch, or pass --allow-protected", integrationBranch, mode)
+			}
+
 			executor, eerr := PickExecutor(mode, provider, opts)
 			if eerr != nil {
 				return eerr
@@ -374,7 +405,23 @@ that aborts a mid-LLM session, see ` + "`--max-runtime-hard`" + `.`,
 	cmd.Flags().IntVar(&maxClaims, "max-claims", 0, "exit after N todos released (0 = unlimited)")
 	cmd.Flags().DurationVar(&maxRuntime, "max-runtime", 0, "exit after wall-clock duration once the in-flight session finishes (e.g. 30m, 1h; 0 = unlimited)")
 	cmd.Flags().DurationVar(&maxRuntimeHard, "max-runtime-hard", 0, "hard wall-clock cap that interrupts any in-flight session (0 = unlimited; for CI smoke tests where graceful exit could exceed the budget)")
+	cmd.Flags().BoolVar(&allowProtected, "allow-protected", false, "permit `dx agent loop` to run on the project's integration branch in host mode (commits land directly on it; container mode is unaffected and never blocked)")
 	return cmd
+}
+
+// loopCwdBranch returns the cwd's current branch name (or "DETACHED" / ""
+// when not on a branch / not in a repo). Used by the loop entrypoint to
+// print a startup banner and gate the protected-branch refuse.
+func loopCwdBranch() string {
+	out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	b := strings.TrimSpace(string(out))
+	if b == "HEAD" {
+		return "DETACHED"
+	}
+	return b
 }
 
 // loadManagedOptsFromCmd centralizes the runtime + model-resolution dance

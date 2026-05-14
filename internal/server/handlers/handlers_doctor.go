@@ -11,6 +11,9 @@ import (
 
 func (h *Handler) registerDoctorRoutes(api huma.API) {
 	// GET /api/dx/project/info — project metadata including classification
+	// and integration branch (git_branch) so agent loops can resolve the
+	// authoritative base branch for slot worktrees instead of guessing from
+	// cwd HEAD.
 	huma.Register(api, huma.Operation{OperationID: "get-project-info", Method: http.MethodGet, Path: "/api/dx/project/info"},
 		func(ctx context.Context, in *IssueSlugInput) (*struct {
 			Body struct {
@@ -20,6 +23,7 @@ func (h *Handler) registerDoctorRoutes(api huma.API) {
 				Title          string `json:"title"`
 				Description    string `json:"description"`
 				Classification string `json:"classification"`
+				GitBranch      string `json:"git_branch"`
 			}
 		}, error) {
 			p, err := getProject(ctx, h.Q, in.Slug)
@@ -34,6 +38,7 @@ func (h *Handler) registerDoctorRoutes(api huma.API) {
 					Title          string `json:"title"`
 					Description    string `json:"description"`
 					Classification string `json:"classification"`
+					GitBranch      string `json:"git_branch"`
 				}
 			}{Body: struct {
 				ID             int32  `json:"id"`
@@ -42,7 +47,8 @@ func (h *Handler) registerDoctorRoutes(api huma.API) {
 				Title          string `json:"title"`
 				Description    string `json:"description"`
 				Classification string `json:"classification"`
-			}{ID: p.ID, Slug: p.Slug, Name: p.Name, Title: p.Title, Description: p.Description, Classification: p.Classification}}, nil
+				GitBranch      string `json:"git_branch"`
+			}{ID: p.ID, Slug: p.Slug, Name: p.Name, Title: p.Title, Description: p.Description, Classification: p.Classification, GitBranch: p.GitBranch}}, nil
 		})
 
 	// POST /api/dx/doctor/classify — set project classification

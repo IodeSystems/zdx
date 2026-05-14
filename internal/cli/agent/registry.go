@@ -122,6 +122,21 @@ type ProviderOpts struct {
 	MaxClaims  int
 	MaxRuntime time.Duration
 
+	// BaseBranch is the integration branch (zdx_projects.git_branch fetched
+	// from /api/dx/project/info) that slot worktrees should branch off of.
+	// Threaded into ContainerExecutor → provisionSlot → slotWorktree so the
+	// `git worktree add -b wip/<X> <path> origin/<BaseBranch>` invocation
+	// has an explicit start-point instead of inheriting cwd HEAD. Empty
+	// means the operator/cobra layer failed to resolve it; the loop should
+	// error rather than fall back to HEAD.
+	BaseBranch string
+
+	// AllowProtected, when true, bypasses the loop-startup refuse that
+	// fires when the operator's cwd branch equals BaseBranch (committing
+	// agent work directly to the integration branch). Operators who
+	// understand the risk can opt in via --allow-protected.
+	AllowProtected bool
+
 	// TraceLog is the session-scoped structured logger (initialized in
 	// DispatchSingle / managed wrappers). When non-nil, providers and the
 	// shared lifecycle code emit setup events (worktree.create,
