@@ -1,11 +1,21 @@
 #!/usr/bin/env bash
 # Spin up an ephemeral Postgres, apply all embedded migrations, pg_dump to schema/shipped.sql.
 # Called by `dx merge-train run` after a rebase that adds new migrations.
-# Requires: docker running, bin/dx already built (migrations are embedded at compile time).
+# Requires: docker running.
+#
+# History: this script previously invoked `./bin/dx migrate up` and assumed
+# bin/dx was current. When the operator had a stale bin/dx (e.g. from a
+# different branch where migrations had not yet been added), the embedded
+# migration FS in the binary was stale and the script silently applied an
+# old migration set, producing a shipped.sql missing recent columns —
+# downstream sqlc generate would then fail mysteriously. We now rebuild
+# bin/db inline before invoking migrate, and use bin/db rather than bin/dx:
+# cmd/db does NOT depend on internal/dxclient, so it always builds even on
+# intent-only branches that change the OpenAPI shape ahead of regen.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-PG_IMAGE="postgres:17"
+PG_IMAGE="postgres:18"
 PG_USER="zdx"
 PG_PASS="zdx"
 PG_DB="zdx"
@@ -15,6 +25,14 @@ cleanup() { docker rm -f "$CONTAINER" 2>/dev/null || true; }
 trap cleanup EXIT
 
 docker rm -f "$CONTAINER" 2>/dev/null || true
+
+# Rebuild bin/db with the current migration FS embedded. cmd/db is purpose-
+# built for migrations (no agent/dxclient transitive deps), so this build
+# always succeeds and is cheap (~1s on a warm Go cache). The previous
+# behavior — assume bin/dx is current and silently use whatever it has —
+# was the root cause of the IS-991 source-column-missing regression.
+echo "[regen-schema] rebuilding bin/db (embed current migrations)..."
+go build -o bin/db ./cmd/db
 
 echo "[regen-schema] starting ephemeral Postgres..."
 docker run -d --name "$CONTAINER" \
@@ -39,7 +57,11 @@ sleep 2
 CONTAINER_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$CONTAINER")
 DSN="postgres://${PG_USER}:${PG_PASS}@${CONTAINER_IP}:5432/${PG_DB}?sslmode=disable"
 echo "[regen-schema] applying migrations..."
-DATABASE_URL="$DSN" ./bin/dx migrate up
+# --no-gen because we run pg_dump + sqlc generate at the merge-train layer.
+# bin/db migrate prints the version delta so silent stale-set application
+# (the previous failure mode) is impossible: if migrations don't run, the
+# operator sees "already up-to-date at version N" or "applied N → M".
+DATABASE_URL="$DSN" ./bin/db migrate --no-gen
 
 echo "[regen-schema] dumping schema..."
 docker exec "$CONTAINER" \
