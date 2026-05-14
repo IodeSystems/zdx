@@ -48,7 +48,9 @@ var generatedFilePatterns = []struct {
 	source string
 }{
 	{func(p string) bool { return strings.HasPrefix(p, "internal/db/") && strings.HasSuffix(p, ".sql.go") }, "sqlc — edit queries/*.sql and run `~/go/bin/sqlc generate`"},
-	{func(p string) bool { return strings.HasPrefix(p, "internal/db/") && strings.HasSuffix(p, ".sql.metaquery.go") }, "sqlc-metaquery — suppress with `-- metaquery: off` in the .sql file"},
+	{func(p string) bool {
+		return strings.HasPrefix(p, "internal/db/") && strings.HasSuffix(p, ".sql.metaquery.go")
+	}, "sqlc-metaquery — suppress with `-- metaquery: off` in the .sql file"},
 	{func(p string) bool { return p == "internal/db/querier.go" }, "sqlc — edit queries/*.sql and regen"},
 	{func(p string) bool { return p == "internal/db/models.go" }, "sqlc — edit migrations + queries and regen"},
 	{func(p string) bool { return p == "internal/dxclient/models.gen.go" }, "oapi-codegen — edit handlers and run `dx ui gen-api`"},
