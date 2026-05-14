@@ -381,13 +381,32 @@ that aborts a mid-LLM session, see ` + "`--max-runtime-hard`" + `.`,
 			fmt.Fprintf(os.Stderr, "[%s] loop starting: provider=%s mode=%s cwd=%s integration=%s\n",
 				nowRFC3339(), provider, mode, cwdBranch, integrationBranch)
 
-			// Protected-branch refuse: host-mode commits land directly on
-			// cwd HEAD, so running on the integration branch ships agent
-			// work without merge-train review. Container mode branches
-			// each slot from origin/<integrationBranch>, so the operator's
-			// cwd doesn't determine where work lands — no refuse there.
-			if !allowProtected && mode != ContainerDocker && cwdBranch == integrationBranch {
-				return fmt.Errorf("refusing to start: cwd is on integration branch %q in --container=%s mode (commits would land directly on it); use --container=docker, check out a different branch, or pass --allow-protected", integrationBranch, mode)
+			// Protected-branch refuse. Two cases:
+			//
+			//   (a) cwd ∈ {main, master} — host-mode commits land directly
+			//       on release branches, which should ONLY move through the
+			//       release process (dev → main via promotion). Block in
+			//       all modes including container, because even with
+			//       container slots, an operator on main running parallel
+			//       host-mode work elsewhere on the checkout is one
+			//       distraction away from a stray commit. The 32-commit
+			//       main divergence that motivated this guard was exactly
+			//       this scenario.
+			//
+			//   (b) cwd == integration branch in host mode — commits would
+			//       land on the integration branch without merge-train
+			//       review. Container mode is fine here because slots
+			//       branch from origin/<integrationBranch>, decoupling
+			//       commit destination from cwd HEAD.
+			//
+			// --allow-protected opts out of both.
+			if !allowProtected {
+				if cwdBranch == "main" || cwdBranch == "master" {
+					return fmt.Errorf("refusing to start: cwd is on release branch %q (use a worker branch or pass --allow-protected; main/master should only move via release process)", cwdBranch)
+				}
+				if mode != ContainerDocker && cwdBranch == integrationBranch {
+					return fmt.Errorf("refusing to start: cwd is on integration branch %q in --container=%s mode (commits would land directly on it); use --container=docker, check out a different branch, or pass --allow-protected", integrationBranch, mode)
+				}
 			}
 
 			executor, eerr := PickExecutor(mode, provider, opts)
