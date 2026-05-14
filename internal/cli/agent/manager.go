@@ -399,6 +399,14 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 	selfPath, _ := os.Executable()
 	selfHash := fileHash(selfPath)
 
+	// Source-currency tracking: remember the source-tree HEAD at loop start.
+	// When the operator pulls (or merges) new commits onto the host's
+	// checkout, the iteration-top check runs `make build` on a clean tree so
+	// the binary catches up; the selfHash check below then re-execs into the
+	// fresh binary, and future copyDxBinaries calls seed the new binary into
+	// any newly-provisioned slot.
+	lastSourceHead := gitSourceHead()
+
 	// Churn tracking: when the server reports ChurnDowngraded for the same
 	// todo key on consecutive iterations, the agent is thrashing — backoff
 	// exponentially (1m, 2m, 4m, ... 64m cap) so we don't spin. Different
@@ -456,6 +464,29 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 				"elapsed_seconds", int(time.Since(loopStart).Seconds()),
 				"max_runtime_seconds", int(opts.MaxRuntime.Seconds()))
 			return nil
+		}
+
+		// Source-HEAD-tracked auto-rebuild: if the operator pulled/merged
+		// new commits onto the host checkout and the tree is clean, run
+		// `make build` so bin/dx (and bin/dx-agent for future slot copies)
+		// catches up. The selfHash check immediately below detects the new
+		// binary and re-execs. Dirty-tree skips silently — operator might
+		// be mid-edit and we don't want to surprise them with a rebuild.
+		if newHead := gitSourceHead(); newHead != "" && lastSourceHead != "" && newHead != lastSourceHead {
+			if gitTreeClean() {
+				fmt.Fprintf(os.Stderr, "[%s] source HEAD moved %s → %s, running make build\n",
+					providerName, shortHash(lastSourceHead), shortHash(newHead))
+				emit("source_update.rebuild", "old", shortHash(lastSourceHead), "new", shortHash(newHead))
+				if err := runMakeBuild(); err != nil {
+					fmt.Fprintf(os.Stderr, "[%s] make build failed: %v (continuing with old binary)\n", providerName, err)
+					emit("source_update.rebuild_failed", "err", err.Error())
+				}
+			} else {
+				fmt.Fprintf(os.Stderr, "[%s] source HEAD moved %s → %s but tree is dirty; skipping rebuild\n",
+					providerName, shortHash(lastSourceHead), shortHash(newHead))
+				emit("source_update.rebuild_skipped", "reason", "dirty_tree", "old", shortHash(lastSourceHead), "new", shortHash(newHead))
+			}
+			lastSourceHead = newHead
 		}
 
 		if h := fileHash(selfPath); h != "" && selfHash != "" && h != selfHash {
@@ -563,6 +594,7 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 			fmt.Fprintf(os.Stderr, "[%s] session error: %v\n", providerName, runErr)
 		}
 		claimsCompleted.Add(1)
+		landedBranch := gitSourceBranch()
 		emit("claim.released",
 			"iteration_id", iterationID,
 			"todo_id", todo.ID,
@@ -570,7 +602,19 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 			"resolve", runErr == nil,
 			"churn_downgraded", release.ChurnDowngraded,
 			"cycle_detected", release.CycleDetected,
+			"landed_branch", landedBranch,
 			"err", errString(runErr))
+		// Operator-facing close summary: explicit branch attribution so a
+		// loop watcher can tell where the work actually landed (host-mode
+		// commits go straight onto landedBranch; container-mode commits go
+		// to the slot branch and reach landedBranch only after merge-train
+		// runs separately).
+		outcome := "released"
+		if runErr == nil && !release.ChurnDowngraded && !release.CycleDetected {
+			outcome = "resolved"
+		}
+		fmt.Fprintf(os.Stderr, "[%s] %s %s on branch=%s\n",
+			providerName, todo.Key, outcome, landedBranch)
 		_ = os.Remove(stateFile)
 
 		// Update churn tracking, then maybe back off before the next
@@ -834,4 +878,49 @@ func startDaemon(ctx context.Context, providerName string, opts ProviderOpts, ho
 			}
 		}
 	}()
+}
+
+// gitSourceHead returns the current HEAD commit SHA of the cwd's git tree,
+// or "" on error. Used by the iteration-top source-currency check.
+func gitSourceHead() string {
+	out, err := exec.Command("git", "rev-parse", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// gitSourceBranch returns the cwd's current branch name (or "DETACHED" /
+// "" when not on a branch / not in a repo). Used to attribute claim.released
+// to a destination branch in operator-facing stderr.
+func gitSourceBranch() string {
+	out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	b := strings.TrimSpace(string(out))
+	if b == "HEAD" {
+		return "DETACHED"
+	}
+	return b
+}
+
+// gitTreeClean reports whether `git status --porcelain` is empty. Used to
+// gate auto-rebuild: a dirty tree probably means the operator is mid-edit
+// and we don't want to surprise them with a `make build`.
+func gitTreeClean() bool {
+	out, err := exec.Command("git", "status", "--porcelain").Output()
+	if err != nil {
+		return false
+	}
+	return len(strings.TrimSpace(string(out))) == 0
+}
+
+// runMakeBuild invokes `make build` in the cwd, streaming output to stderr
+// so operators see compile errors inline. Returns the make exit status.
+func runMakeBuild() error {
+	cmd := exec.Command("make", "build")
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
