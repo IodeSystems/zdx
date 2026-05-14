@@ -103,6 +103,78 @@ func (q *Queries) CountClaudeSessionsByIssue(ctx context.Context, arg CountClaud
 	return count, err
 }
 
+const countSessionEffectiveSignals = `-- name: CountSessionEffectiveSignals :one
+SELECT
+  count(*) FILTER (
+    WHERE field = 'status' AND new_val = 'closed'
+  )::int AS closes,
+  count(*) FILTER (
+    WHERE target_type = 'issue' AND field IN ('issue_type', 'link_of', 'parent_id', 'duplicate_of')
+  )::int AS type_parent_changes,
+  count(*) FILTER (
+    WHERE target_type IN ('gate_item', 'maturity_item')
+  )::int AS gate_item_updates,
+  count(*)::int AS total_revisions
+FROM zdx_revisions
+WHERE project_id = $1 AND session_id = $2
+`
+
+type CountSessionEffectiveSignalsParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	SessionID string `db:"session_id" json:"session_id"`
+}
+
+type CountSessionEffectiveSignalsRow struct {
+	Closes            int32 `db:"closes" json:"closes"`
+	TypeParentChanges int32 `db:"type_parent_changes" json:"type_parent_changes"`
+	GateItemUpdates   int32 `db:"gate_item_updates" json:"gate_item_updates"`
+	TotalRevisions    int32 `db:"total_revisions" json:"total_revisions"`
+}
+
+// IS-1100: returns counts of durable-mutation signals attributable to the
+// session via zdx_revisions.session_id. The close-agent-session handler emits
+// session.ineffective when every signal here is zero AND the session ran more
+// than 5 turns. Attribution: zdx_revisions.session_id is stamped by
+// recordRevision/recordStatusChange whenever a handler runs with an agent
+// session in ctx.
+func (q *Queries) CountSessionEffectiveSignals(ctx context.Context, arg CountSessionEffectiveSignalsParams) (CountSessionEffectiveSignalsRow, error) {
+	row := q.db.QueryRow(ctx, countSessionEffectiveSignals, arg.ProjectID, arg.SessionID)
+	var i CountSessionEffectiveSignalsRow
+	err := row.Scan(
+		&i.Closes,
+		&i.TypeParentChanges,
+		&i.GateItemUpdates,
+		&i.TotalRevisions,
+	)
+	return i, err
+}
+
+const countSessionLongCommentsByAlias = `-- name: CountSessionLongCommentsByAlias :one
+SELECT count(*)::int AS n
+FROM zdx_comments
+WHERE project_id = $1
+  AND author_alias = $2
+  AND created_at >= $3
+  AND length(body) > 50
+`
+
+type CountSessionLongCommentsByAliasParams struct {
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	AuthorAlias string             `db:"author_alias" json:"author_alias"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+// IS-1100: count zdx_comments by the session's agent alias since the session
+// started. zdx_comments has no session_id column, so we approximate session
+// attribution by (author_alias, created_at >= session.created_at). This can
+// over-count when two sessions share an alias and overlap; v1 telemetry-only.
+func (q *Queries) CountSessionLongCommentsByAlias(ctx context.Context, arg CountSessionLongCommentsByAliasParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countSessionLongCommentsByAlias, arg.ProjectID, arg.AuthorAlias, arg.CreatedAt)
+	var n int32
+	err := row.Scan(&n)
+	return n, err
+}
+
 const countStaleOpenClaudeSessions = `-- name: CountStaleOpenClaudeSessions :one
 SELECT count(*) FROM zdx_claude_sessions
 WHERE project_id = $1
@@ -216,7 +288,7 @@ func (q *Queries) CreateClaudeSession(ctx context.Context, arg CreateClaudeSessi
 }
 
 const getClaudeSession = `-- name: GetClaudeSession :one
-SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id, s.persona,
        t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
@@ -242,6 +314,7 @@ type GetClaudeSessionRow struct {
 	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 	ClosedAt        pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
 	TodoID          pgtype.Int4        `db:"todo_id" json:"todo_id"`
+	Persona         string             `db:"persona" json:"persona"`
 	TodoText        pgtype.Text        `db:"todo_text" json:"todo_text"`
 	TodoTitle       pgtype.Text        `db:"todo_title" json:"todo_title"`
 	TodoDescription pgtype.Text        `db:"todo_description" json:"todo_description"`
@@ -266,6 +339,7 @@ func (q *Queries) GetClaudeSession(ctx context.Context, arg GetClaudeSessionPara
 		&i.UpdatedAt,
 		&i.ClosedAt,
 		&i.TodoID,
+		&i.Persona,
 		&i.TodoText,
 		&i.TodoTitle,
 		&i.TodoDescription,
@@ -276,7 +350,7 @@ func (q *Queries) GetClaudeSession(ctx context.Context, arg GetClaudeSessionPara
 }
 
 const getClaudeSessionBySessionID = `-- name: GetClaudeSessionBySessionID :one
-SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id, s.persona,
        t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
@@ -302,6 +376,7 @@ type GetClaudeSessionBySessionIDRow struct {
 	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 	ClosedAt        pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
 	TodoID          pgtype.Int4        `db:"todo_id" json:"todo_id"`
+	Persona         string             `db:"persona" json:"persona"`
 	TodoText        pgtype.Text        `db:"todo_text" json:"todo_text"`
 	TodoTitle       pgtype.Text        `db:"todo_title" json:"todo_title"`
 	TodoDescription pgtype.Text        `db:"todo_description" json:"todo_description"`
@@ -326,6 +401,7 @@ func (q *Queries) GetClaudeSessionBySessionID(ctx context.Context, arg GetClaude
 		&i.UpdatedAt,
 		&i.ClosedAt,
 		&i.TodoID,
+		&i.Persona,
 		&i.TodoText,
 		&i.TodoTitle,
 		&i.TodoDescription,
@@ -584,7 +660,7 @@ func (q *Queries) ListClaudeEventsSinceSeq(ctx context.Context, arg ListClaudeEv
 }
 
 const listClaudeSessions = `-- name: ListClaudeSessions :many
-SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id, s.persona,
        t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
@@ -606,6 +682,7 @@ type ListClaudeSessionsRow struct {
 	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 	ClosedAt        pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
 	TodoID          pgtype.Int4        `db:"todo_id" json:"todo_id"`
+	Persona         string             `db:"persona" json:"persona"`
 	TodoText        pgtype.Text        `db:"todo_text" json:"todo_text"`
 	TodoTitle       pgtype.Text        `db:"todo_title" json:"todo_title"`
 	TodoDescription pgtype.Text        `db:"todo_description" json:"todo_description"`
@@ -636,6 +713,7 @@ func (q *Queries) ListClaudeSessions(ctx context.Context, projectID int32) ([]Li
 			&i.UpdatedAt,
 			&i.ClosedAt,
 			&i.TodoID,
+			&i.Persona,
 			&i.TodoText,
 			&i.TodoTitle,
 			&i.TodoDescription,
@@ -653,7 +731,7 @@ func (q *Queries) ListClaudeSessions(ctx context.Context, projectID int32) ([]Li
 }
 
 const listClaudeSessionsByIssue = `-- name: ListClaudeSessionsByIssue :many
-SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id, s.persona,
        t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
@@ -680,6 +758,7 @@ type ListClaudeSessionsByIssueRow struct {
 	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 	ClosedAt        pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
 	TodoID          pgtype.Int4        `db:"todo_id" json:"todo_id"`
+	Persona         string             `db:"persona" json:"persona"`
 	TodoText        pgtype.Text        `db:"todo_text" json:"todo_text"`
 	TodoTitle       pgtype.Text        `db:"todo_title" json:"todo_title"`
 	TodoDescription pgtype.Text        `db:"todo_description" json:"todo_description"`
@@ -710,6 +789,7 @@ func (q *Queries) ListClaudeSessionsByIssue(ctx context.Context, arg ListClaudeS
 			&i.UpdatedAt,
 			&i.ClosedAt,
 			&i.TodoID,
+			&i.Persona,
 			&i.TodoText,
 			&i.TodoTitle,
 			&i.TodoDescription,

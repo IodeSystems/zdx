@@ -111,6 +111,18 @@ type Querier interface {
 	// Used by /api/dx/agent/release to detect sessions that exited cleanly but
 	// didn't apply any durable mutation — those release without marking resolved.
 	CountRevisionsBySession(ctx context.Context, arg CountRevisionsBySessionParams) (int64, error)
+	// IS-1100: returns counts of durable-mutation signals attributable to the
+	// session via zdx_revisions.session_id. The close-agent-session handler emits
+	// session.ineffective when every signal here is zero AND the session ran more
+	// than 5 turns. Attribution: zdx_revisions.session_id is stamped by
+	// recordRevision/recordStatusChange whenever a handler runs with an agent
+	// session in ctx.
+	CountSessionEffectiveSignals(ctx context.Context, arg CountSessionEffectiveSignalsParams) (CountSessionEffectiveSignalsRow, error)
+	// IS-1100: count zdx_comments by the session's agent alias since the session
+	// started. zdx_comments has no session_id column, so we approximate session
+	// attribution by (author_alias, created_at >= session.created_at). This can
+	// over-count when two sessions share an alias and overlap; v1 telemetry-only.
+	CountSessionLongCommentsByAlias(ctx context.Context, arg CountSessionLongCommentsByAliasParams) (int32, error)
 	CountStaleOpenClaudeSessions(ctx context.Context, arg CountStaleOpenClaudeSessionsParams) (int64, error)
 	CountSubstantiveIssueWork(ctx context.Context, issueID string) (int64, error)
 	// Count open, unblocked todos that are not currently claimed (or whose lease has expired).

@@ -6037,6 +6037,7 @@ export interface components {
             reference_issue_id?: string;
             resolved_at?: string;
             scope?: components["schemas"]["AgentClaimScope"];
+            source?: string;
             status: string;
             suggested_action?: string;
             target_branch?: string;
@@ -6092,6 +6093,7 @@ export interface components {
             persona: string;
             /** Format: int32 */
             priority: number;
+            source?: string;
             status: string;
             suggested_action?: string;
             target_branch?: string;
@@ -11176,6 +11178,7 @@ export interface components {
             project_slug?: string;
             reference_issue_id?: string;
             resolved_at?: string;
+            source?: string;
             status: string;
             suggested_action?: string;
             target_branch?: string;

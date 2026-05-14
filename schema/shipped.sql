@@ -3,7 +3,8 @@
 --
 
 
--- Dumped from database version 18.3 (Debian 18.3-1.pgdg13+1)
+-- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1230,7 +1231,7 @@ CREATE TABLE public.zdx_incomplete_report_side_effects (
     id bigint NOT NULL,
     project_id integer NOT NULL,
     reason text NOT NULL,
-    evidence_fingerprint text CONSTRAINT zdx_incomplete_report_side_effect_evidence_fingerprint_not_null NOT NULL,
+    evidence_fingerprint text NOT NULL,
     action_type text NOT NULL,
     meta jsonb DEFAULT '{}'::jsonb NOT NULL,
     fired_at timestamp with time zone DEFAULT now() NOT NULL
@@ -2988,7 +2989,9 @@ CREATE TABLE public.zdx_todos (
     reference_issue_id text DEFAULT ''::text NOT NULL,
     claim_base_sha text DEFAULT ''::text NOT NULL,
     claim_base_branch text DEFAULT ''::text NOT NULL,
-    claim_persona text DEFAULT 'dev'::text NOT NULL
+    claim_persona text DEFAULT 'dev'::text NOT NULL,
+    source text DEFAULT ''::text NOT NULL,
+    claim_predicate_snapshot jsonb DEFAULT '{}'::jsonb NOT NULL
 );
 
 

@@ -144,6 +144,85 @@ var CountClaudeSessionsByIssueCols = struct {
 	Count: metaquery.NewIntCol("count"),
 }
 
+var MetaCountSessionEffectiveSignals = metaquery.Query{
+	Name:   "CountSessionEffectiveSignals",
+	Cmd:    ":one",
+	Source: "claude_sessions.sql",
+	SQL: `SELECT
+  count(*) FILTER (
+    WHERE field = 'status' AND new_val = 'closed'
+  )::int AS closes,
+  count(*) FILTER (
+    WHERE target_type = 'issue' AND field IN ('issue_type', 'link_of', 'parent_id', 'duplicate_of')
+  )::int AS type_parent_changes,
+  count(*) FILTER (
+    WHERE target_type IN ('gate_item', 'maturity_item')
+  )::int AS gate_item_updates,
+  count(*)::int AS total_revisions
+FROM zdx_revisions
+WHERE project_id = $1 AND session_id = $2`,
+	Columns: []metaquery.Column{
+		{Name: "closes", OriginalName: "closes", GoType: "int32", DBType: "int4", NotNull: true},
+		{Name: "type_parent_changes", OriginalName: "type_parent_changes", GoType: "int32", DBType: "int4", NotNull: true},
+		{Name: "gate_item_updates", OriginalName: "gate_item_updates", GoType: "int32", DBType: "int4", NotNull: true},
+		{Name: "total_revisions", OriginalName: "total_revisions", GoType: "int32", DBType: "int4", NotNull: true},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "session_id", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapCountSessionEffectiveSignals returns a metaquery.Builder over MetaCountSessionEffectiveSignals, pre-bound with typed arguments.
+func WrapCountSessionEffectiveSignals(arg CountSessionEffectiveSignalsParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaCountSessionEffectiveSignals, arg.ProjectID, arg.SessionID)
+}
+
+// CountSessionEffectiveSignalsCols gives typed, name-safe access to CountSessionEffectiveSignals's output columns.
+var CountSessionEffectiveSignalsCols = struct {
+	Closes            metaquery.IntCol
+	TypeParentChanges metaquery.IntCol
+	GateItemUpdates   metaquery.IntCol
+	TotalRevisions    metaquery.IntCol
+}{
+	Closes:            metaquery.NewIntCol("closes"),
+	TypeParentChanges: metaquery.NewIntCol("type_parent_changes"),
+	GateItemUpdates:   metaquery.NewIntCol("gate_item_updates"),
+	TotalRevisions:    metaquery.NewIntCol("total_revisions"),
+}
+
+var MetaCountSessionLongCommentsByAlias = metaquery.Query{
+	Name:   "CountSessionLongCommentsByAlias",
+	Cmd:    ":one",
+	Source: "claude_sessions.sql",
+	SQL: `SELECT count(*)::int AS n
+FROM zdx_comments
+WHERE project_id = $1
+  AND author_alias = $2
+  AND created_at >= $3
+  AND length(body) > 50`,
+	Columns: []metaquery.Column{
+		{Name: "n", OriginalName: "n", GoType: "int32"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "author_alias", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 3, Name: "created_at", GoType: "pgtype.Timestamptz", DBType: "pg_catalog.timestamptz", NotNull: true},
+	},
+}
+
+// WrapCountSessionLongCommentsByAlias returns a metaquery.Builder over MetaCountSessionLongCommentsByAlias, pre-bound with typed arguments.
+func WrapCountSessionLongCommentsByAlias(arg CountSessionLongCommentsByAliasParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaCountSessionLongCommentsByAlias, arg.ProjectID, arg.AuthorAlias, arg.CreatedAt)
+}
+
+// CountSessionLongCommentsByAliasCols gives typed, name-safe access to CountSessionLongCommentsByAlias's output columns.
+var CountSessionLongCommentsByAliasCols = struct {
+	N metaquery.IntCol
+}{
+	N: metaquery.NewIntCol("n"),
+}
+
 var MetaCountStaleOpenClaudeSessions = metaquery.Query{
 	Name:   "CountStaleOpenClaudeSessions",
 	Cmd:    ":one",
@@ -274,7 +353,7 @@ var MetaGetClaudeSession = metaquery.Query{
 	Name:   "GetClaudeSession",
 	Cmd:    ":one",
 	Source: "claude_sessions.sql",
-	SQL: `SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+	SQL: `SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id, s.persona,
        t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
@@ -293,6 +372,7 @@ WHERE s.project_id = $1 AND s.id = $2`,
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_claude_sessions"},
 		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_claude_sessions"},
 		{Name: "todo_id", OriginalName: "todo_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_claude_sessions"},
+		{Name: "persona", OriginalName: "persona", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_claude_sessions"},
 		{Name: "todo_text", OriginalName: "text", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 		{Name: "todo_title", OriginalName: "title", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 		{Name: "todo_description", OriginalName: "description", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
@@ -325,6 +405,7 @@ var GetClaudeSessionCols = struct {
 	UpdatedAt       metaquery.TimeCol
 	ClosedAt        metaquery.TimeCol
 	TodoID          metaquery.IntCol
+	Persona         metaquery.TextCol
 	TodoText        metaquery.TextCol
 	TodoTitle       metaquery.TextCol
 	TodoDescription metaquery.TextCol
@@ -344,6 +425,7 @@ var GetClaudeSessionCols = struct {
 	UpdatedAt:       metaquery.NewTimeCol("updated_at"),
 	ClosedAt:        metaquery.NewTimeCol("closed_at"),
 	TodoID:          metaquery.NewIntCol("todo_id"),
+	Persona:         metaquery.NewTextCol("persona"),
 	TodoText:        metaquery.NewTextCol("text"),
 	TodoTitle:       metaquery.NewTextCol("title"),
 	TodoDescription: metaquery.NewTextCol("description"),
@@ -355,7 +437,7 @@ var MetaGetClaudeSessionBySessionID = metaquery.Query{
 	Name:   "GetClaudeSessionBySessionID",
 	Cmd:    ":one",
 	Source: "claude_sessions.sql",
-	SQL: `SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+	SQL: `SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id, s.persona,
        t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
@@ -374,6 +456,7 @@ WHERE s.project_id = $1 AND s.session_id = $2`,
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_claude_sessions"},
 		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_claude_sessions"},
 		{Name: "todo_id", OriginalName: "todo_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_claude_sessions"},
+		{Name: "persona", OriginalName: "persona", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_claude_sessions"},
 		{Name: "todo_text", OriginalName: "text", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 		{Name: "todo_title", OriginalName: "title", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 		{Name: "todo_description", OriginalName: "description", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
@@ -406,6 +489,7 @@ var GetClaudeSessionBySessionIDCols = struct {
 	UpdatedAt       metaquery.TimeCol
 	ClosedAt        metaquery.TimeCol
 	TodoID          metaquery.IntCol
+	Persona         metaquery.TextCol
 	TodoText        metaquery.TextCol
 	TodoTitle       metaquery.TextCol
 	TodoDescription metaquery.TextCol
@@ -425,6 +509,7 @@ var GetClaudeSessionBySessionIDCols = struct {
 	UpdatedAt:       metaquery.NewTimeCol("updated_at"),
 	ClosedAt:        metaquery.NewTimeCol("closed_at"),
 	TodoID:          metaquery.NewIntCol("todo_id"),
+	Persona:         metaquery.NewTextCol("persona"),
 	TodoText:        metaquery.NewTextCol("text"),
 	TodoTitle:       metaquery.NewTextCol("title"),
 	TodoDescription: metaquery.NewTextCol("description"),
@@ -679,7 +764,7 @@ var MetaListClaudeSessions = metaquery.Query{
 	Name:   "ListClaudeSessions",
 	Cmd:    ":many",
 	Source: "claude_sessions.sql",
-	SQL: `SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+	SQL: `SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id, s.persona,
        t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
@@ -699,6 +784,7 @@ ORDER BY s.updated_at DESC`,
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_claude_sessions"},
 		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_claude_sessions"},
 		{Name: "todo_id", OriginalName: "todo_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_claude_sessions"},
+		{Name: "persona", OriginalName: "persona", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_claude_sessions"},
 		{Name: "todo_text", OriginalName: "text", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 		{Name: "todo_title", OriginalName: "title", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 		{Name: "todo_description", OriginalName: "description", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
@@ -730,6 +816,7 @@ var ListClaudeSessionsCols = struct {
 	UpdatedAt       metaquery.TimeCol
 	ClosedAt        metaquery.TimeCol
 	TodoID          metaquery.IntCol
+	Persona         metaquery.TextCol
 	TodoText        metaquery.TextCol
 	TodoTitle       metaquery.TextCol
 	TodoDescription metaquery.TextCol
@@ -749,6 +836,7 @@ var ListClaudeSessionsCols = struct {
 	UpdatedAt:       metaquery.NewTimeCol("updated_at"),
 	ClosedAt:        metaquery.NewTimeCol("closed_at"),
 	TodoID:          metaquery.NewIntCol("todo_id"),
+	Persona:         metaquery.NewTextCol("persona"),
 	TodoText:        metaquery.NewTextCol("text"),
 	TodoTitle:       metaquery.NewTextCol("title"),
 	TodoDescription: metaquery.NewTextCol("description"),
@@ -760,7 +848,7 @@ var MetaListClaudeSessionsByIssue = metaquery.Query{
 	Name:   "ListClaudeSessionsByIssue",
 	Cmd:    ":many",
 	Source: "claude_sessions.sql",
-	SQL: `SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+	SQL: `SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id, s.persona,
        t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
@@ -780,6 +868,7 @@ ORDER BY s.updated_at DESC`,
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_claude_sessions"},
 		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_claude_sessions"},
 		{Name: "todo_id", OriginalName: "todo_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_claude_sessions"},
+		{Name: "persona", OriginalName: "persona", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_claude_sessions"},
 		{Name: "todo_text", OriginalName: "text", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 		{Name: "todo_title", OriginalName: "title", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 		{Name: "todo_description", OriginalName: "description", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
@@ -812,6 +901,7 @@ var ListClaudeSessionsByIssueCols = struct {
 	UpdatedAt       metaquery.TimeCol
 	ClosedAt        metaquery.TimeCol
 	TodoID          metaquery.IntCol
+	Persona         metaquery.TextCol
 	TodoText        metaquery.TextCol
 	TodoTitle       metaquery.TextCol
 	TodoDescription metaquery.TextCol
@@ -831,6 +921,7 @@ var ListClaudeSessionsByIssueCols = struct {
 	UpdatedAt:       metaquery.NewTimeCol("updated_at"),
 	ClosedAt:        metaquery.NewTimeCol("closed_at"),
 	TodoID:          metaquery.NewIntCol("todo_id"),
+	Persona:         metaquery.NewTextCol("persona"),
 	TodoText:        metaquery.NewTextCol("text"),
 	TodoTitle:       metaquery.NewTextCol("title"),
 	TodoDescription: metaquery.NewTextCol("description"),

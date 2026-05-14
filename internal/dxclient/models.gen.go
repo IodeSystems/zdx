@@ -498,6 +498,7 @@ type AgentClaimBody struct {
 	ReferenceIssueId *string          `json:"reference_issue_id,omitempty"`
 	ResolvedAt       *string          `json:"resolved_at,omitempty"`
 	Scope            *AgentClaimScope `json:"scope,omitempty"`
+	Source           *string          `json:"source,omitempty"`
 	Status           string           `json:"status"`
 	SuggestedAction  *string          `json:"suggested_action,omitempty"`
 	TargetBranch     *string          `json:"target_branch,omitempty"`
@@ -551,6 +552,7 @@ type AgentQueueItem struct {
 	Kind            string  `json:"kind"`
 	Persona         string  `json:"persona"`
 	Priority        int32   `json:"priority"`
+	Source          *string `json:"source,omitempty"`
 	Status          string  `json:"status"`
 	SuggestedAction *string `json:"suggested_action,omitempty"`
 	TargetBranch    *string `json:"target_branch,omitempty"`
@@ -4703,6 +4705,7 @@ type TodoItem struct {
 	ProjectSlug      *string `json:"project_slug,omitempty"`
 	ReferenceIssueId *string `json:"reference_issue_id,omitempty"`
 	ResolvedAt       *string `json:"resolved_at,omitempty"`
+	Source           *string `json:"source,omitempty"`
 	Status           string  `json:"status"`
 	SuggestedAction  *string `json:"suggested_action,omitempty"`
 	TargetBranch     *string `json:"target_branch,omitempty"`

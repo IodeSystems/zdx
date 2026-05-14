@@ -17,7 +17,7 @@ WHERE project_id = $2 AND key = $3
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-          claim_base_sha, claim_base_branch
+          claim_base_sha, claim_base_branch, source, claim_predicate_snapshot
 `
 
 type BlockTodoByKeyParams struct {
@@ -27,31 +27,33 @@ type BlockTodoByKeyParams struct {
 }
 
 type BlockTodoByKeyRow struct {
-	ID               int32              `db:"id" json:"id"`
-	ProjectID        int32              `db:"project_id" json:"project_id"`
-	Text             string             `db:"text" json:"text"`
-	Title            string             `db:"title" json:"title"`
-	Description      string             `db:"description" json:"description"`
-	Key              string             `db:"key" json:"key"`
-	Persona          string             `db:"persona" json:"persona"`
-	Priority         int32              `db:"priority" json:"priority"`
-	Status           string             `db:"status" json:"status"`
-	TargetType       string             `db:"target_type" json:"target_type"`
-	TargetID         string             `db:"target_id" json:"target_id"`
-	Kind             string             `db:"kind" json:"kind"`
-	IssueRef         string             `db:"issue_ref" json:"issue_ref"`
-	Blocked          bool               `db:"blocked" json:"blocked"`
-	BlockedReason    string             `db:"blocked_reason" json:"blocked_reason"`
-	CycleCount       int32              `db:"cycle_count" json:"cycle_count"`
-	ReferenceIssueID string             `db:"reference_issue_id" json:"reference_issue_id"`
-	ClaimedBy        string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt        pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
-	LeaseExpiresAt   pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
-	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
-	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
-	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
-	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
+	ID                     int32              `db:"id" json:"id"`
+	ProjectID              int32              `db:"project_id" json:"project_id"`
+	Text                   string             `db:"text" json:"text"`
+	Title                  string             `db:"title" json:"title"`
+	Description            string             `db:"description" json:"description"`
+	Key                    string             `db:"key" json:"key"`
+	Persona                string             `db:"persona" json:"persona"`
+	Priority               int32              `db:"priority" json:"priority"`
+	Status                 string             `db:"status" json:"status"`
+	TargetType             string             `db:"target_type" json:"target_type"`
+	TargetID               string             `db:"target_id" json:"target_id"`
+	Kind                   string             `db:"kind" json:"kind"`
+	IssueRef               string             `db:"issue_ref" json:"issue_ref"`
+	Blocked                bool               `db:"blocked" json:"blocked"`
+	BlockedReason          string             `db:"blocked_reason" json:"blocked_reason"`
+	CycleCount             int32              `db:"cycle_count" json:"cycle_count"`
+	ReferenceIssueID       string             `db:"reference_issue_id" json:"reference_issue_id"`
+	ClaimedBy              string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt              pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt         pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt              pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt             pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount            int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha           string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch        string             `db:"claim_base_branch" json:"claim_base_branch"`
+	Source                 string             `db:"source" json:"source"`
+	ClaimPredicateSnapshot []byte             `db:"claim_predicate_snapshot" json:"claim_predicate_snapshot"`
 }
 
 // Block a todo by its key (cycle detection). Increments cycle_count each time.
@@ -85,6 +87,8 @@ func (q *Queries) BlockTodoByKey(ctx context.Context, arg BlockTodoByKeyParams) 
 		&i.ReopenCount,
 		&i.ClaimBaseSha,
 		&i.ClaimBaseBranch,
+		&i.Source,
+		&i.ClaimPredicateSnapshot,
 	)
 	return i, err
 }
@@ -111,12 +115,12 @@ WITH claimed AS (
   RETURNING id, project_id, text, title, description, key, persona, priority, status,
             target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
             claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-            claim_base_sha, claim_base_branch, claim_persona
+            claim_base_sha, claim_base_branch, claim_persona, source, claim_predicate_snapshot
 )
 SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
        c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
        c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
-       c.claim_base_sha, c.claim_base_branch, c.claim_persona,
+       c.claim_base_sha, c.claim_base_branch, c.claim_persona, c.source, c.claim_predicate_snapshot,
        COALESCE(i.target_branch, 'dev') AS target_branch
 FROM claimed c
 LEFT JOIN zdx_issues i ON i.id = c.issue_ref
@@ -132,33 +136,35 @@ type ClaimNextTodoParams struct {
 }
 
 type ClaimNextTodoRow struct {
-	ID               int32              `db:"id" json:"id"`
-	ProjectID        int32              `db:"project_id" json:"project_id"`
-	Text             string             `db:"text" json:"text"`
-	Title            string             `db:"title" json:"title"`
-	Description      string             `db:"description" json:"description"`
-	Key              string             `db:"key" json:"key"`
-	Persona          string             `db:"persona" json:"persona"`
-	Priority         int32              `db:"priority" json:"priority"`
-	Status           string             `db:"status" json:"status"`
-	TargetType       string             `db:"target_type" json:"target_type"`
-	TargetID         string             `db:"target_id" json:"target_id"`
-	Kind             string             `db:"kind" json:"kind"`
-	IssueRef         string             `db:"issue_ref" json:"issue_ref"`
-	Blocked          bool               `db:"blocked" json:"blocked"`
-	BlockedReason    string             `db:"blocked_reason" json:"blocked_reason"`
-	CycleCount       int32              `db:"cycle_count" json:"cycle_count"`
-	ReferenceIssueID string             `db:"reference_issue_id" json:"reference_issue_id"`
-	ClaimedBy        string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt        pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
-	LeaseExpiresAt   pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
-	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
-	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
-	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
-	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
-	ClaimPersona     string             `db:"claim_persona" json:"claim_persona"`
-	TargetBranch     string             `db:"target_branch" json:"target_branch"`
+	ID                     int32              `db:"id" json:"id"`
+	ProjectID              int32              `db:"project_id" json:"project_id"`
+	Text                   string             `db:"text" json:"text"`
+	Title                  string             `db:"title" json:"title"`
+	Description            string             `db:"description" json:"description"`
+	Key                    string             `db:"key" json:"key"`
+	Persona                string             `db:"persona" json:"persona"`
+	Priority               int32              `db:"priority" json:"priority"`
+	Status                 string             `db:"status" json:"status"`
+	TargetType             string             `db:"target_type" json:"target_type"`
+	TargetID               string             `db:"target_id" json:"target_id"`
+	Kind                   string             `db:"kind" json:"kind"`
+	IssueRef               string             `db:"issue_ref" json:"issue_ref"`
+	Blocked                bool               `db:"blocked" json:"blocked"`
+	BlockedReason          string             `db:"blocked_reason" json:"blocked_reason"`
+	CycleCount             int32              `db:"cycle_count" json:"cycle_count"`
+	ReferenceIssueID       string             `db:"reference_issue_id" json:"reference_issue_id"`
+	ClaimedBy              string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt              pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt         pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt              pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt             pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount            int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha           string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch        string             `db:"claim_base_branch" json:"claim_base_branch"`
+	ClaimPersona           string             `db:"claim_persona" json:"claim_persona"`
+	Source                 string             `db:"source" json:"source"`
+	ClaimPredicateSnapshot []byte             `db:"claim_predicate_snapshot" json:"claim_predicate_snapshot"`
+	TargetBranch           string             `db:"target_branch" json:"target_branch"`
 }
 
 // Atomically claim the highest-priority unclaimed open todo for an agent.
@@ -203,6 +209,8 @@ func (q *Queries) ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (C
 		&i.ClaimBaseSha,
 		&i.ClaimBaseBranch,
 		&i.ClaimPersona,
+		&i.Source,
+		&i.ClaimPredicateSnapshot,
 		&i.TargetBranch,
 	)
 	return i, err
@@ -230,12 +238,12 @@ WITH claimed AS (
   RETURNING id, project_id, text, title, description, key, persona, priority, status,
             target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
             claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-            claim_base_sha, claim_base_branch, claim_persona
+            claim_base_sha, claim_base_branch, claim_persona, source, claim_predicate_snapshot
 )
 SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
        c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
        c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
-       c.claim_base_sha, c.claim_base_branch, c.claim_persona,
+       c.claim_base_sha, c.claim_base_branch, c.claim_persona, c.source, c.claim_predicate_snapshot,
        COALESCE(i.target_branch, 'dev') AS target_branch,
        p.slug AS project_slug
 FROM claimed c
@@ -252,34 +260,36 @@ type ClaimNextTodoAnyParams struct {
 }
 
 type ClaimNextTodoAnyRow struct {
-	ID               int32              `db:"id" json:"id"`
-	ProjectID        int32              `db:"project_id" json:"project_id"`
-	Text             string             `db:"text" json:"text"`
-	Title            string             `db:"title" json:"title"`
-	Description      string             `db:"description" json:"description"`
-	Key              string             `db:"key" json:"key"`
-	Persona          string             `db:"persona" json:"persona"`
-	Priority         int32              `db:"priority" json:"priority"`
-	Status           string             `db:"status" json:"status"`
-	TargetType       string             `db:"target_type" json:"target_type"`
-	TargetID         string             `db:"target_id" json:"target_id"`
-	Kind             string             `db:"kind" json:"kind"`
-	IssueRef         string             `db:"issue_ref" json:"issue_ref"`
-	Blocked          bool               `db:"blocked" json:"blocked"`
-	BlockedReason    string             `db:"blocked_reason" json:"blocked_reason"`
-	CycleCount       int32              `db:"cycle_count" json:"cycle_count"`
-	ReferenceIssueID string             `db:"reference_issue_id" json:"reference_issue_id"`
-	ClaimedBy        string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt        pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
-	LeaseExpiresAt   pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
-	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
-	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
-	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
-	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
-	ClaimPersona     string             `db:"claim_persona" json:"claim_persona"`
-	TargetBranch     string             `db:"target_branch" json:"target_branch"`
-	ProjectSlug      string             `db:"project_slug" json:"project_slug"`
+	ID                     int32              `db:"id" json:"id"`
+	ProjectID              int32              `db:"project_id" json:"project_id"`
+	Text                   string             `db:"text" json:"text"`
+	Title                  string             `db:"title" json:"title"`
+	Description            string             `db:"description" json:"description"`
+	Key                    string             `db:"key" json:"key"`
+	Persona                string             `db:"persona" json:"persona"`
+	Priority               int32              `db:"priority" json:"priority"`
+	Status                 string             `db:"status" json:"status"`
+	TargetType             string             `db:"target_type" json:"target_type"`
+	TargetID               string             `db:"target_id" json:"target_id"`
+	Kind                   string             `db:"kind" json:"kind"`
+	IssueRef               string             `db:"issue_ref" json:"issue_ref"`
+	Blocked                bool               `db:"blocked" json:"blocked"`
+	BlockedReason          string             `db:"blocked_reason" json:"blocked_reason"`
+	CycleCount             int32              `db:"cycle_count" json:"cycle_count"`
+	ReferenceIssueID       string             `db:"reference_issue_id" json:"reference_issue_id"`
+	ClaimedBy              string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt              pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt         pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt              pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt             pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount            int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha           string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch        string             `db:"claim_base_branch" json:"claim_base_branch"`
+	ClaimPersona           string             `db:"claim_persona" json:"claim_persona"`
+	Source                 string             `db:"source" json:"source"`
+	ClaimPredicateSnapshot []byte             `db:"claim_predicate_snapshot" json:"claim_predicate_snapshot"`
+	TargetBranch           string             `db:"target_branch" json:"target_branch"`
+	ProjectSlug            string             `db:"project_slug" json:"project_slug"`
 }
 
 // Cross-project atomic claim for unpinned global agents. Picks the
@@ -328,6 +338,8 @@ func (q *Queries) ClaimNextTodoAny(ctx context.Context, arg ClaimNextTodoAnyPara
 		&i.ClaimBaseSha,
 		&i.ClaimBaseBranch,
 		&i.ClaimPersona,
+		&i.Source,
+		&i.ClaimPredicateSnapshot,
 		&i.TargetBranch,
 		&i.ProjectSlug,
 	)
@@ -357,12 +369,12 @@ WITH claimed AS (
   RETURNING id, project_id, text, title, description, key, persona, priority, status,
             target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
             claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-            claim_base_sha, claim_base_branch, claim_persona
+            claim_base_sha, claim_base_branch, claim_persona, source, claim_predicate_snapshot
 )
 SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
        c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
        c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
-       c.claim_base_sha, c.claim_base_branch, c.claim_persona,
+       c.claim_base_sha, c.claim_base_branch, c.claim_persona, c.source, c.claim_predicate_snapshot,
        COALESCE(i.target_branch, 'dev') AS target_branch
 FROM claimed c
 LEFT JOIN zdx_issues i ON i.id = c.issue_ref
@@ -379,33 +391,35 @@ type ClaimNextTodoInScopeParams struct {
 }
 
 type ClaimNextTodoInScopeRow struct {
-	ID               int32              `db:"id" json:"id"`
-	ProjectID        int32              `db:"project_id" json:"project_id"`
-	Text             string             `db:"text" json:"text"`
-	Title            string             `db:"title" json:"title"`
-	Description      string             `db:"description" json:"description"`
-	Key              string             `db:"key" json:"key"`
-	Persona          string             `db:"persona" json:"persona"`
-	Priority         int32              `db:"priority" json:"priority"`
-	Status           string             `db:"status" json:"status"`
-	TargetType       string             `db:"target_type" json:"target_type"`
-	TargetID         string             `db:"target_id" json:"target_id"`
-	Kind             string             `db:"kind" json:"kind"`
-	IssueRef         string             `db:"issue_ref" json:"issue_ref"`
-	Blocked          bool               `db:"blocked" json:"blocked"`
-	BlockedReason    string             `db:"blocked_reason" json:"blocked_reason"`
-	CycleCount       int32              `db:"cycle_count" json:"cycle_count"`
-	ReferenceIssueID string             `db:"reference_issue_id" json:"reference_issue_id"`
-	ClaimedBy        string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt        pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
-	LeaseExpiresAt   pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
-	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
-	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
-	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
-	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
-	ClaimPersona     string             `db:"claim_persona" json:"claim_persona"`
-	TargetBranch     string             `db:"target_branch" json:"target_branch"`
+	ID                     int32              `db:"id" json:"id"`
+	ProjectID              int32              `db:"project_id" json:"project_id"`
+	Text                   string             `db:"text" json:"text"`
+	Title                  string             `db:"title" json:"title"`
+	Description            string             `db:"description" json:"description"`
+	Key                    string             `db:"key" json:"key"`
+	Persona                string             `db:"persona" json:"persona"`
+	Priority               int32              `db:"priority" json:"priority"`
+	Status                 string             `db:"status" json:"status"`
+	TargetType             string             `db:"target_type" json:"target_type"`
+	TargetID               string             `db:"target_id" json:"target_id"`
+	Kind                   string             `db:"kind" json:"kind"`
+	IssueRef               string             `db:"issue_ref" json:"issue_ref"`
+	Blocked                bool               `db:"blocked" json:"blocked"`
+	BlockedReason          string             `db:"blocked_reason" json:"blocked_reason"`
+	CycleCount             int32              `db:"cycle_count" json:"cycle_count"`
+	ReferenceIssueID       string             `db:"reference_issue_id" json:"reference_issue_id"`
+	ClaimedBy              string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt              pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt         pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt              pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt             pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount            int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha           string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch        string             `db:"claim_base_branch" json:"claim_base_branch"`
+	ClaimPersona           string             `db:"claim_persona" json:"claim_persona"`
+	Source                 string             `db:"source" json:"source"`
+	ClaimPredicateSnapshot []byte             `db:"claim_predicate_snapshot" json:"claim_predicate_snapshot"`
+	TargetBranch           string             `db:"target_branch" json:"target_branch"`
 }
 
 // Scoped variant of ClaimNextTodo: only considers todos whose issue_ref
@@ -451,6 +465,8 @@ func (q *Queries) ClaimNextTodoInScope(ctx context.Context, arg ClaimNextTodoInS
 		&i.ClaimBaseSha,
 		&i.ClaimBaseBranch,
 		&i.ClaimPersona,
+		&i.Source,
+		&i.ClaimPredicateSnapshot,
 		&i.TargetBranch,
 	)
 	return i, err
@@ -474,13 +490,13 @@ func (q *Queries) CountUnclaimedTodos(ctx context.Context) (int64, error) {
 
 const createTodo = `-- name: CreateTodo :one
 INSERT INTO zdx_todos (project_id, text, title, description, key, persona, priority, status,
-                       target_type, target_id, kind, issue_ref, blocked, blocked_reason)
+                       target_type, target_id, kind, issue_ref, blocked, blocked_reason, source)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
-        $9, $10, $11, $12, $13, $14)
+        $9, $10, $11, $12, $13, $14, $15)
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-          claim_base_sha, claim_base_branch
+          claim_base_sha, claim_base_branch, source, claim_predicate_snapshot
 `
 
 type CreateTodoParams struct {
@@ -498,34 +514,37 @@ type CreateTodoParams struct {
 	IssueRef      string `db:"issue_ref" json:"issue_ref"`
 	Blocked       bool   `db:"blocked" json:"blocked"`
 	BlockedReason string `db:"blocked_reason" json:"blocked_reason"`
+	Source        string `db:"source" json:"source"`
 }
 
 type CreateTodoRow struct {
-	ID               int32              `db:"id" json:"id"`
-	ProjectID        int32              `db:"project_id" json:"project_id"`
-	Text             string             `db:"text" json:"text"`
-	Title            string             `db:"title" json:"title"`
-	Description      string             `db:"description" json:"description"`
-	Key              string             `db:"key" json:"key"`
-	Persona          string             `db:"persona" json:"persona"`
-	Priority         int32              `db:"priority" json:"priority"`
-	Status           string             `db:"status" json:"status"`
-	TargetType       string             `db:"target_type" json:"target_type"`
-	TargetID         string             `db:"target_id" json:"target_id"`
-	Kind             string             `db:"kind" json:"kind"`
-	IssueRef         string             `db:"issue_ref" json:"issue_ref"`
-	Blocked          bool               `db:"blocked" json:"blocked"`
-	BlockedReason    string             `db:"blocked_reason" json:"blocked_reason"`
-	CycleCount       int32              `db:"cycle_count" json:"cycle_count"`
-	ReferenceIssueID string             `db:"reference_issue_id" json:"reference_issue_id"`
-	ClaimedBy        string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt        pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
-	LeaseExpiresAt   pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
-	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
-	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
-	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
-	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
+	ID                     int32              `db:"id" json:"id"`
+	ProjectID              int32              `db:"project_id" json:"project_id"`
+	Text                   string             `db:"text" json:"text"`
+	Title                  string             `db:"title" json:"title"`
+	Description            string             `db:"description" json:"description"`
+	Key                    string             `db:"key" json:"key"`
+	Persona                string             `db:"persona" json:"persona"`
+	Priority               int32              `db:"priority" json:"priority"`
+	Status                 string             `db:"status" json:"status"`
+	TargetType             string             `db:"target_type" json:"target_type"`
+	TargetID               string             `db:"target_id" json:"target_id"`
+	Kind                   string             `db:"kind" json:"kind"`
+	IssueRef               string             `db:"issue_ref" json:"issue_ref"`
+	Blocked                bool               `db:"blocked" json:"blocked"`
+	BlockedReason          string             `db:"blocked_reason" json:"blocked_reason"`
+	CycleCount             int32              `db:"cycle_count" json:"cycle_count"`
+	ReferenceIssueID       string             `db:"reference_issue_id" json:"reference_issue_id"`
+	ClaimedBy              string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt              pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt         pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt              pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt             pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount            int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha           string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch        string             `db:"claim_base_branch" json:"claim_base_branch"`
+	Source                 string             `db:"source" json:"source"`
+	ClaimPredicateSnapshot []byte             `db:"claim_predicate_snapshot" json:"claim_predicate_snapshot"`
 }
 
 func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateTodoRow, error) {
@@ -544,6 +563,7 @@ func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateT
 		arg.IssueRef,
 		arg.Blocked,
 		arg.BlockedReason,
+		arg.Source,
 	)
 	var i CreateTodoRow
 	err := row.Scan(
@@ -572,6 +592,8 @@ func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateT
 		&i.ReopenCount,
 		&i.ClaimBaseSha,
 		&i.ClaimBaseBranch,
+		&i.Source,
+		&i.ClaimPredicateSnapshot,
 	)
 	return i, err
 }
@@ -605,36 +627,38 @@ const getTodoByID = `-- name: GetTodoByID :one
 SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-       claim_base_sha, claim_base_branch
+       claim_base_sha, claim_base_branch, source, claim_predicate_snapshot
 FROM zdx_todos WHERE id = $1
 `
 
 type GetTodoByIDRow struct {
-	ID               int32              `db:"id" json:"id"`
-	ProjectID        int32              `db:"project_id" json:"project_id"`
-	Text             string             `db:"text" json:"text"`
-	Title            string             `db:"title" json:"title"`
-	Description      string             `db:"description" json:"description"`
-	Key              string             `db:"key" json:"key"`
-	Persona          string             `db:"persona" json:"persona"`
-	Priority         int32              `db:"priority" json:"priority"`
-	Status           string             `db:"status" json:"status"`
-	TargetType       string             `db:"target_type" json:"target_type"`
-	TargetID         string             `db:"target_id" json:"target_id"`
-	Kind             string             `db:"kind" json:"kind"`
-	IssueRef         string             `db:"issue_ref" json:"issue_ref"`
-	Blocked          bool               `db:"blocked" json:"blocked"`
-	BlockedReason    string             `db:"blocked_reason" json:"blocked_reason"`
-	CycleCount       int32              `db:"cycle_count" json:"cycle_count"`
-	ReferenceIssueID string             `db:"reference_issue_id" json:"reference_issue_id"`
-	ClaimedBy        string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt        pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
-	LeaseExpiresAt   pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
-	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
-	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
-	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
-	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
+	ID                     int32              `db:"id" json:"id"`
+	ProjectID              int32              `db:"project_id" json:"project_id"`
+	Text                   string             `db:"text" json:"text"`
+	Title                  string             `db:"title" json:"title"`
+	Description            string             `db:"description" json:"description"`
+	Key                    string             `db:"key" json:"key"`
+	Persona                string             `db:"persona" json:"persona"`
+	Priority               int32              `db:"priority" json:"priority"`
+	Status                 string             `db:"status" json:"status"`
+	TargetType             string             `db:"target_type" json:"target_type"`
+	TargetID               string             `db:"target_id" json:"target_id"`
+	Kind                   string             `db:"kind" json:"kind"`
+	IssueRef               string             `db:"issue_ref" json:"issue_ref"`
+	Blocked                bool               `db:"blocked" json:"blocked"`
+	BlockedReason          string             `db:"blocked_reason" json:"blocked_reason"`
+	CycleCount             int32              `db:"cycle_count" json:"cycle_count"`
+	ReferenceIssueID       string             `db:"reference_issue_id" json:"reference_issue_id"`
+	ClaimedBy              string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt              pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt         pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt              pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt             pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount            int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha           string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch        string             `db:"claim_base_branch" json:"claim_base_branch"`
+	Source                 string             `db:"source" json:"source"`
+	ClaimPredicateSnapshot []byte             `db:"claim_predicate_snapshot" json:"claim_predicate_snapshot"`
 }
 
 func (q *Queries) GetTodoByID(ctx context.Context, id int32) (GetTodoByIDRow, error) {
@@ -666,6 +690,8 @@ func (q *Queries) GetTodoByID(ctx context.Context, id int32) (GetTodoByIDRow, er
 		&i.ReopenCount,
 		&i.ClaimBaseSha,
 		&i.ClaimBaseBranch,
+		&i.Source,
+		&i.ClaimPredicateSnapshot,
 	)
 	return i, err
 }
@@ -674,7 +700,7 @@ const getTodoByKey = `-- name: GetTodoByKey :one
 SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-       claim_base_sha, claim_base_branch
+       claim_base_sha, claim_base_branch, source, claim_predicate_snapshot
 FROM zdx_todos WHERE project_id = $1 AND key = $2
 `
 
@@ -684,31 +710,33 @@ type GetTodoByKeyParams struct {
 }
 
 type GetTodoByKeyRow struct {
-	ID               int32              `db:"id" json:"id"`
-	ProjectID        int32              `db:"project_id" json:"project_id"`
-	Text             string             `db:"text" json:"text"`
-	Title            string             `db:"title" json:"title"`
-	Description      string             `db:"description" json:"description"`
-	Key              string             `db:"key" json:"key"`
-	Persona          string             `db:"persona" json:"persona"`
-	Priority         int32              `db:"priority" json:"priority"`
-	Status           string             `db:"status" json:"status"`
-	TargetType       string             `db:"target_type" json:"target_type"`
-	TargetID         string             `db:"target_id" json:"target_id"`
-	Kind             string             `db:"kind" json:"kind"`
-	IssueRef         string             `db:"issue_ref" json:"issue_ref"`
-	Blocked          bool               `db:"blocked" json:"blocked"`
-	BlockedReason    string             `db:"blocked_reason" json:"blocked_reason"`
-	CycleCount       int32              `db:"cycle_count" json:"cycle_count"`
-	ReferenceIssueID string             `db:"reference_issue_id" json:"reference_issue_id"`
-	ClaimedBy        string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt        pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
-	LeaseExpiresAt   pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
-	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
-	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
-	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
-	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
+	ID                     int32              `db:"id" json:"id"`
+	ProjectID              int32              `db:"project_id" json:"project_id"`
+	Text                   string             `db:"text" json:"text"`
+	Title                  string             `db:"title" json:"title"`
+	Description            string             `db:"description" json:"description"`
+	Key                    string             `db:"key" json:"key"`
+	Persona                string             `db:"persona" json:"persona"`
+	Priority               int32              `db:"priority" json:"priority"`
+	Status                 string             `db:"status" json:"status"`
+	TargetType             string             `db:"target_type" json:"target_type"`
+	TargetID               string             `db:"target_id" json:"target_id"`
+	Kind                   string             `db:"kind" json:"kind"`
+	IssueRef               string             `db:"issue_ref" json:"issue_ref"`
+	Blocked                bool               `db:"blocked" json:"blocked"`
+	BlockedReason          string             `db:"blocked_reason" json:"blocked_reason"`
+	CycleCount             int32              `db:"cycle_count" json:"cycle_count"`
+	ReferenceIssueID       string             `db:"reference_issue_id" json:"reference_issue_id"`
+	ClaimedBy              string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt              pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt         pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt              pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt             pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount            int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha           string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch        string             `db:"claim_base_branch" json:"claim_base_branch"`
+	Source                 string             `db:"source" json:"source"`
+	ClaimPredicateSnapshot []byte             `db:"claim_predicate_snapshot" json:"claim_predicate_snapshot"`
 }
 
 func (q *Queries) GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (GetTodoByKeyRow, error) {
@@ -740,6 +768,8 @@ func (q *Queries) GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (Get
 		&i.ReopenCount,
 		&i.ClaimBaseSha,
 		&i.ClaimBaseBranch,
+		&i.Source,
+		&i.ClaimPredicateSnapshot,
 	)
 	return i, err
 }
@@ -782,7 +812,7 @@ const listActiveTodoClaims = `-- name: ListActiveTodoClaims :many
 SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-       claim_base_sha, claim_base_branch
+       claim_base_sha, claim_base_branch, source, claim_predicate_snapshot
 FROM zdx_todos
 WHERE project_id = $1
   AND claimed_by != ''
@@ -791,31 +821,33 @@ ORDER BY claimed_at DESC
 `
 
 type ListActiveTodoClaimsRow struct {
-	ID               int32              `db:"id" json:"id"`
-	ProjectID        int32              `db:"project_id" json:"project_id"`
-	Text             string             `db:"text" json:"text"`
-	Title            string             `db:"title" json:"title"`
-	Description      string             `db:"description" json:"description"`
-	Key              string             `db:"key" json:"key"`
-	Persona          string             `db:"persona" json:"persona"`
-	Priority         int32              `db:"priority" json:"priority"`
-	Status           string             `db:"status" json:"status"`
-	TargetType       string             `db:"target_type" json:"target_type"`
-	TargetID         string             `db:"target_id" json:"target_id"`
-	Kind             string             `db:"kind" json:"kind"`
-	IssueRef         string             `db:"issue_ref" json:"issue_ref"`
-	Blocked          bool               `db:"blocked" json:"blocked"`
-	BlockedReason    string             `db:"blocked_reason" json:"blocked_reason"`
-	CycleCount       int32              `db:"cycle_count" json:"cycle_count"`
-	ReferenceIssueID string             `db:"reference_issue_id" json:"reference_issue_id"`
-	ClaimedBy        string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt        pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
-	LeaseExpiresAt   pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
-	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
-	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
-	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
-	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
+	ID                     int32              `db:"id" json:"id"`
+	ProjectID              int32              `db:"project_id" json:"project_id"`
+	Text                   string             `db:"text" json:"text"`
+	Title                  string             `db:"title" json:"title"`
+	Description            string             `db:"description" json:"description"`
+	Key                    string             `db:"key" json:"key"`
+	Persona                string             `db:"persona" json:"persona"`
+	Priority               int32              `db:"priority" json:"priority"`
+	Status                 string             `db:"status" json:"status"`
+	TargetType             string             `db:"target_type" json:"target_type"`
+	TargetID               string             `db:"target_id" json:"target_id"`
+	Kind                   string             `db:"kind" json:"kind"`
+	IssueRef               string             `db:"issue_ref" json:"issue_ref"`
+	Blocked                bool               `db:"blocked" json:"blocked"`
+	BlockedReason          string             `db:"blocked_reason" json:"blocked_reason"`
+	CycleCount             int32              `db:"cycle_count" json:"cycle_count"`
+	ReferenceIssueID       string             `db:"reference_issue_id" json:"reference_issue_id"`
+	ClaimedBy              string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt              pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt         pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt              pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt             pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount            int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha           string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch        string             `db:"claim_base_branch" json:"claim_base_branch"`
+	Source                 string             `db:"source" json:"source"`
+	ClaimPredicateSnapshot []byte             `db:"claim_predicate_snapshot" json:"claim_predicate_snapshot"`
 }
 
 // Return all todos that are currently claimed and whose lease has not expired.
@@ -854,6 +886,8 @@ func (q *Queries) ListActiveTodoClaims(ctx context.Context, projectID int32) ([]
 			&i.ReopenCount,
 			&i.ClaimBaseSha,
 			&i.ClaimBaseBranch,
+			&i.Source,
+			&i.ClaimPredicateSnapshot,
 		); err != nil {
 			return nil, err
 		}
@@ -937,36 +971,38 @@ const listTodos = `-- name: ListTodos :many
 SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-       claim_base_sha, claim_base_branch
+       claim_base_sha, claim_base_branch, source, claim_predicate_snapshot
 FROM zdx_todos WHERE project_id = $1 ORDER BY priority, created_at
 `
 
 type ListTodosRow struct {
-	ID               int32              `db:"id" json:"id"`
-	ProjectID        int32              `db:"project_id" json:"project_id"`
-	Text             string             `db:"text" json:"text"`
-	Title            string             `db:"title" json:"title"`
-	Description      string             `db:"description" json:"description"`
-	Key              string             `db:"key" json:"key"`
-	Persona          string             `db:"persona" json:"persona"`
-	Priority         int32              `db:"priority" json:"priority"`
-	Status           string             `db:"status" json:"status"`
-	TargetType       string             `db:"target_type" json:"target_type"`
-	TargetID         string             `db:"target_id" json:"target_id"`
-	Kind             string             `db:"kind" json:"kind"`
-	IssueRef         string             `db:"issue_ref" json:"issue_ref"`
-	Blocked          bool               `db:"blocked" json:"blocked"`
-	BlockedReason    string             `db:"blocked_reason" json:"blocked_reason"`
-	CycleCount       int32              `db:"cycle_count" json:"cycle_count"`
-	ReferenceIssueID string             `db:"reference_issue_id" json:"reference_issue_id"`
-	ClaimedBy        string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt        pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
-	LeaseExpiresAt   pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
-	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
-	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
-	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
-	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
+	ID                     int32              `db:"id" json:"id"`
+	ProjectID              int32              `db:"project_id" json:"project_id"`
+	Text                   string             `db:"text" json:"text"`
+	Title                  string             `db:"title" json:"title"`
+	Description            string             `db:"description" json:"description"`
+	Key                    string             `db:"key" json:"key"`
+	Persona                string             `db:"persona" json:"persona"`
+	Priority               int32              `db:"priority" json:"priority"`
+	Status                 string             `db:"status" json:"status"`
+	TargetType             string             `db:"target_type" json:"target_type"`
+	TargetID               string             `db:"target_id" json:"target_id"`
+	Kind                   string             `db:"kind" json:"kind"`
+	IssueRef               string             `db:"issue_ref" json:"issue_ref"`
+	Blocked                bool               `db:"blocked" json:"blocked"`
+	BlockedReason          string             `db:"blocked_reason" json:"blocked_reason"`
+	CycleCount             int32              `db:"cycle_count" json:"cycle_count"`
+	ReferenceIssueID       string             `db:"reference_issue_id" json:"reference_issue_id"`
+	ClaimedBy              string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt              pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt         pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt              pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt             pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount            int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha           string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch        string             `db:"claim_base_branch" json:"claim_base_branch"`
+	Source                 string             `db:"source" json:"source"`
+	ClaimPredicateSnapshot []byte             `db:"claim_predicate_snapshot" json:"claim_predicate_snapshot"`
 }
 
 func (q *Queries) ListTodos(ctx context.Context, projectID int32) ([]ListTodosRow, error) {
@@ -1004,6 +1040,8 @@ func (q *Queries) ListTodos(ctx context.Context, projectID int32) ([]ListTodosRo
 			&i.ReopenCount,
 			&i.ClaimBaseSha,
 			&i.ClaimBaseBranch,
+			&i.Source,
+			&i.ClaimPredicateSnapshot,
 		); err != nil {
 			return nil, err
 		}
@@ -1019,7 +1057,7 @@ const listTodosFiltered = `-- name: ListTodosFiltered :many
 SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-       claim_base_sha, claim_base_branch
+       claim_base_sha, claim_base_branch, source, claim_predicate_snapshot
 FROM zdx_todos
 WHERE project_id = $1
   AND ($2::boolean IS NULL OR blocked = $2::boolean)
@@ -1038,31 +1076,33 @@ type ListTodosFilteredParams struct {
 }
 
 type ListTodosFilteredRow struct {
-	ID               int32              `db:"id" json:"id"`
-	ProjectID        int32              `db:"project_id" json:"project_id"`
-	Text             string             `db:"text" json:"text"`
-	Title            string             `db:"title" json:"title"`
-	Description      string             `db:"description" json:"description"`
-	Key              string             `db:"key" json:"key"`
-	Persona          string             `db:"persona" json:"persona"`
-	Priority         int32              `db:"priority" json:"priority"`
-	Status           string             `db:"status" json:"status"`
-	TargetType       string             `db:"target_type" json:"target_type"`
-	TargetID         string             `db:"target_id" json:"target_id"`
-	Kind             string             `db:"kind" json:"kind"`
-	IssueRef         string             `db:"issue_ref" json:"issue_ref"`
-	Blocked          bool               `db:"blocked" json:"blocked"`
-	BlockedReason    string             `db:"blocked_reason" json:"blocked_reason"`
-	CycleCount       int32              `db:"cycle_count" json:"cycle_count"`
-	ReferenceIssueID string             `db:"reference_issue_id" json:"reference_issue_id"`
-	ClaimedBy        string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt        pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
-	LeaseExpiresAt   pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
-	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
-	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
-	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
-	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
+	ID                     int32              `db:"id" json:"id"`
+	ProjectID              int32              `db:"project_id" json:"project_id"`
+	Text                   string             `db:"text" json:"text"`
+	Title                  string             `db:"title" json:"title"`
+	Description            string             `db:"description" json:"description"`
+	Key                    string             `db:"key" json:"key"`
+	Persona                string             `db:"persona" json:"persona"`
+	Priority               int32              `db:"priority" json:"priority"`
+	Status                 string             `db:"status" json:"status"`
+	TargetType             string             `db:"target_type" json:"target_type"`
+	TargetID               string             `db:"target_id" json:"target_id"`
+	Kind                   string             `db:"kind" json:"kind"`
+	IssueRef               string             `db:"issue_ref" json:"issue_ref"`
+	Blocked                bool               `db:"blocked" json:"blocked"`
+	BlockedReason          string             `db:"blocked_reason" json:"blocked_reason"`
+	CycleCount             int32              `db:"cycle_count" json:"cycle_count"`
+	ReferenceIssueID       string             `db:"reference_issue_id" json:"reference_issue_id"`
+	ClaimedBy              string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt              pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt         pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt              pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt             pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount            int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha           string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch        string             `db:"claim_base_branch" json:"claim_base_branch"`
+	Source                 string             `db:"source" json:"source"`
+	ClaimPredicateSnapshot []byte             `db:"claim_predicate_snapshot" json:"claim_predicate_snapshot"`
 }
 
 func (q *Queries) ListTodosFiltered(ctx context.Context, arg ListTodosFilteredParams) ([]ListTodosFilteredRow, error) {
@@ -1106,6 +1146,8 @@ func (q *Queries) ListTodosFiltered(ctx context.Context, arg ListTodosFilteredPa
 			&i.ReopenCount,
 			&i.ClaimBaseSha,
 			&i.ClaimBaseBranch,
+			&i.Source,
+			&i.ClaimPredicateSnapshot,
 		); err != nil {
 			return nil, err
 		}
@@ -1130,35 +1172,37 @@ WHERE project_id = $1
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-          claim_base_sha, claim_base_branch
+          claim_base_sha, claim_base_branch, source, claim_predicate_snapshot
 `
 
 type ReclaimExpiredTodosRow struct {
-	ID               int32              `db:"id" json:"id"`
-	ProjectID        int32              `db:"project_id" json:"project_id"`
-	Text             string             `db:"text" json:"text"`
-	Title            string             `db:"title" json:"title"`
-	Description      string             `db:"description" json:"description"`
-	Key              string             `db:"key" json:"key"`
-	Persona          string             `db:"persona" json:"persona"`
-	Priority         int32              `db:"priority" json:"priority"`
-	Status           string             `db:"status" json:"status"`
-	TargetType       string             `db:"target_type" json:"target_type"`
-	TargetID         string             `db:"target_id" json:"target_id"`
-	Kind             string             `db:"kind" json:"kind"`
-	IssueRef         string             `db:"issue_ref" json:"issue_ref"`
-	Blocked          bool               `db:"blocked" json:"blocked"`
-	BlockedReason    string             `db:"blocked_reason" json:"blocked_reason"`
-	CycleCount       int32              `db:"cycle_count" json:"cycle_count"`
-	ReferenceIssueID string             `db:"reference_issue_id" json:"reference_issue_id"`
-	ClaimedBy        string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt        pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
-	LeaseExpiresAt   pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
-	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
-	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
-	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
-	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
+	ID                     int32              `db:"id" json:"id"`
+	ProjectID              int32              `db:"project_id" json:"project_id"`
+	Text                   string             `db:"text" json:"text"`
+	Title                  string             `db:"title" json:"title"`
+	Description            string             `db:"description" json:"description"`
+	Key                    string             `db:"key" json:"key"`
+	Persona                string             `db:"persona" json:"persona"`
+	Priority               int32              `db:"priority" json:"priority"`
+	Status                 string             `db:"status" json:"status"`
+	TargetType             string             `db:"target_type" json:"target_type"`
+	TargetID               string             `db:"target_id" json:"target_id"`
+	Kind                   string             `db:"kind" json:"kind"`
+	IssueRef               string             `db:"issue_ref" json:"issue_ref"`
+	Blocked                bool               `db:"blocked" json:"blocked"`
+	BlockedReason          string             `db:"blocked_reason" json:"blocked_reason"`
+	CycleCount             int32              `db:"cycle_count" json:"cycle_count"`
+	ReferenceIssueID       string             `db:"reference_issue_id" json:"reference_issue_id"`
+	ClaimedBy              string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt              pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt         pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt              pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt             pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount            int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha           string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch        string             `db:"claim_base_branch" json:"claim_base_branch"`
+	Source                 string             `db:"source" json:"source"`
+	ClaimPredicateSnapshot []byte             `db:"claim_predicate_snapshot" json:"claim_predicate_snapshot"`
 }
 
 // Clear claims on todos whose leases have expired. Returns affected rows for reservation release.
@@ -1197,6 +1241,8 @@ func (q *Queries) ReclaimExpiredTodos(ctx context.Context, projectID int32) ([]R
 			&i.ReopenCount,
 			&i.ClaimBaseSha,
 			&i.ClaimBaseBranch,
+			&i.Source,
+			&i.ClaimPredicateSnapshot,
 		); err != nil {
 			return nil, err
 		}
@@ -1391,9 +1437,9 @@ func (q *Queries) UnblockTodosByReferenceIssue(ctx context.Context, arg UnblockT
 
 const upsertTodo = `-- name: UpsertTodo :one
 INSERT INTO zdx_todos (project_id, text, title, description, key, persona, priority, status,
-                       target_type, target_id, kind, issue_ref, blocked, blocked_reason)
+                       target_type, target_id, kind, issue_ref, blocked, blocked_reason, source)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
-        $9, $10, $11, $12, $13, $14)
+        $9, $10, $11, $12, $13, $14, $15)
 ON CONFLICT (project_id, key) DO UPDATE SET
   text = EXCLUDED.text,
   title = EXCLUDED.title,
@@ -1426,12 +1472,22 @@ ON CONFLICT (project_id, key) DO UPDATE SET
   reopen_count = CASE
     WHEN zdx_todos.status = 'resolved' THEN zdx_todos.reopen_count + 1
     ELSE zdx_todos.reopen_count
+  END,
+  -- source: re-stamp from the latest emission so cycle detection diagnostics
+  -- reflect the query/predicate that produced the most recent regen. An empty
+  -- new source (non-candidate writer) leaves the prior stamp in place so the
+  -- last candidate-emission provenance survives intervening operator pokes.
+  source = CASE
+    WHEN EXCLUDED.source = '' THEN zdx_todos.source
+    ELSE EXCLUDED.source
   END
-  -- claimed_by, claimed_at, lease_expires_at, cycle_count, reference_issue_id intentionally NOT updated
+  -- claimed_by, claimed_at, lease_expires_at, cycle_count, reference_issue_id intentionally NOT updated.
+  -- claim_predicate_snapshot intentionally NOT touched here — IS-992 writes it
+  -- at claim time, not at upsert time.
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
-          claim_base_sha, claim_base_branch
+          claim_base_sha, claim_base_branch, source, claim_predicate_snapshot
 `
 
 type UpsertTodoParams struct {
@@ -1449,34 +1505,37 @@ type UpsertTodoParams struct {
 	IssueRef      string `db:"issue_ref" json:"issue_ref"`
 	Blocked       bool   `db:"blocked" json:"blocked"`
 	BlockedReason string `db:"blocked_reason" json:"blocked_reason"`
+	Source        string `db:"source" json:"source"`
 }
 
 type UpsertTodoRow struct {
-	ID               int32              `db:"id" json:"id"`
-	ProjectID        int32              `db:"project_id" json:"project_id"`
-	Text             string             `db:"text" json:"text"`
-	Title            string             `db:"title" json:"title"`
-	Description      string             `db:"description" json:"description"`
-	Key              string             `db:"key" json:"key"`
-	Persona          string             `db:"persona" json:"persona"`
-	Priority         int32              `db:"priority" json:"priority"`
-	Status           string             `db:"status" json:"status"`
-	TargetType       string             `db:"target_type" json:"target_type"`
-	TargetID         string             `db:"target_id" json:"target_id"`
-	Kind             string             `db:"kind" json:"kind"`
-	IssueRef         string             `db:"issue_ref" json:"issue_ref"`
-	Blocked          bool               `db:"blocked" json:"blocked"`
-	BlockedReason    string             `db:"blocked_reason" json:"blocked_reason"`
-	CycleCount       int32              `db:"cycle_count" json:"cycle_count"`
-	ReferenceIssueID string             `db:"reference_issue_id" json:"reference_issue_id"`
-	ClaimedBy        string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt        pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
-	LeaseExpiresAt   pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
-	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
-	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
-	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
-	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
+	ID                     int32              `db:"id" json:"id"`
+	ProjectID              int32              `db:"project_id" json:"project_id"`
+	Text                   string             `db:"text" json:"text"`
+	Title                  string             `db:"title" json:"title"`
+	Description            string             `db:"description" json:"description"`
+	Key                    string             `db:"key" json:"key"`
+	Persona                string             `db:"persona" json:"persona"`
+	Priority               int32              `db:"priority" json:"priority"`
+	Status                 string             `db:"status" json:"status"`
+	TargetType             string             `db:"target_type" json:"target_type"`
+	TargetID               string             `db:"target_id" json:"target_id"`
+	Kind                   string             `db:"kind" json:"kind"`
+	IssueRef               string             `db:"issue_ref" json:"issue_ref"`
+	Blocked                bool               `db:"blocked" json:"blocked"`
+	BlockedReason          string             `db:"blocked_reason" json:"blocked_reason"`
+	CycleCount             int32              `db:"cycle_count" json:"cycle_count"`
+	ReferenceIssueID       string             `db:"reference_issue_id" json:"reference_issue_id"`
+	ClaimedBy              string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt              pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt         pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt              pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt             pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount            int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha           string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch        string             `db:"claim_base_branch" json:"claim_base_branch"`
+	Source                 string             `db:"source" json:"source"`
+	ClaimPredicateSnapshot []byte             `db:"claim_predicate_snapshot" json:"claim_predicate_snapshot"`
 }
 
 // Upsert a todo item, preserving existing claim state (claimed_by, claimed_at, lease_expires_at).
@@ -1498,6 +1557,7 @@ func (q *Queries) UpsertTodo(ctx context.Context, arg UpsertTodoParams) (UpsertT
 		arg.IssueRef,
 		arg.Blocked,
 		arg.BlockedReason,
+		arg.Source,
 	)
 	var i UpsertTodoRow
 	err := row.Scan(
@@ -1526,6 +1586,8 @@ func (q *Queries) UpsertTodo(ctx context.Context, arg UpsertTodoParams) (UpsertT
 		&i.ReopenCount,
 		&i.ClaimBaseSha,
 		&i.ClaimBaseBranch,
+		&i.Source,
+		&i.ClaimPredicateSnapshot,
 	)
 	return i, err
 }
