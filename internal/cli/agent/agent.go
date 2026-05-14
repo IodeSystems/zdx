@@ -69,6 +69,18 @@ For the long-running work loop, use ` + "`dx agent loop --provider=X`" + `.`,
 			if provider == "" && len(args) == 0 {
 				return cmd.Help()
 			}
+			// Single-session mode requires an explicit --issue. Previously a
+			// missing issue fell through to a seed prompt that told the agent
+			// to run `dx agent claim` — a phantom CLI command that has never
+			// existed (the loop's claim path is an internal API call, not a
+			// surfaced subcommand). Agents followed the bad instruction
+			// literally, then flailed for 100+ turns hand-editing generated
+			// code. Hard-error here so the failure mode is impossible to
+			// trigger by accident; loop mode (which does claim autonomously)
+			// is unaffected because it uses a different RunE.
+			if issue == "" {
+				return fmt.Errorf("--issue is required for `dx agent` (single-session). For autonomous claiming use `dx agent loop --provider=%s`", provider)
+			}
 			mode, err := NormalizeContainer(container)
 			if err != nil {
 				return err
@@ -601,7 +613,7 @@ request, allowing the server to record which agent session made each status
 change. Run this once at the start of an agent session:
 
   eval $(dx agent session begin --agent-id=abc123)
-  dx agent claim --issue=IS-42   # all writes now carry session attribution
+  dx agent --provider=claude --issue=IS-42   # all writes now carry session attribution
 
 If --agent-id is omitted a random 8-char id is generated.`,
 		RunE: func(cmd *cobra.Command, args []string) error {

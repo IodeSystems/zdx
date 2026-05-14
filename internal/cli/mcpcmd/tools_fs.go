@@ -35,6 +35,42 @@ func writeScratch(root, prefix, content string) (string, error) {
 	return rel, nil
 }
 
+// generatedFilePatterns matches paths owned by the merge-train's regen step.
+// Agents that hand-edit these create merge-train conflicts and lose their
+// edits in the next regen; refuse the write at the dispatch boundary so the
+// worker contract is enforced by the harness, not just documented in the
+// system prompt (defense in depth: prompts drift, code doesn't).
+//
+// Patterns are matched against the repo-relative input path before resolution
+// so the error message references what the agent typed.
+var generatedFilePatterns = []struct {
+	match  func(string) bool
+	source string
+}{
+	{func(p string) bool { return strings.HasPrefix(p, "internal/db/") && strings.HasSuffix(p, ".sql.go") }, "sqlc — edit queries/*.sql and run `~/go/bin/sqlc generate`"},
+	{func(p string) bool { return strings.HasPrefix(p, "internal/db/") && strings.HasSuffix(p, ".sql.metaquery.go") }, "sqlc-metaquery — suppress with `-- metaquery: off` in the .sql file"},
+	{func(p string) bool { return p == "internal/db/querier.go" }, "sqlc — edit queries/*.sql and regen"},
+	{func(p string) bool { return p == "internal/db/models.go" }, "sqlc — edit migrations + queries and regen"},
+	{func(p string) bool { return p == "internal/dxclient/models.gen.go" }, "oapi-codegen — edit handlers and run `dx ui gen-api`"},
+	{func(p string) bool { return p == "ui/src/api.gen.ts" }, "openapi-typescript — edit handlers and run `dx ui gen-api`"},
+	{func(p string) bool { return p == "schema/shipped.sql" }, "pg_dump snapshot — owned by `bin/regen-schema` or `bin/db migrate`"},
+}
+
+// rejectGeneratedFileWrite returns a non-nil error when path matches a known
+// codegen output. Callers should propagate the error to the agent so the LLM
+// sees the WHY and can correct course. The error message includes the source
+// of truth and the regen command so the agent has a path forward without
+// needing to consult docs.
+func rejectGeneratedFileWrite(path string) error {
+	p := filepath.ToSlash(filepath.Clean(path))
+	for _, g := range generatedFilePatterns {
+		if g.match(p) {
+			return fmt.Errorf("refusing to write %s: this is a generated file (%s). Hand-edits would be lost in the next regen and break the merge-train", path, g.source)
+		}
+	}
+	return nil
+}
+
 // RegisterFSTools registers filesystem tools (read_file, write_file, edit_file,
 // grep, glob, list_dir) scoped to the given repo root. All path arguments are
 // resolved relative to root and rejected if they escape it.
@@ -111,8 +147,11 @@ func RegisterFSTools(srv *mcp.Server, root string) {
 	}
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "write_file",
-		Description: "Write UTF-8 contents to a file, creating parent directories as needed.",
+		Description: "Write UTF-8 contents to a file, creating parent directories as needed. Refuses writes to merge-train-owned generated files (sqlc/dxclient/openapi-typescript/shipped.sql outputs) — fix the source and regenerate instead.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in writeFileIn) (*mcp.CallToolResult, any, error) {
+		if err := rejectGeneratedFileWrite(in.Path); err != nil {
+			return nil, nil, err
+		}
 		abs, err := resolveInRoot(root, in.Path)
 		if err != nil {
 			return nil, nil, err
@@ -134,8 +173,11 @@ func RegisterFSTools(srv *mcp.Server, root string) {
 	}
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "edit_file",
-		Description: "Replace exact text in a file. Fails if old_string is not unique unless replace_all=true.",
+		Description: "Replace exact text in a file. Fails if old_string is not unique unless replace_all=true. Refuses edits to merge-train-owned generated files (sqlc/dxclient/openapi-typescript/shipped.sql outputs) — fix the source and regenerate instead.",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in editFileIn) (*mcp.CallToolResult, any, error) {
+		if err := rejectGeneratedFileWrite(in.Path); err != nil {
+			return nil, nil, err
+		}
 		abs, err := resolveInRoot(root, in.Path)
 		if err != nil {
 			return nil, nil, err

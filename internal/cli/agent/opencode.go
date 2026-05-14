@@ -163,7 +163,14 @@ func (a *opencodeAdapter) Start(ctx context.Context, sid, issueID, alias string)
 		if issueID != "" {
 			user = fmt.Sprintf("Work the vertical for %s. Use run_bash to invoke `dx` CLI commands (issue show, comment add, todo dev start/done, ...) for project state, and filesystem tools to implement code. Stop when the issue is closed.", issueID)
 		} else {
-			user = "Use run_bash to call `dx agent claim` to pick the next item, then work it. Stop when idle."
+			// This branch should be unreachable: `dx agent` (single-session)
+			// now hard-errors when --issue is empty (see agent.go RunE), and
+			// the loop builds an explicit seed from the claimed todo. Keep
+			// a sane fallback rather than silently inventing work — and do
+			// NOT reference a phantom `dx agent claim` CLI command (the
+			// previous fallback led the agent on a 100+ turn confused run
+			// trying to invoke a subcommand that has never existed).
+			user = "No issue or seed provided. Exit without action — this is a harness bug; the caller should have supplied --issue or a seed prompt."
 		}
 	}
 
@@ -664,6 +671,16 @@ func opencodeSystemPrompt(alias, issueID, persona string) string {
 	b.WriteString("  - After code edits, verify with run_bash (go build, tests, linters as appropriate).\n")
 	b.WriteString("  - When the vertical is done, run `dx issue close` to finish.\n")
 	b.WriteString("  - Stop emitting tool_calls when you are finished; a final text reply ends the session.\n\n")
+	b.WriteString("Worker contract — do NOT edit generated files. These are owned by the merge-train and regenerated on top of your intent diff. Editing them by hand creates merge-train conflicts and lint drift failures, and edits will be lost in the regen step.\n")
+	b.WriteString("  - internal/db/*.sql.go             — sqlc output; edit queries/*.sql instead and run `~/go/bin/sqlc generate`.\n")
+	b.WriteString("  - internal/db/*.sql.metaquery.go   — sqlc-metaquery output; suppress with `-- metaquery: off` in the .sql file, never edit the .go.\n")
+	b.WriteString("  - internal/db/querier.go           — sqlc output (interface). Same fix as *.sql.go.\n")
+	b.WriteString("  - internal/db/models.go            — sqlc output (row structs). Edit schema/queries, regen.\n")
+	b.WriteString("  - internal/dxclient/models.gen.go  — oapi-codegen output; edit handlers + openapi.json (regen via `make gen-dxclient` or `dx ui gen-api`).\n")
+	b.WriteString("  - internal/dxclient/openapi.json   — committed but only as intent; regenerate via `dx ui gen-api` after handler changes.\n")
+	b.WriteString("  - ui/src/api.gen.ts                — openapi-typescript output; regen via `dx ui gen-api`.\n")
+	b.WriteString("  - schema/shipped.sql               — pg_dump snapshot; owned by `bin/regen-schema` (merge-train) or `bin/db migrate`. Never hand-edit.\n")
+	b.WriteString("  If a metaquery/sqlc/ts lint advisory points at a generated file, fix it at the source (the .sql, the handler, or the suppression comment) — do NOT patch the .gen.go/.gen.ts.\n\n")
 	if alias != "" {
 		b.WriteString("Your agent alias is: " + alias + ".\n")
 	}
