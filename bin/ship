@@ -183,8 +183,15 @@ fi
 
 # ── Must-spec gate ────────────────────────────────────────────────────────────
 # Block deploy on must-tier spec demo failures. When on the release branch,
-# auto-file a blocker issue so regressions are tracked rather than silently
-# retried by the next ship attempt.
+# auto-file (or update) a blocker issue so regressions are tracked rather
+# than silently retried by the next ship attempt.
+#
+# Dedup: each ship-retry on the same release branch would otherwise file a
+# fresh duplicate of the same blocker (we observed IS-1217/IS-1218/IS-1219/
+# IS-1220 — four identical tickets in one session). Before filing, look for
+# an already-open issue with the canonical title; if found, comment on it
+# with the current attempt's gate output instead of spawning a new one. The
+# title format is the stable dedup key.
 
 if ! $SKIP_BUILD; then
   echo "[ship] Checking must-spec demos..."
@@ -192,12 +199,34 @@ if ! $SKIP_BUILD; then
   if ! ./bin/dx ship gate > "$GATE_OUT" 2>&1; then
     cat "$GATE_OUT"
     if [ -n "$RELEASE_BRANCH" ]; then
-      FILED=$(./bin/dx issue add \
-        --title="ship blocked: must-spec demo gaps on ${CURRENT_BRANCH}" \
-        --type=impl \
-        --auto-ready \
-        --context="$(cat "$GATE_OUT")" 2>&1 | grep -oE 'IS-[0-9]+' | head -1 || true)
-      [ -n "$FILED" ] && echo "[ship] Filed blocker issue: $FILED"
+      GATE_TITLE="ship blocked: must-spec demo gaps on ${CURRENT_BRANCH}"
+      # `dx issue list --status=open` lines look like:
+      #   IS-1217  open                           ship blocked: must-spec demo gaps on main
+      # Two-space gap between status and title is the only reliable column
+      # boundary; grep for the literal title suffix to dedup. awk pulls the
+      # first column (the IS-N id).
+      EXISTING=$(./bin/dx issue list --status=open 2>/dev/null \
+        | grep -F "  ${GATE_TITLE}" \
+        | awk '{print $1}' \
+        | head -1 || true)
+      if [ -n "$EXISTING" ]; then
+        # Reuse: add a retry note rather than file a new ticket. The
+        # commit SHA stamps which build saw the gate fail this time, so
+        # subsequent reviewers can see how many retries landed against
+        # one ticket.
+        ./bin/dx comment add issue "$EXISTING" \
+          --body="ship gate failed again on $(date -u +%Y-%m-%dT%H:%M:%SZ) at $(git rev-parse --short HEAD):
+
+$(cat "$GATE_OUT")" >/dev/null 2>&1 || true
+        echo "[ship] Reusing existing blocker: $EXISTING (added gate-retry comment)"
+      else
+        FILED=$(./bin/dx issue add \
+          --title="$GATE_TITLE" \
+          --type=impl \
+          --auto-ready \
+          --context="$(cat "$GATE_OUT")" 2>&1 | grep -oE 'IS-[0-9]+' | head -1 || true)
+        [ -n "$FILED" ] && echo "[ship] Filed blocker issue: $FILED"
+      fi
     fi
     rm -f "$GATE_OUT"
     echo "[ship] REFUSING TO SHIP: must-spec gate failed."
