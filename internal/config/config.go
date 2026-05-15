@@ -13,12 +13,22 @@ import (
 
 // Config mirrors the .zdx/config.yaml schema.
 type Config struct {
-	Remote     Remote               `yaml:"remote"`
-	Hooks      Hooks                `yaml:"hooks"`
-	Components map[string]Component `yaml:"components"`
-	LLMLocal   LLMLocal             `yaml:"llm_local"`
-	Agent      AgentConfig          `yaml:"agent"`
-	Deploy     DeployConfig         `yaml:"deploy"`
+	Remote      Remote               `yaml:"remote"`
+	Hooks       Hooks                `yaml:"hooks"`
+	Components  map[string]Component `yaml:"components"`
+	LLMLocal    LLMLocal             `yaml:"llm_local"`
+	Agent       AgentConfig          `yaml:"agent"`
+	Deploy      DeployConfig         `yaml:"deploy"`
+	Escalations EscalationsConfig    `yaml:"escalations"`
+}
+
+// EscalationsConfig declares per-project additions to the codified
+// escalation lists exposed by internal/escalation (IS-1095). UserOnly
+// extends TechToUserStandard with project-specific tech→user triggers;
+// it does not override the standard list. ProductToUserStandard is not
+// project-extensible.
+type EscalationsConfig struct {
+	UserOnly []string `yaml:"user_only"`
 }
 
 // Deploy-strategy constants. See IS-927 for the design.
