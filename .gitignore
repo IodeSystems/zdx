@@ -3,6 +3,7 @@ deploy/
 bin/dx
 bin/dx-server
 bin/dx-agent
+bin/dx-envd
 bin/dx-bin
 bin/db
 /dx
