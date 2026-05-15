@@ -46,10 +46,17 @@ type CreateVersionBranchResult struct {
 // against targetBranch. It is shared between IS-825's two triggers — branch
 // cut (this file) and dev-resolution (handlers_issues.go, TK-1532). Returns
 // false (no error) when the task is skipped for idempotency: a non-done task
-// already links the same (issue, target_branch). Returns false + error when
-// inputs are degenerate (target == 'dev' / empty issue id) — callers treat
-// that as a programmer bug, not a runtime condition.
-func (h *Handler) createBackportTask(ctx context.Context, projectID int32, sourceIssueID, sourceIssueTitle, targetBranch, reason string) (string, bool, error) {
+// already links the same (issue, target_branch), or sourceBranch already
+// fast-forwards into targetBranch (the resolution will land on target via
+// routine branch sync — no manual backport needed). Returns false + error
+// when inputs are degenerate (target == 'dev' / empty issue id) — callers
+// treat that as a programmer bug, not a runtime condition.
+//
+// projectSlug + sourceBranch are used solely for the sync-clean gate. When
+// no git config is available for the project, the gate is skipped and the
+// task is created (conservative behavior preserves the legacy code path
+// for projects without a git repo).
+func (h *Handler) createBackportTask(ctx context.Context, projectID int32, projectSlug, sourceBranch, sourceIssueID, sourceIssueTitle, targetBranch, reason string) (string, bool, error) {
 	if targetBranch == "" || targetBranch == "dev" {
 		return "", false, fmt.Errorf("createBackportTask: target_branch must be a named branch, got %q", targetBranch)
 	}
@@ -65,6 +72,15 @@ func (h *Handler) createBackportTask(ctx context.Context, projectID int32, sourc
 		return "", false, err
 	}
 	if existing > 0 {
+		return "", false, nil
+	}
+	// IS-825 sync-clean gate: if targetBranch is an ancestor of sourceBranch
+	// in the project repo, a routine ff-merge from source carries the
+	// resolution to target — no manual backport task needed. Only kicks in
+	// when the project has a git config and both branches are reachable
+	// from origin. Failures of the git check fall through to create the
+	// task (conservative).
+	if clean, ok := h.canBackportSyncClean(ctx, projectSlug, sourceBranch, targetBranch); ok && clean {
 		return "", false, nil
 	}
 	id, err := h.Q.NextTaskID(ctx)
@@ -86,6 +102,47 @@ func (h *Handler) createBackportTask(ctx context.Context, projectID int32, sourc
 		return "", false, err
 	}
 	return id, true, nil
+}
+
+// canBackportSyncClean reports whether sourceBranch can be cleanly fast-
+// forwarded into targetBranch in the project's git repo. When true, IS-825
+// triggers skip backport task creation: the resolution will land on target
+// via routine branch sync. Returns (clean, ok); ok=false when the check
+// cannot run (no git config, fetch failure, etc.) so callers fall through
+// to the conservative path (create the task).
+//
+// Implementation: target is ancestor of source → ff-merge is possible →
+// clean sync. Any divergence (target has commits not in source) returns
+// not-clean and the backport task is created. The check is intentionally
+// remote-based (origin/<branch>) — the local working copy state is not
+// authoritative for backport decisions.
+func (h *Handler) canBackportSyncClean(ctx context.Context, slug, sourceBranch, targetBranch string) (bool, bool) {
+	if !h.Features.HasProjectGitConfig || slug == "" || sourceBranch == "" || targetBranch == "" {
+		return false, false
+	}
+	row, err := h.Q.GetProjectGitConfig(ctx, slug)
+	if err != nil || row.GitUrl == "" {
+		return false, false
+	}
+	gitURL := row.GitUrl
+	if row.GitToken != "" && strings.HasPrefix(gitURL, "https://") {
+		gitURL = "https://" + row.GitToken + "@" + strings.TrimPrefix(gitURL, "https://")
+	}
+	primary := row.GitBranch
+	if primary == "" {
+		primary = sourceBranch
+	}
+	dir := h.Reconciler.RepoDir(slug)
+	if err := EnsureRepo(dir, gitURL, primary); err != nil {
+		return false, false
+	}
+	if err := EnsureBranchFetched(dir, sourceBranch); err != nil {
+		return false, false
+	}
+	if err := EnsureBranchFetched(dir, targetBranch); err != nil {
+		return false, false
+	}
+	return IsAncestor(dir, "origin/"+targetBranch, "origin/"+sourceBranch), true
 }
 
 type VersionBranchDetail struct {
@@ -238,10 +295,21 @@ func (h *Handler) registerBranchRoutes(api huma.API) {
 				ProjectID:   p.ID,
 				MaxPriority: backportPriorityCutoff,
 			})
+			// At cut time the new branch is at sourceBranch tip, so the
+			// sync-clean check inside createBackportTask will skip every
+			// eligible issue. The loop below remains intentional: as dev
+			// advances past the cut point, future runs (which never happen
+			// here — this code path only fires on the cut event) would
+			// not apply. The real coverage happens on subsequent dev
+			// resolutions via trigger 1.
+			sourceBranch := "dev"
+			if row.SourceBranchName.Valid && row.SourceBranchName.String != "" {
+				sourceBranch = row.SourceBranchName.String
+			}
 			created := 0
 			if lerr == nil {
 				for _, iss := range eligible {
-					_, made, cerr := h.createBackportTask(ctx, p.ID, iss.ID, iss.Title, row.Name, "auto-generated by IS-825 trigger 2 on branch cut")
+					_, made, cerr := h.createBackportTask(ctx, p.ID, p.Slug, sourceBranch, iss.ID, iss.Title, row.Name, "auto-generated by IS-825 trigger 2 on branch cut")
 					if cerr != nil {
 						continue
 					}

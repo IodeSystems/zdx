@@ -125,6 +125,30 @@ func hashExists(dir, ref string) bool {
 	return cmd.Run() == nil
 }
 
+// IsAncestor reports whether ancestorRef is an ancestor of descendantRef
+// in the local repo (i.e. merging descendantRef into ancestorRef would be a
+// fast-forward). Returns false on any git error.
+func IsAncestor(dir, ancestorRef, descendantRef string) bool {
+	cmd := exec.Command("git", "-C", dir, "merge-base", "--is-ancestor",
+		ancestorRef, descendantRef)
+	cmd.Env = GitEnv()
+	return cmd.Run() == nil
+}
+
+// EnsureBranchFetched runs `git fetch origin <branch>` so the remote-tracking
+// ref refs/remotes/origin/<branch> exists locally. Used for one-off checks
+// against branches outside EnsureRepo's single-branch clone (IS-825 trigger
+// sync-clean detection).
+func EnsureBranchFetched(dir, branch string) error {
+	cmd := exec.Command("git", "-C", dir, "fetch", "--no-tags", "origin",
+		branch+":refs/remotes/origin/"+branch)
+	cmd.Env = GitEnv()
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git fetch %s: %w\n%s", branch, err, out)
+	}
+	return nil
+}
+
 // commitMessage returns the full message (subject + body + trailers) of the
 // given sha. Empty string on failure.
 func commitMessage(dir, sha string) string {
