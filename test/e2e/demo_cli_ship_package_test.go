@@ -20,7 +20,7 @@ import (
 func TestDemoCLI_ShipPackageBinaryEmbedsSHA(t *testing.T) {
 	writeDemoCoderefs(t, t.Name(), []coderef{
 		{FilePath: "test/e2e/demo_cli_ship_package_test.go", Note: "spec 56 demo source"},
-		{FilePath: "bin/ship", LineStart: 155, LineEnd: 210, Note: "build phase with -X main.buildSHA"},
+		{FilePath: "bin/ship", LineStart: 354, LineEnd: 415, Note: "build phase with -X main.buildSHA (in dev image, TK-1806)"},
 	})
 
 	root, err := findRoot()
@@ -83,8 +83,8 @@ func TestDemoCLI_ShipPackageBinaryEmbedsSHA(t *testing.T) {
 func TestDemoCLI_ShipRollingDeployCallSequence(t *testing.T) {
 	writeDemoCoderefs(t, t.Name(), []coderef{
 		{FilePath: "test/e2e/demo_cli_ship_package_test.go", Note: "spec 56 demo source"},
-		{FilePath: "bin/ship", LineStart: 309, LineEnd: 405, Note: "inline compat-check (run_compat_check)"},
-		{FilePath: "bin/ship", LineStart: 488, LineEnd: 595, Note: "rolling deploy sequence"},
+		{FilePath: "bin/ship", LineStart: 582, LineEnd: 615, Note: "compat-check phase (wrapped in dev image, TK-1806)"},
+		{FilePath: "bin/ship", LineStart: 690, LineEnd: 805, Note: "rolling deploy sequence"},
 	})
 
 	root, err := findRoot()
@@ -230,8 +230,8 @@ func TestDemoCLI_ShipRollingDeployCallSequence(t *testing.T) {
 func TestDemoCLI_ShipDeployRecordPost(t *testing.T) {
 	writeDemoCoderefs(t, t.Name(), []coderef{
 		{FilePath: "test/e2e/demo_cli_ship_package_test.go", Note: "spec 173 demo source"},
-		{FilePath: "bin/ship", LineStart: 268, LineEnd: 296, Note: "post_deploy_record() POST body + auth"},
-		{FilePath: "bin/ship", LineStart: 658, LineEnd: 685, Note: "post_deploy_record called after rolling finalize"},
+		{FilePath: "bin/ship", LineStart: 471, LineEnd: 500, Note: "post_deploy_record() POST body + auth"},
+		{FilePath: "bin/ship", LineStart: 786, LineEnd: 855, Note: "post_deploy_record called after rolling finalize"},
 	})
 
 	root, err := findRoot()

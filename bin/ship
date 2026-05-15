@@ -162,6 +162,98 @@ if [ -f "$DEPLOY_PROPS" ]; then
   fi
 fi
 
+# ── Dev-image toolchain isolation (TK-1806) ───────────────────────────────────
+# Pin the prepare-phase toolchain (Go, node/pnpm, sqlc) to the dev image so
+# `bin/ship` doesn't pick up whatever stale `dx` / `go` / `pnpm` happens to be
+# on the operator's $PATH. The 2026-05-14 babysit shipped a must-spec gate
+# failure caused by a stale host bin/dx; using the image's toolchain removes
+# that failure mode.
+#
+# Image tag is content-addressed by the SHA of dev.Dockerfile (matches the
+# pattern in internal/cli/agent/container.go) so a Dockerfile edit forces a
+# rebuild, and unchanged Dockerfiles reuse the cached image.
+#
+# Container is launched with:
+#   --network host          dx CLI reaches the dev-server on localhost; compat-check
+#                           binds postgres on 127.0.0.1:<port> and we hit it back.
+#   docker.sock mount       compat-check spawns sibling postgres containers via
+#                           `docker run` and tears them down with `docker rm`.
+#   --group-add docker-gid  the image's `agent` user (UID 1000) needs the host's
+#                           docker GID as a supplementary group to read the socket.
+#   PWD bind mount          the operator's source tree becomes /workspace; once
+#                           TK-1805 lands the slot worktree is bind-mounted here
+#                           instead, with no further changes to this wrapper.
+
+IMAGE_TAG=""
+USE_DEV_IMAGE=true
+
+# Decide once whether the prepare phase can be containerized. Requires both
+# `docker` on PATH and a `dev.Dockerfile` in the repo. When either is missing
+# we fall back to running the prepare commands on the host so script-level
+# tests in temp repos (and emergency operator runs from a stripped host) keep
+# working — at the cost of toolchain isolation. The warning is logged once so
+# operators can see they lost isolation.
+if ! command -v docker >/dev/null 2>&1 || [ ! -f dev.Dockerfile ]; then
+  USE_DEV_IMAGE=false
+fi
+
+ensure_dev_image() {
+  [ -n "$IMAGE_TAG" ] && return 0
+  if ! $USE_DEV_IMAGE; then
+    return 0
+  fi
+  local digest
+  digest=$(sha256sum dev.Dockerfile | cut -c1-16)
+  IMAGE_TAG="zdx-agent:${digest}"
+  if docker image inspect "$IMAGE_TAG" >/dev/null 2>&1; then
+    echo "[ship] dev image $IMAGE_TAG up-to-date"
+    return 0
+  fi
+  echo "[ship] Building dev image $IMAGE_TAG from dev.Dockerfile..."
+  docker build -f dev.Dockerfile -t "$IMAGE_TAG" . >&2
+}
+
+DOCKER_SOCK_GID=""
+docker_sock_gid() {
+  if [ -z "$DOCKER_SOCK_GID" ] && [ -S /var/run/docker.sock ]; then
+    DOCKER_SOCK_GID=$(stat -c %g /var/run/docker.sock 2>/dev/null || true)
+  fi
+  printf '%s' "$DOCKER_SOCK_GID"
+}
+
+# in_container <argv...>
+# Runs <argv> inside the dev image with the operator's worktree bind-mounted
+# at /workspace. stdout/stderr are passed through so callers can capture them
+# with the usual `> file 2>&1` redirection (e.g. the must-spec gate dedup
+# logic captures gate output for blocker-issue filing).
+#
+# When USE_DEV_IMAGE=false (no docker on PATH or no dev.Dockerfile), runs
+# <argv> directly on the host instead — degrades gracefully for stripped
+# test environments at the cost of toolchain isolation.
+in_container() {
+  if ! $USE_DEV_IMAGE; then
+    "$@"
+    return $?
+  fi
+  ensure_dev_image
+  local docker_args=(
+    docker run --rm
+    --network host
+    -v "$PWD:/workspace"
+    -w /workspace
+    -e GIT_CONFIG_COUNT=1
+    -e GIT_CONFIG_KEY_0=safe.directory
+    -e GIT_CONFIG_VALUE_0='*'
+  )
+  local sock_gid
+  sock_gid=$(docker_sock_gid)
+  if [ -n "$sock_gid" ]; then
+    docker_args+=(-v /var/run/docker.sock:/var/run/docker.sock --group-add "$sock_gid")
+  fi
+  docker_args+=("$IMAGE_TAG" "$@")
+  "${docker_args[@]}"
+}
+
 # ── Config loader ─────────────────────────────────────────────────────────────
 
 load_deploy_config() {
@@ -207,9 +299,26 @@ load_deploy_config() {
 # drift introduced by one ship sits in main until the next agent's `dev done`
 # regenerates and finds their build broken by unrelated work (see IS-475).
 
+if ! $SKIP_BUILD || ! $NON_COMPAT; then
+  # Either the build phases or compat-check will be exercised — prepare the
+  # dev image once so subsequent echoes can reference its tag. When
+  # USE_DEV_IMAGE=false (no docker / no Dockerfile) ensure_dev_image is a
+  # no-op and the prepare phases run on the host (toolchain not isolated).
+  if $USE_DEV_IMAGE; then
+    echo "[ship] Preparing dev image (toolchain isolation)..."
+    ensure_dev_image
+  else
+    echo "[ship] WARNING: docker or dev.Dockerfile missing — running prepare phase on host (no toolchain isolation)"
+  fi
+fi
+
 if ! $SKIP_BUILD; then
-  echo "[ship] Running lint..."
-  if ! ./bin/lint; then
+  if $USE_DEV_IMAGE; then
+    echo "[ship] Running lint (in $IMAGE_TAG)..."
+  else
+    echo "[ship] Running lint..."
+  fi
+  if ! in_container ./bin/lint; then
     echo "[ship] REFUSING TO SHIP: lint failed."
     echo "[ship] Fix the failing checks above (or run ./bin/db gen / ./bin/dx ui gen-api for drift)."
     exit 1
@@ -229,9 +338,13 @@ fi
 # title format is the stable dedup key.
 
 if ! $SKIP_BUILD; then
-  echo "[ship] Checking must-spec demos..."
+  if $USE_DEV_IMAGE; then
+    echo "[ship] Checking must-spec demos (in $IMAGE_TAG)..."
+  else
+    echo "[ship] Checking must-spec demos..."
+  fi
   GATE_OUT=$(mktemp)
-  if ! ./bin/dx ship gate > "$GATE_OUT" 2>&1; then
+  if ! in_container ./bin/dx ship gate > "$GATE_OUT" 2>&1; then
     cat "$GATE_OUT"
     if [ -n "$RELEASE_BRANCH" ]; then
       GATE_TITLE="ship blocked: must-spec demo gaps on ${CURRENT_BRANCH}"
@@ -274,25 +387,38 @@ fi
 # ── Build ─────────────────────────────────────────────────────────────────────
 
 if ! $SKIP_BUILD; then
-  echo "[ship] Building dx-server (linux/amd64, static)..."
-  GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
-    go build -trimpath -ldflags="-s -w -X main.version=$(git rev-parse --short HEAD) -X main.buildSHA=$(git rev-parse --short HEAD)" \
-    -o "$DEPLOY_DIR/dist/dx-server" ./cmd/dx-server
-
-  echo "[ship] Building dx (linux/amd64)..."
-  GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
-    go build -trimpath -ldflags="-s -w" \
-    -o "$DEPLOY_DIR/dist/dx" ./cmd/dx
-
-  UI_HASH=$(git ls-files ui/ | grep -v '^ui/dist/' | xargs -d'\n' sha256sum 2>/dev/null | sha256sum | cut -d' ' -f1)
-  UI_HASH_FILE="ui/dist/.build-hash"
-  if [ -f "$UI_HASH_FILE" ] && [ "$(cat "$UI_HASH_FILE")" = "$UI_HASH" ] && [ -d "ui/dist/assets" ]; then
-    echo "[ship] UI unchanged (${UI_HASH:0:8}) — skipping rebuild."
+  if $USE_DEV_IMAGE; then
+    echo "[ship] Building dx-server + dx + UI (in $IMAGE_TAG)..."
   else
-    echo "[ship] Building UI..."
-    (cd ui && pnpm install --frozen-lockfile && pnpm run build 2>&1 | tail -3)
-    echo "$UI_HASH" > "$UI_HASH_FILE"
+    echo "[ship] Building dx-server + dx + UI..."
   fi
+  # Run cross-compile and UI build inside the dev image so the deploy artifact
+  # is produced by the pinned toolchain (Go 1.25, node 20, pnpm) regardless of
+  # what the operator has on $PATH. Output lands in the bind-mounted slot at
+  # $DEPLOY_DIR/dist/ (visible on the host).
+  in_container bash -c '
+    set -euo pipefail
+    SHA=$(git rev-parse --short HEAD)
+    echo "[ship/in-container] Building dx-server (linux/amd64, static)..."
+    GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
+      go build -trimpath -ldflags="-s -w -X main.version=${SHA} -X main.buildSHA=${SHA}" \
+      -o "'"$DEPLOY_DIR"'/dist/dx-server" ./cmd/dx-server
+
+    echo "[ship/in-container] Building dx (linux/amd64)..."
+    GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
+      go build -trimpath -ldflags="-s -w" \
+      -o "'"$DEPLOY_DIR"'/dist/dx" ./cmd/dx
+
+    UI_HASH=$(git ls-files ui/ | grep -v "^ui/dist/" | xargs -d"\n" sha256sum 2>/dev/null | sha256sum | cut -d" " -f1)
+    UI_HASH_FILE="ui/dist/.build-hash"
+    if [ -f "$UI_HASH_FILE" ] && [ "$(cat "$UI_HASH_FILE")" = "$UI_HASH" ] && [ -d "ui/dist/assets" ]; then
+      echo "[ship/in-container] UI unchanged (${UI_HASH:0:8}) — skipping rebuild."
+    else
+      echo "[ship/in-container] Building UI..."
+      (cd ui && pnpm install --frozen-lockfile && pnpm run build 2>&1 | tail -3)
+      echo "$UI_HASH" > "$UI_HASH_FILE"
+    fi
+  '
 
   mkdir -p "$DEPLOY_DIR/dist/public"
   [ -d ui/dist ] && cp -r ui/dist/* "$DEPLOY_DIR/dist/public/"
@@ -456,9 +582,18 @@ fi
 # ── Schema compatibility check ────────────────────────────────────────────────
 
 if ! $NON_COMPAT; then
-  echo "[ship] Running schema compatibility check..."
+  if $USE_DEV_IMAGE; then
+    echo "[ship] Running schema compatibility check (in $IMAGE_TAG)..."
+  else
+    echo "[ship] Running schema compatibility check..."
+  fi
+  # compat-check spawns ephemeral sibling postgres containers via docker.sock
+  # (mounted into in_container) and connects to them on 127.0.0.1:<port>,
+  # which resolves to the same host network because the container runs
+  # --network host. pg_dump (via `docker exec`) and go test run inside the
+  # dev image's pinned toolchain.
   set +e
-  ./bin/dx ship compat-check
+  in_container ./bin/dx ship compat-check
   COMPAT_EXIT=$?
   set -e
 
