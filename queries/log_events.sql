@@ -30,3 +30,23 @@ ORDER BY tag_value;
 -- name: DeleteLogEventsOlderThan :execrows
 DELETE FROM zdx_log_events
 WHERE created_at < @cutoff::timestamptz;
+
+-- name: IneffectiveSessionsByWeek :many
+-- Per-week count of session.ineffective tracelogs (IS-1100), bucketed by
+-- date_trunc('week', created_at) and grouped by the persona/model/complexity
+-- tags stamped into context_json by ineffectiveTraceArgs. v1: persona may be
+-- "" until IS-1096 stamps it on every session; pass through as-is. Feeds the
+-- routing-distribution dashboard for IS-1101.
+SELECT
+    date_trunc('week', created_at)::timestamptz       AS week_start,
+    COALESCE(context_json->>'persona', '')::text     AS persona,
+    COALESCE(context_json->>'model', '')::text       AS model,
+    COALESCE(context_json->>'complexity', '')::text  AS complexity,
+    COUNT(*)                                          AS ineffective_count
+FROM zdx_log_events
+WHERE message = 'session.ineffective'
+  AND project_id = @project_id::int
+  AND (sqlc.narg(since)::timestamptz IS NULL OR created_at >= sqlc.narg(since)::timestamptz)
+  AND (sqlc.narg(until)::timestamptz IS NULL OR created_at <  sqlc.narg(until)::timestamptz)
+GROUP BY week_start, persona, model, complexity
+ORDER BY week_start DESC, ineffective_count DESC;
