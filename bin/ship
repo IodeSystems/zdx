@@ -56,11 +56,16 @@ SKIP_BUILD=false
 ALLOW_DIRTY=false
 NON_COMPAT=false
 NO_RESUME=false
+PRINT_SLOT_PATH=false
 ENV_NAME=""
 BETA=${SHIP_BETA:-true}  # Currently in beta; flip to false when exiting beta
 SERVICE="zdx"
 REMOTE_HOME="/home/$SERVICE"
 MIGRATION_DIR="internal/migrate/sql"
+
+# Preserve original argv for the slot re-exec (the parsing loop below is
+# destructive: shift consumes everything once we touch $1).
+ORIG_ARGS=("$@")
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -69,6 +74,7 @@ while [ $# -gt 0 ]; do
     --allow-dirty)               ALLOW_DIRTY=true ;;
     --non-compatible-migration)  NON_COMPAT=true ;;
     --no-resume)                 NO_RESUME=true ;;
+    --print-slot-path)           PRINT_SLOT_PATH=true ;;
     --env)                       shift; ENV_NAME="$1" ;;
     --env=*)                     ENV_NAME="${1#--env=}" ;;
   esac
@@ -107,22 +113,25 @@ if $IS_DIRTY && ! $ALLOW_DIRTY; then
   exit 1
 fi
 
-# ── Release-branch gate ───────────────────────────────────────────────────────
+# ── Release-branch resolution ─────────────────────────────────────────────────
 # Source of truth for release_branch is the server's zdx_environments row, not
 # the local properties file. Properties file used to mirror release_branch and
 # drifted (see IS-1221). When deploy.environment_name is set in properties,
-# query `dx env show <name> --json` for the canonical release_branch and
-# compare against HEAD.
+# query `dx env show <name> --json` for the canonical release_branch.
 #
 # Fallback: if env_name is unset, or if the server lookup fails (no dx binary,
 # server unreachable, env not found), fall back to the legacy
 # deploy.release_branch grep. The server path is the authoritative one; the
 # legacy grep is opt-in safety only and goes away once all callers migrate
 # (planned: IS-1224).
+#
+# The resolved RELEASE_BRANCH is what we provision the slot from
+# (origin/<release_branch>). The old operator-tree branch-mismatch refusal is
+# gone — the slot guarantees we ship the canonical branch regardless of what
+# branch the operator happens to be on (TK-1805).
 
 RELEASE_BRANCH=""
 RELEASE_SOURCE=""
-CURRENT_BRANCH=""
 
 prop_value() { grep "^$1=" "$DEPLOY_PROPS" 2>/dev/null | cut -d= -f2- | tr -d '[:space:]' || true; }
 
@@ -147,18 +156,101 @@ if [ -f "$DEPLOY_PROPS" ]; then
       RELEASE_SOURCE="properties"
     fi
   fi
+fi
 
-  if [ -n "$RELEASE_BRANCH" ]; then
-    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-    if [ "$CURRENT_BRANCH" != "$RELEASE_BRANCH" ]; then
-      echo "[ship] REFUSING: current branch '$CURRENT_BRANCH' does not match release_branch '$RELEASE_BRANCH' (source: $RELEASE_SOURCE)."
-      if [ "$RELEASE_SOURCE" = "server" ]; then
-        echo "[ship] Switch to '$RELEASE_BRANCH' or update with: ./bin/dx env edit $ENV_FOR_GATE --release-branch=<branch>"
-      else
-        echo "[ship] Switch to '$RELEASE_BRANCH' or update deploy.release_branch in $DEPLOY_PROPS."
-      fi
+# ── Slot provisioning (TK-1805) ───────────────────────────────────────────────
+# bin/ship operates against a fresh worktree provisioned from
+# origin/<release_branch> rather than the operator's checkout, so half-merged
+# trees, stale generated artifacts, and dirty indexes can never leak into a
+# deploy. The 2026-05-14 babysit shipped a must-spec gate failure caused by a
+# stale host bin/dx; provisioning the slot from origin guarantees the prepare
+# phase sees only what's on the canonical branch.
+#
+# Re-exec strategy: provision the slot, then invoke the slot's own bin/ship
+# with the original argv and SHIP_IN_SLOT=1 so the inner invocation skips this
+# block. The outer process waits on the inner and removes the slot only on
+# success — failures leave the slot in place so an operator can `cd` in and
+# inspect.
+#
+# Skipped when:
+#   - SHIP_IN_SLOT=1 (we are the inner re-exec; do not re-provision)
+#   - RELEASE_BRANCH is empty (no env config; legacy in-place behavior for
+#     fresh repos and operators without a release branch configured)
+#   - --no-package: reuse the existing slot (deploy/ from a prior --package
+#     run); refuse if the slot doesn't exist.
+
+if [ -z "${SHIP_IN_SLOT:-}" ] && [ -n "$RELEASE_BRANCH" ]; then
+  # Resolve project slug from .zdx/config.yaml (under remote: or project:),
+  # fall back to the repo basename. Slug scopes the slot path so two checkouts
+  # of the same repo don't fight over one slot.
+  SLUG=""
+  if [ -f .zdx/config.yaml ]; then
+    SLUG=$(awk '
+      /^[^[:space:]#]/ { in_target = 0 }
+      /^(remote|project):[[:space:]]*$/ { in_target = 1; next }
+      in_target && /^[[:space:]]+slug:[[:space:]]*/ {
+        sub(/^[[:space:]]+slug:[[:space:]]*/, "")
+        gsub(/[[:space:]]/, "")
+        print; exit
+      }
+    ' .zdx/config.yaml)
+  fi
+  [ -z "$SLUG" ] && SLUG=$(basename "$PWD")
+
+  SLOT_BASE="${SHIP_SLOT_BASE:-$HOME/.zdx/projects}"
+  SLOT="${SLOT_BASE}/${SLUG}/ship-slot"
+
+  if $SKIP_BUILD; then
+    if [ ! -d "$SLOT" ]; then
+      echo "[ship] ERROR: --no-package requires an existing slot at $SLOT"
+      echo "[ship] Run 'bin/ship --package' first, or drop --no-package for a fresh build."
       exit 1
     fi
+    echo "[ship] Reusing existing slot: $SLOT"
+    # Refresh the props file so ENV_NAME / api token changes propagate.
+    if [ -f "$DEPLOY_PROPS" ]; then
+      mkdir -p "$SLOT/$(dirname "$DEPLOY_PROPS")"
+      cp "$DEPLOY_PROPS" "$SLOT/$DEPLOY_PROPS"
+    fi
+  else
+    echo "[ship] Provisioning slot worktree: $SLOT (from origin/$RELEASE_BRANCH)"
+    # Idempotent: a prior failed slot may exist as a registered worktree, an
+    # untracked directory, or both. Detach and rm covers all cases.
+    if [ -e "$SLOT" ] || git worktree list --porcelain 2>/dev/null | grep -qF "worktree $SLOT"; then
+      git worktree remove --force "$SLOT" 2>/dev/null || true
+      rm -rf "$SLOT"
+    fi
+    mkdir -p "$(dirname "$SLOT")"
+    git fetch --quiet origin "$RELEASE_BRANCH"
+    git worktree add --quiet --detach "$SLOT" "origin/$RELEASE_BRANCH"
+
+    # Properties file is gitignored, so the fresh slot doesn't have it. T3
+    # (depends on IS-1221 landing) will remove this copy in favor of an
+    # env-driven config path.
+    if [ -f "$DEPLOY_PROPS" ]; then
+      mkdir -p "$SLOT/$(dirname "$DEPLOY_PROPS")"
+      cp "$DEPLOY_PROPS" "$SLOT/$DEPLOY_PROPS"
+    fi
+  fi
+
+  if $PRINT_SLOT_PATH; then
+    echo "$SLOT"
+    exit 0
+  fi
+
+  echo "[ship] Re-executing in slot: $SLOT"
+  set +e
+  SHIP_IN_SLOT=1 bash "$SLOT/bin/ship" "${ORIG_ARGS[@]}"
+  SLOT_RC=$?
+  set -e
+  if [ $SLOT_RC -eq 0 ]; then
+    git worktree remove --force "$SLOT" 2>/dev/null || true
+    rm -rf "$SLOT"
+    echo "[ship] Slot cleaned up."
+    exit 0
+  else
+    echo "[ship] FAILED — slot preserved for inspection: $SLOT"
+    exit $SLOT_RC
   fi
 fi
 
@@ -347,7 +439,7 @@ if ! $SKIP_BUILD; then
   if ! in_container ./bin/dx ship gate > "$GATE_OUT" 2>&1; then
     cat "$GATE_OUT"
     if [ -n "$RELEASE_BRANCH" ]; then
-      GATE_TITLE="ship blocked: must-spec demo gaps on ${CURRENT_BRANCH}"
+      GATE_TITLE="ship blocked: must-spec demo gaps on ${RELEASE_BRANCH}"
       # `dx issue list --status=open` lines look like:
       #   IS-1217  open                           ship blocked: must-spec demo gaps on main
       # Two-space gap between status and title is the only reliable column

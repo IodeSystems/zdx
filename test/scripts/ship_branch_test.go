@@ -7,46 +7,24 @@ import (
 	"testing"
 )
 
-// spec 172 (must): bin/ship refuses deploy when current branch does not match
-// the configured release_branch. Source of truth is the server when
-// deploy.environment_name is set; otherwise falls back to deploy.release_branch
-// in home/deploy.secret.properties (legacy path).
-
-const branchRefusalMarker = "does not match release_branch"
-
-func TestShipRefusesBranchMismatch(t *testing.T) {
-	repo := newTempShipRepo(t)
-	repo.runGit(t, "checkout", "-q", "-b", "dev")
-	repo.writeReleaseBranch(t, "main")
-
-	out, err := repo.runShip(t)
-	if err == nil {
-		t.Fatalf("bin/ship exited 0 with branch mismatch; want non-zero.\noutput:\n%s", out)
-	}
-	if !strings.Contains(out, branchRefusalMarker) {
-		t.Fatalf("output missing %q.\noutput:\n%s", branchRefusalMarker, out)
-	}
-}
-
-func TestShipAllowsBranchMatch(t *testing.T) {
-	repo := newTempShipRepo(t)
-	// newTempShipRepo inits on main; configure release_branch=main.
-	repo.writeReleaseBranch(t, "main")
-
-	out, _ := repo.runShip(t)
-	if strings.Contains(out, branchRefusalMarker) {
-		t.Fatalf("matching branch should not trip the gate; %q appeared.\noutput:\n%s", branchRefusalMarker, out)
-	}
-}
+// Pre-TK-1805, bin/ship enforced "operator's current branch == release_branch"
+// as a refusal gate. TK-1805 replaced that check with slot provisioning: ship
+// always builds from origin/<release_branch>, so the operator's branch is
+// irrelevant. Tests below cover the residual semantics — when no release
+// branch is configured, the slot block is skipped and ship proceeds in-place.
 
 func TestShipNoBranchConfigured(t *testing.T) {
 	repo := newTempShipRepo(t)
 	repo.runGit(t, "checkout", "-q", "-b", "dev")
-	// No home/deploy.secret.properties — gate is opt-in and must skip.
+	// No home/deploy.secret.properties — slot is opt-in via release_branch.
 
 	out, _ := repo.runShip(t)
-	if strings.Contains(out, branchRefusalMarker) {
-		t.Fatalf("missing config should skip the branch gate; %q appeared.\noutput:\n%s", branchRefusalMarker, out)
+	const pastGateMarker = "[ship] Running lint"
+	if !strings.Contains(out, pastGateMarker) {
+		t.Fatalf("expected script to proceed past gate (look for %q).\noutput:\n%s", pastGateMarker, out)
+	}
+	if strings.Contains(out, "Provisioning slot worktree") {
+		t.Fatalf("no release_branch should skip slot provisioning.\noutput:\n%s", out)
 	}
 }
 
@@ -64,14 +42,12 @@ func TestShipPropsMissingReleaseBranchKey(t *testing.T) {
 	}
 
 	out, _ := repo.runShip(t)
-	if strings.Contains(out, branchRefusalMarker) {
-		t.Fatalf("absent release_branch key should skip gate; %q appeared.\noutput:\n%s", branchRefusalMarker, out)
-	}
-	// Without `|| true`, set -o pipefail kills the script silently at the gate.
-	// Assert it proceeded past the gate by checking for a marker from the next stage.
 	const pastGateMarker = "[ship] Running lint"
 	if !strings.Contains(out, pastGateMarker) {
 		t.Fatalf("expected script to proceed past gate (look for %q).\noutput:\n%s", pastGateMarker, out)
+	}
+	if strings.Contains(out, "Provisioning slot worktree") {
+		t.Fatalf("absent release_branch key should skip slot provisioning.\noutput:\n%s", out)
 	}
 }
 

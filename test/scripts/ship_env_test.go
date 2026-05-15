@@ -10,55 +10,46 @@ import (
 // spec 174 (must): bin/ship --env <name> loads home/deploy.<name>.secret.properties
 // instead of the default home/deploy.secret.properties. Enables targeting a
 // second environment (e.g. staging).
+//
+// Pre-TK-1805 these tests asserted the loaded file via the operator-tree
+// branch-mismatch refusal message. With slot provisioning that gate is gone,
+// so we now verify by inspecting the slot provisioning line, which echoes
+// `from origin/<release_branch>` — the release_branch comes from whichever
+// props file was loaded.
+
+const provisioningMarker = "[ship] Provisioning slot worktree"
 
 func TestShipEnvLoadsNamedPropsFile(t *testing.T) {
 	repo := newTempShipRepo(t)
-	repo.runGit(t, "checkout", "-q", "-b", "dev")
-	repo.writeNamedReleaseBranch(t, "staging", "staging-rel")
-
-	out, err := repo.runShip(t, "--env", "staging")
-	if err == nil {
-		t.Fatalf("bin/ship exited 0 with branch mismatch; want non-zero.\noutput:\n%s", out)
-	}
-	if !strings.Contains(out, branchRefusalMarker) {
-		t.Fatalf("output missing %q.\noutput:\n%s", branchRefusalMarker, out)
-	}
-	if !strings.Contains(out, "staging-rel") {
-		t.Fatalf("expected staging file's release_branch ('staging-rel') in output, proving named props file was loaded.\noutput:\n%s", out)
-	}
-}
-
-func TestShipEnvBranchMismatchRefuses(t *testing.T) {
-	repo := newTempShipRepo(t)
-	repo.runGit(t, "checkout", "-q", "-b", "dev")
+	repo.addOrigin(t)
 	repo.writeNamedReleaseBranch(t, "staging", "main")
 
-	out, err := repo.runShip(t, "--env", "staging")
-	if err == nil {
-		t.Fatalf("bin/ship exited 0 with branch mismatch; want non-zero.\noutput:\n%s", out)
+	out, _ := repo.runShip(t, "--env", "staging", "--print-slot-path")
+	if !strings.Contains(out, provisioningMarker) {
+		t.Fatalf("expected slot provisioning to run with --env=staging.\noutput:\n%s", out)
 	}
-	if !strings.Contains(out, branchRefusalMarker) {
-		t.Fatalf("output missing %q.\noutput:\n%s", branchRefusalMarker, out)
+	if !strings.Contains(out, "from origin/main") {
+		t.Fatalf("expected slot to provision from origin/main (release_branch in staging props).\noutput:\n%s", out)
 	}
 }
 
 func TestShipEnvDefaultUnchanged(t *testing.T) {
 	repo := newTempShipRepo(t)
-	repo.runGit(t, "checkout", "-q", "-b", "dev")
-	// Default props file declares main; staging declares dev.
-	// Without --env we should hit the default's branch gate, not staging's.
+	repo.addOrigin(t)
+	// Default props declares main; staging would declare a different branch.
+	// Without --env we should hit the default's props, slot from origin/main.
 	repo.writeReleaseBranch(t, "main")
-	repo.writeNamedReleaseBranch(t, "staging", "dev")
+	repo.writeNamedReleaseBranch(t, "staging", "no-such-branch")
 
-	out, err := repo.runShip(t)
-	if err == nil {
-		t.Fatalf("bin/ship exited 0 with default branch mismatch; want non-zero.\noutput:\n%s", out)
+	out, _ := repo.runShip(t, "--print-slot-path")
+	if !strings.Contains(out, provisioningMarker) {
+		t.Fatalf("expected slot provisioning to run.\noutput:\n%s", out)
 	}
-	if !strings.Contains(out, branchRefusalMarker) {
-		t.Fatalf("output missing %q.\noutput:\n%s", branchRefusalMarker, out)
+	if !strings.Contains(out, "from origin/main") {
+		t.Fatalf("expected default file's release_branch ('main') to drive slot provisioning.\noutput:\n%s", out)
 	}
-	if !strings.Contains(out, "'main'") {
-		t.Fatalf("expected default file's release_branch ('main') in output, proving default file was loaded.\noutput:\n%s", out)
+	if strings.Contains(out, "from origin/no-such-branch") {
+		t.Fatalf("default invocation must not load staging props.\noutput:\n%s", out)
 	}
 }
 

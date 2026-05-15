@@ -50,10 +50,11 @@ func TestShipCleanTreePasses(t *testing.T) {
 }
 
 type shipRepo struct {
-	root   string
-	ship   string
-	env    []string
-	source string
+	root     string
+	ship     string
+	env      []string
+	source   string
+	slotBase string
 }
 
 func newTempShipRepo(t *testing.T) *shipRepo {
@@ -85,14 +86,20 @@ func newTempShipRepo(t *testing.T) *shipRepo {
 		t.Fatalf("write dx stub: %v", err)
 	}
 
+	// Scope the slot path to the test's TempDir so tests can't pollute the
+	// operator's real ~/.zdx/projects/ even when they exercise slot
+	// provisioning (TK-1805).
+	slotBase := filepath.Join(root, "slot-base")
+
 	env := append(os.Environ(),
 		"GIT_AUTHOR_NAME=ship-test",
 		"GIT_AUTHOR_EMAIL=ship-test@example.invalid",
 		"GIT_COMMITTER_NAME=ship-test",
 		"GIT_COMMITTER_EMAIL=ship-test@example.invalid",
+		"SHIP_SLOT_BASE="+slotBase,
 	)
 
-	repo := &shipRepo{root: root, ship: shipDst, env: env, source: sourceShip}
+	repo := &shipRepo{root: root, ship: shipDst, env: env, source: sourceShip, slotBase: slotBase}
 	repo.runGit(t, "init", "-q", "-b", "main")
 	repo.runGit(t, "config", "commit.gpgsign", "false")
 
@@ -104,6 +111,21 @@ func newTempShipRepo(t *testing.T) *shipRepo {
 	repo.runGit(t, "commit", "-q", "-m", "seed")
 
 	return repo
+}
+
+// addOrigin creates a bare clone of the repo as `origin` and pushes the
+// current branch to it, so `git fetch origin <branch>` and the slot worktree
+// add succeed. Tests that exercise slot provisioning (TK-1805) need this.
+func (r *shipRepo) addOrigin(t *testing.T) {
+	t.Helper()
+	bare := filepath.Join(filepath.Dir(r.root), "origin.git")
+	cmd := exec.Command("git", "init", "--bare", "-q", bare)
+	cmd.Env = r.env
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("init bare: %v", err)
+	}
+	r.runGit(t, "remote", "add", "origin", bare)
+	r.runGit(t, "push", "-q", "origin", "main")
 }
 
 func (r *shipRepo) dirty(t *testing.T) {

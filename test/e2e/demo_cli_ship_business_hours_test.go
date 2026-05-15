@@ -53,9 +53,10 @@ func TestDemoCLI_ShipBlocksNonCompatMigrationDuringBusinessHours(t *testing.T) {
 // shipRepo is a minimal isolated git repo for exercising bin/ship without
 // touching real infrastructure. bin/lint is stubbed to always pass.
 type shipRepo struct {
-	root string
-	ship string
-	env  []string
+	root     string
+	ship     string
+	env      []string
+	slotBase string
 }
 
 func newShipRepo(t *testing.T, repoRoot string) *shipRepo {
@@ -93,6 +94,9 @@ func newShipRepo(t *testing.T, repoRoot string) *shipRepo {
 	} else {
 		path = filepath.Dir(path) + ":/usr/bin:/bin"
 	}
+	// Scope SHIP_SLOT_BASE under tmp so TK-1805 slot provisioning never
+	// pollutes the operator's real ~/.zdx/projects/.
+	slotBase := filepath.Join(tmp, "slot-base")
 	env := []string{
 		"PATH=" + path + ":/usr/local/bin",
 		"HOME=" + os.Getenv("HOME"),
@@ -100,9 +104,10 @@ func newShipRepo(t *testing.T, repoRoot string) *shipRepo {
 		"GIT_AUTHOR_EMAIL=ship-test@example.invalid",
 		"GIT_COMMITTER_NAME=ship-test",
 		"GIT_COMMITTER_EMAIL=ship-test@example.invalid",
+		"SHIP_SLOT_BASE=" + slotBase,
 	}
 
-	r := &shipRepo{root: tmp, ship: shipDst, env: env}
+	r := &shipRepo{root: tmp, ship: shipDst, env: env, slotBase: slotBase}
 	r.git(t, "init", "-q", "-b", "main")
 	r.git(t, "config", "commit.gpgsign", "false")
 
@@ -139,4 +144,19 @@ func (r *shipRepo) git(t *testing.T, args ...string) {
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("git %s: %v", strings.Join(args, " "), err)
 	}
+}
+
+// addOrigin sets up a bare clone as `origin` and pushes the current branch.
+// TK-1805 slot provisioning fetches origin/<release_branch>; tests that
+// configure release_branch must call this so the fetch succeeds.
+func (r *shipRepo) addOrigin(t *testing.T) {
+	t.Helper()
+	bare := filepath.Join(filepath.Dir(r.root), "origin.git")
+	cmd := exec.Command("git", "init", "--bare", "-q", bare)
+	cmd.Env = r.env
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("init bare: %v", err)
+	}
+	r.git(t, "remote", "add", "origin", bare)
+	r.git(t, "push", "-q", "origin", "main")
 }
