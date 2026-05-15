@@ -1618,6 +1618,9 @@ type EditIssueRequest struct {
 	Schema    *string `json:"$schema,omitempty"`
 	Component *string `json:"component,omitempty"`
 	Context   *string `json:"context,omitempty"`
+
+	// EnvName Name of the zdx_environments row this issue belongs to. Sets env_id on the issue; empty string clears. TK-1801.
+	EnvName   *string `json:"env_name,omitempty"`
 	Id        int32   `json:"id"`
 	IssueType *string `json:"issue_type,omitempty"`
 	Priority  *int32  `json:"priority,omitempty"`
@@ -2200,6 +2203,16 @@ type IssueBlockerRef struct {
 
 	// Status Current status of the blocking issue (open, closed, ...)
 	Status string `json:"status"`
+}
+
+// IssueBranchesItem defines model for IssueBranchesItem.
+type IssueBranchesItem struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema        *string `json:"$schema,omitempty"`
+	EnvId         int32   `json:"env_id"`
+	EnvName       string  `json:"env_name"`
+	ReleaseBranch string  `json:"release_branch"`
+	TrunkBranch   string  `json:"trunk_branch"`
 }
 
 // IssueIntIDInput defines model for IssueIntIDInput.
@@ -7506,6 +7519,9 @@ type ClientInterface interface {
 
 	RequestEnvironmentTodo(ctx context.Context, slug string, name string, body RequestEnvironmentTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ResolveIssueBranches request
+	ResolveIssueBranches(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ClaimIssueWithBody request with any body
 	ClaimIssueWithBody(ctx context.Context, slug string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -11750,6 +11766,18 @@ func (c *APIClient) RequestEnvironmentTodoWithBody(ctx context.Context, slug str
 
 func (c *APIClient) RequestEnvironmentTodo(ctx context.Context, slug string, name string, body RequestEnvironmentTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRequestEnvironmentTodoRequest(c.Server, slug, name, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ResolveIssueBranches(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewResolveIssueBranchesRequest(c.Server, slug, id)
 	if err != nil {
 		return nil, err
 	}
@@ -25463,6 +25491,47 @@ func NewRequestEnvironmentTodoRequestWithBody(server string, slug string, name s
 	return req, nil
 }
 
+// NewResolveIssueBranchesRequest generates requests for ResolveIssueBranches
+func NewResolveIssueBranchesRequest(server string, slug string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/issues/%s/branches", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewClaimIssueRequest calls the generic ClaimIssue builder with application/json body
 func NewClaimIssueRequest(server string, slug string, id string, body ClaimIssueJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -35017,6 +35086,9 @@ type ClientWithResponsesInterface interface {
 
 	RequestEnvironmentTodoWithResponse(ctx context.Context, slug string, name string, body RequestEnvironmentTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*RequestEnvironmentTodoResponse, error)
 
+	// ResolveIssueBranchesWithResponse request
+	ResolveIssueBranchesWithResponse(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*ResolveIssueBranchesResponse, error)
+
 	// ClaimIssueWithBodyWithResponse request with any body
 	ClaimIssueWithBodyWithResponse(ctx context.Context, slug string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClaimIssueResponse, error)
 
@@ -40413,6 +40485,29 @@ func (r RequestEnvironmentTodoResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r RequestEnvironmentTodoResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ResolveIssueBranchesResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *IssueBranchesItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ResolveIssueBranchesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ResolveIssueBranchesResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -46917,6 +47012,15 @@ func (c *ClientWithResponses) RequestEnvironmentTodoWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParseRequestEnvironmentTodoResponse(rsp)
+}
+
+// ResolveIssueBranchesWithResponse request returning *ResolveIssueBranchesResponse
+func (c *ClientWithResponses) ResolveIssueBranchesWithResponse(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*ResolveIssueBranchesResponse, error) {
+	rsp, err := c.ResolveIssueBranches(ctx, slug, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseResolveIssueBranchesResponse(rsp)
 }
 
 // ClaimIssueWithBodyWithResponse request with arbitrary body returning *ClaimIssueResponse
@@ -55853,6 +55957,39 @@ func ParseRequestEnvironmentTodoResponse(rsp *http.Response) (*RequestEnvironmen
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest TodoItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseResolveIssueBranchesResponse parses an HTTP response from a ResolveIssueBranchesWithResponse call
+func ParseResolveIssueBranchesResponse(rsp *http.Response) (*ResolveIssueBranchesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ResolveIssueBranchesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest IssueBranchesItem
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

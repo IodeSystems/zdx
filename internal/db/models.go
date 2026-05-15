@@ -473,6 +473,7 @@ type ZdxIssue struct {
 	NodeRef        pgtype.Text        `db:"node_ref" json:"node_ref"`
 	CompletedInSha pgtype.Text        `db:"completed_in_sha" json:"completed_in_sha"`
 	ClosedDirty    pgtype.Bool        `db:"closed_dirty" json:"closed_dirty"`
+	EnvID          pgtype.Int4        `db:"env_id" json:"env_id"`
 }
 
 type ZdxIssueBlock struct {
@@ -720,6 +721,7 @@ type ZdxProject struct {
 	Title               string             `db:"title" json:"title"`
 	Description         string             `db:"description" json:"description"`
 	Priority            int32              `db:"priority" json:"priority"`
+	DefaultEnvID        pgtype.Int4        `db:"default_env_id" json:"default_env_id"`
 }
 
 type ZdxProjectGitConfig struct {

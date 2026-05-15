@@ -52,7 +52,7 @@ var MetaGetProjectByID = metaquery.Query{
 	Name:   "GetProjectByID",
 	Cmd:    ":one",
 	Source: "projects.sql",
-	SQL:    `SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects WHERE id = $1`,
+	SQL:    `SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority, default_env_id FROM zdx_projects WHERE id = $1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_projects"},
 		{Name: "slug", OriginalName: "slug", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
@@ -69,6 +69,7 @@ var MetaGetProjectByID = metaquery.Query{
 		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
 		{Name: "priority", OriginalName: "priority", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_projects"},
+		{Name: "default_env_id", OriginalName: "default_env_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_projects"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -97,6 +98,7 @@ var GetProjectByIDCols = struct {
 	Title               metaquery.TextCol
 	Description         metaquery.TextCol
 	Priority            metaquery.IntCol
+	DefaultEnvID        metaquery.IntCol
 }{
 	ID:                  metaquery.NewIntCol("id"),
 	Slug:                metaquery.NewTextCol("slug"),
@@ -113,13 +115,14 @@ var GetProjectByIDCols = struct {
 	Title:               metaquery.NewTextCol("title"),
 	Description:         metaquery.NewTextCol("description"),
 	Priority:            metaquery.NewIntCol("priority"),
+	DefaultEnvID:        metaquery.NewIntCol("default_env_id"),
 }
 
 var MetaGetProjectBySlug = metaquery.Query{
 	Name:   "GetProjectBySlug",
 	Cmd:    ":one",
 	Source: "projects.sql",
-	SQL:    `SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects WHERE slug = $1`,
+	SQL:    `SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority, default_env_id FROM zdx_projects WHERE slug = $1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_projects"},
 		{Name: "slug", OriginalName: "slug", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
@@ -136,6 +139,7 @@ var MetaGetProjectBySlug = metaquery.Query{
 		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
 		{Name: "priority", OriginalName: "priority", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_projects"},
+		{Name: "default_env_id", OriginalName: "default_env_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_projects"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "slug", GoType: "string", DBType: "text", NotNull: true},
@@ -164,6 +168,7 @@ var GetProjectBySlugCols = struct {
 	Title               metaquery.TextCol
 	Description         metaquery.TextCol
 	Priority            metaquery.IntCol
+	DefaultEnvID        metaquery.IntCol
 }{
 	ID:                  metaquery.NewIntCol("id"),
 	Slug:                metaquery.NewTextCol("slug"),
@@ -180,6 +185,7 @@ var GetProjectBySlugCols = struct {
 	Title:               metaquery.NewTextCol("title"),
 	Description:         metaquery.NewTextCol("description"),
 	Priority:            metaquery.NewIntCol("priority"),
+	DefaultEnvID:        metaquery.NewIntCol("default_env_id"),
 }
 
 var MetaGetProjectGitConfig = metaquery.Query{
@@ -254,7 +260,7 @@ var MetaListProjects = metaquery.Query{
 	Name:   "ListProjects",
 	Cmd:    ":many",
 	Source: "projects.sql",
-	SQL:    `SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects ORDER BY name`,
+	SQL:    `SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority, default_env_id FROM zdx_projects ORDER BY name`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_projects"},
 		{Name: "slug", OriginalName: "slug", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
@@ -271,6 +277,7 @@ var MetaListProjects = metaquery.Query{
 		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
 		{Name: "priority", OriginalName: "priority", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_projects"},
+		{Name: "default_env_id", OriginalName: "default_env_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_projects"},
 	},
 }
 
@@ -296,6 +303,7 @@ var ListProjectsCols = struct {
 	Title               metaquery.TextCol
 	Description         metaquery.TextCol
 	Priority            metaquery.IntCol
+	DefaultEnvID        metaquery.IntCol
 }{
 	ID:                  metaquery.NewIntCol("id"),
 	Slug:                metaquery.NewTextCol("slug"),
@@ -312,13 +320,14 @@ var ListProjectsCols = struct {
 	Title:               metaquery.NewTextCol("title"),
 	Description:         metaquery.NewTextCol("description"),
 	Priority:            metaquery.NewIntCol("priority"),
+	DefaultEnvID:        metaquery.NewIntCol("default_env_id"),
 }
 
 var MetaListProjectsByPriority = metaquery.Query{
 	Name:   "ListProjectsByPriority",
 	Cmd:    ":many",
 	Source: "projects.sql",
-	SQL:    `SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects ORDER BY priority, name`,
+	SQL:    `SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority, default_env_id FROM zdx_projects ORDER BY priority, name`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_projects"},
 		{Name: "slug", OriginalName: "slug", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
@@ -335,6 +344,7 @@ var MetaListProjectsByPriority = metaquery.Query{
 		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_projects"},
 		{Name: "priority", OriginalName: "priority", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_projects"},
+		{Name: "default_env_id", OriginalName: "default_env_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_projects"},
 	},
 }
 
@@ -360,6 +370,7 @@ var ListProjectsByPriorityCols = struct {
 	Title               metaquery.TextCol
 	Description         metaquery.TextCol
 	Priority            metaquery.IntCol
+	DefaultEnvID        metaquery.IntCol
 }{
 	ID:                  metaquery.NewIntCol("id"),
 	Slug:                metaquery.NewTextCol("slug"),
@@ -376,6 +387,7 @@ var ListProjectsByPriorityCols = struct {
 	Title:               metaquery.NewTextCol("title"),
 	Description:         metaquery.NewTextCol("description"),
 	Priority:            metaquery.NewIntCol("priority"),
+	DefaultEnvID:        metaquery.NewIntCol("default_env_id"),
 }
 
 var MetaNextID = metaquery.Query{
@@ -404,6 +416,22 @@ var NextIDCols = struct {
 	Val metaquery.IntCol
 }{
 	Val: metaquery.NewIntCol("val"),
+}
+
+var MetaSetProjectDefaultEnv = metaquery.Query{
+	Name:   "SetProjectDefaultEnv",
+	Cmd:    ":exec",
+	Source: "projects.sql",
+	SQL:    `UPDATE zdx_projects SET default_env_id = $1::int WHERE slug = $2`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "env_id", GoType: "pgtype.Int4", DBType: "int4"},
+		{Position: 2, Name: "slug", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapSetProjectDefaultEnv returns a metaquery.Builder over MetaSetProjectDefaultEnv, pre-bound with typed arguments.
+func WrapSetProjectDefaultEnv(arg SetProjectDefaultEnvParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaSetProjectDefaultEnv, arg.EnvID, arg.Slug)
 }
 
 var MetaSetProjectGitConfig = metaquery.Query{

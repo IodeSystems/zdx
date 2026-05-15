@@ -1149,8 +1149,8 @@ ALTER SEQUENCE public.zdx_files_id_seq OWNED BY public.zdx_files.id;
 --
 
 CREATE TABLE public.zdx_focus_blockers (
-    focus_id integer NOT NULL,
-    issue_id text NOT NULL,
+    focus_id integer CONSTRAINT zdx_theme_blockers_theme_id_not_null NOT NULL,
+    issue_id text CONSTRAINT zdx_theme_blockers_issue_id_not_null NOT NULL,
     justification text DEFAULT ''::text NOT NULL
 );
 
@@ -1170,13 +1170,13 @@ CREATE TABLE public.zdx_focus_features (
 --
 
 CREATE TABLE public.zdx_focuses (
-    id integer NOT NULL,
-    project_id integer NOT NULL,
-    name text NOT NULL,
-    description text DEFAULT ''::text NOT NULL,
-    priority integer DEFAULT 2 NOT NULL,
-    status text DEFAULT 'active'::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    id integer CONSTRAINT zdx_themes_id_not_null NOT NULL,
+    project_id integer CONSTRAINT zdx_themes_project_id_not_null NOT NULL,
+    name text CONSTRAINT zdx_themes_name_not_null NOT NULL,
+    description text DEFAULT ''::text CONSTRAINT zdx_themes_description_not_null NOT NULL,
+    priority integer DEFAULT 2 CONSTRAINT zdx_themes_priority_not_null NOT NULL,
+    status text DEFAULT 'active'::text CONSTRAINT zdx_themes_status_not_null NOT NULL,
+    created_at timestamp with time zone DEFAULT now() CONSTRAINT zdx_themes_created_at_not_null NOT NULL,
     started_at timestamp with time zone,
     ended_at timestamp with time zone
 );
@@ -1217,8 +1217,8 @@ CREATE TABLE public.zdx_goal_issues (
 --
 
 CREATE TABLE public.zdx_id_seq (
-    kind text NOT NULL,
-    next_val integer DEFAULT 1 NOT NULL
+    kind text CONSTRAINT zdx_id_seq_kind_not_null1 NOT NULL,
+    next_val integer DEFAULT 1 CONSTRAINT zdx_id_seq_next_val_not_null1 NOT NULL
 );
 
 
@@ -1478,7 +1478,8 @@ CREATE TABLE public.zdx_issues (
     close_reason text DEFAULT ''::text NOT NULL,
     node_ref text,
     completed_in_sha text,
-    closed_dirty boolean
+    closed_dirty boolean,
+    env_id integer
 );
 
 
@@ -2099,7 +2100,8 @@ CREATE TABLE public.zdx_projects (
     git_enabled boolean DEFAULT false NOT NULL,
     title text DEFAULT ''::text NOT NULL,
     description text DEFAULT ''::text NOT NULL,
-    priority integer DEFAULT 5 NOT NULL
+    priority integer DEFAULT 5 NOT NULL,
+    default_env_id integer
 );
 
 
@@ -2513,7 +2515,7 @@ CREATE TABLE public.zdx_specs (
     id integer NOT NULL,
     feature_id integer NOT NULL,
     description text NOT NULL,
-    importance text DEFAULT 'must'::text NOT NULL
+    importance text DEFAULT 'must'::text CONSTRAINT zdx_specs_kind_not_null NOT NULL
 );
 
 
@@ -5251,6 +5253,13 @@ CREATE INDEX zdx_integration_token_project ON public.zdx_integration_token USING
 
 
 --
+-- Name: zdx_issues_env_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_issues_env_id_idx ON public.zdx_issues USING btree (env_id) WHERE (env_id IS NOT NULL);
+
+
+--
 -- Name: zdx_issues_node_ref_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5925,6 +5934,14 @@ ALTER TABLE ONLY public.zdx_issue_work
 
 
 --
+-- Name: zdx_issues zdx_issues_env_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_issues
+    ADD CONSTRAINT zdx_issues_env_id_fkey FOREIGN KEY (env_id) REFERENCES public.zdx_environments(id) ON DELETE SET NULL;
+
+
+--
 -- Name: zdx_issues zdx_issues_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6114,6 +6131,14 @@ ALTER TABLE ONLY public.zdx_project_permissions
 
 ALTER TABLE ONLY public.zdx_project_permissions
     ADD CONSTRAINT zdx_project_permissions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.zdx_users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_projects zdx_projects_default_env_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_projects
+    ADD CONSTRAINT zdx_projects_default_env_id_fkey FOREIGN KEY (default_env_id) REFERENCES public.zdx_environments(id) ON DELETE SET NULL;
 
 
 --

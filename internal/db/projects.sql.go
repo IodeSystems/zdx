@@ -41,7 +41,7 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (C
 }
 
 const getProjectByID = `-- name: GetProjectByID :one
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects WHERE id = $1
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority, default_env_id FROM zdx_projects WHERE id = $1
 `
 
 func (q *Queries) GetProjectByID(ctx context.Context, id int32) (ZdxProject, error) {
@@ -63,12 +63,13 @@ func (q *Queries) GetProjectByID(ctx context.Context, id int32) (ZdxProject, err
 		&i.Title,
 		&i.Description,
 		&i.Priority,
+		&i.DefaultEnvID,
 	)
 	return i, err
 }
 
 const getProjectBySlug = `-- name: GetProjectBySlug :one
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects WHERE slug = $1
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority, default_env_id FROM zdx_projects WHERE slug = $1
 `
 
 func (q *Queries) GetProjectBySlug(ctx context.Context, slug string) (ZdxProject, error) {
@@ -90,6 +91,7 @@ func (q *Queries) GetProjectBySlug(ctx context.Context, slug string) (ZdxProject
 		&i.Title,
 		&i.Description,
 		&i.Priority,
+		&i.DefaultEnvID,
 	)
 	return i, err
 }
@@ -141,7 +143,7 @@ func (q *Queries) GetProjectProxyConfig(ctx context.Context, slug string) (GetPr
 }
 
 const listProjects = `-- name: ListProjects :many
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects ORDER BY name
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority, default_env_id FROM zdx_projects ORDER BY name
 `
 
 func (q *Queries) ListProjects(ctx context.Context) ([]ZdxProject, error) {
@@ -169,6 +171,7 @@ func (q *Queries) ListProjects(ctx context.Context) ([]ZdxProject, error) {
 			&i.Title,
 			&i.Description,
 			&i.Priority,
+			&i.DefaultEnvID,
 		); err != nil {
 			return nil, err
 		}
@@ -181,7 +184,7 @@ func (q *Queries) ListProjects(ctx context.Context) ([]ZdxProject, error) {
 }
 
 const listProjectsByPriority = `-- name: ListProjectsByPriority :many
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority FROM zdx_projects ORDER BY priority, name
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description, priority, default_env_id FROM zdx_projects ORDER BY priority, name
 `
 
 // Used by the cross-project claim path so generateAgentQueue runs first
@@ -212,6 +215,7 @@ func (q *Queries) ListProjectsByPriority(ctx context.Context) ([]ZdxProject, err
 			&i.Title,
 			&i.Description,
 			&i.Priority,
+			&i.DefaultEnvID,
 		); err != nil {
 			return nil, err
 		}
@@ -234,6 +238,22 @@ func (q *Queries) NextID(ctx context.Context, kind string) (int32, error) {
 	var val int32
 	err := row.Scan(&val)
 	return val, err
+}
+
+const setProjectDefaultEnv = `-- name: SetProjectDefaultEnv :exec
+UPDATE zdx_projects SET default_env_id = $1::int WHERE slug = $2
+`
+
+type SetProjectDefaultEnvParams struct {
+	EnvID pgtype.Int4 `db:"env_id" json:"env_id"`
+	Slug  string      `db:"slug" json:"slug"`
+}
+
+// TK-1801: per-project fallback for the (trunk_branch, release_branch)
+// resolver. NULL clears the default so the resolver returns no row.
+func (q *Queries) SetProjectDefaultEnv(ctx context.Context, arg SetProjectDefaultEnvParams) error {
+	_, err := q.db.Exec(ctx, setProjectDefaultEnv, arg.EnvID, arg.Slug)
+	return err
 }
 
 const setProjectGitConfig = `-- name: SetProjectGitConfig :exec

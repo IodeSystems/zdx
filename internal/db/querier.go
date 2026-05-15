@@ -752,6 +752,10 @@ type Querier interface {
 	// operator can pass either the UUID-shaped session_id or the agent alias
 	// without having to know which they have.
 	ResolveClaudeSession(ctx context.Context, arg ResolveClaudeSessionParams) (ResolveClaudeSessionRow, error)
+	// TK-1801: resolve (env_name, trunk_branch, release_branch) for an issue.
+	// Falls back from issue.env_id → project.default_env_id. Returns no rows
+	// when neither is set so the handler can fail closed with 422.
+	ResolveIssueBranches(ctx context.Context, arg ResolveIssueBranchesParams) (ResolveIssueBranchesRow, error)
 	ResolveTodo(ctx context.Context, arg ResolveTodoParams) error
 	ResolveTodoByID(ctx context.Context, id int32) error
 	ResolveTodosNotInKeys(ctx context.Context, arg ResolveTodosNotInKeysParams) error
@@ -777,9 +781,14 @@ type Querier interface {
 	// writes it directly, but project-scoped RegisterAgent doesn't).
 	SetAgentIdle(ctx context.Context, arg SetAgentIdleParams) error
 	SetEventVerdict(ctx context.Context, arg SetEventVerdictParams) (ZdxEvent, error)
+	// TK-1801: set the env_id FK on an issue. NULL clears the assignment.
+	SetIssueEnv(ctx context.Context, arg SetIssueEnvParams) error
 	SetIssueField(ctx context.Context, arg SetIssueFieldParams) error
 	SetIssuePriority(ctx context.Context, arg SetIssuePriorityParams) error
 	SetProjectClassification(ctx context.Context, arg SetProjectClassificationParams) error
+	// TK-1801: per-project fallback for the (trunk_branch, release_branch)
+	// resolver. NULL clears the default so the resolver returns no row.
+	SetProjectDefaultEnv(ctx context.Context, arg SetProjectDefaultEnvParams) error
 	SetProjectGitConfig(ctx context.Context, arg SetProjectGitConfigParams) error
 	SetProjectPriority(ctx context.Context, arg SetProjectPriorityParams) error
 	SetProjectProxyConfig(ctx context.Context, arg SetProjectProxyConfigParams) error

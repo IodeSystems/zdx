@@ -2902,6 +2902,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/projects/{slug}/issues/{id}/branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["resolve-issue-branches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/projects/{slug}/issues/{id}/claim": {
         parameters: {
             query?: never;
@@ -7409,6 +7425,8 @@ export interface components {
             readonly $schema?: string;
             component?: string;
             context?: string;
+            /** @description Name of the zdx_environments row this issue belongs to. Sets env_id on the issue; empty string clears. TK-1801. */
+            env_name?: string;
             /** Format: int32 */
             id: number;
             issue_type?: string;
@@ -8102,6 +8120,19 @@ export interface components {
             kind?: string;
             /** @description Current status of the blocking issue (open, closed, ...) */
             status: string;
+        };
+        IssueBranchesItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/IssueBranchesItem.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            env_id: number;
+            env_name: string;
+            release_branch: string;
+            trunk_branch: string;
         };
         IssueIntIDInput: {
             /**
@@ -18358,6 +18389,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TodoItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "resolve-issue-branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                /** @description Issue ref formatted as IS-N */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueBranchesItem"];
                 };
             };
             /** @description Error */
