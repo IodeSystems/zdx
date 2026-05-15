@@ -24,6 +24,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/llm"
 	"github.com/iodesystems/zdx-go/internal/server/agentconn"
 	"github.com/iodesystems/zdx-go/internal/server/budgetwatch"
+	"github.com/iodesystems/zdx-go/internal/server/envagentconn"
 	"github.com/iodesystems/zdx-go/internal/server/handlers"
 	"github.com/iodesystems/zdx-go/internal/ws"
 	"github.com/iodesystems/zdx-go/pkg/zdxclient"
@@ -36,6 +37,7 @@ type Server struct {
 	buildSHA                string
 	zdxProjectSlug          string
 	agentRegistry           *agentconn.Registry
+	envAgentRegistry        *envagentconn.Registry
 	uploadsDir              string
 	reposDir                string
 	slot                    string // "current", "next", or "" (dev); controls WS endpoint registration
@@ -129,6 +131,7 @@ func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Serve
 				log.Printf("agent disconnect: mark disconnected %s: %v", agentID, err)
 			}
 		}),
+		envAgentRegistry: envagentconn.New(),
 	}
 
 	// Load LLM config eagerly so embedder is ready on first request.
@@ -154,6 +157,7 @@ func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Serve
 	s.registerPromIngestRoutes(s.api)
 	s.registerWSRoutes(s.api)
 	s.mux.Get("/api/agents/connect", h.HandleAgentConnect(s.agentRegistry))
+	s.mux.Get("/api/dx/env-agents/connect", h.HandleEnvAgentConnect(s.envAgentRegistry, s.q))
 	s.mux.Get("/api/dx/log-events/stream", h.HandleLogStream())
 	s.mux.Get("/api/dx/agent/audit/stream", h.HandleAgentAuditStream())
 
