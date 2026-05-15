@@ -138,6 +138,7 @@ type Deps struct {
 	AgentDisconnectGraceSec int
 	TodoIncompleteStore     TodoIncompleteStore
 	AdminTokenStore         AdminTokenStore
+	DeployRequestStore      DeployRequestStore
 }
 
 type Handler struct {
