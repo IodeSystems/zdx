@@ -474,6 +474,54 @@ func (e *embedder) TopNSpecs(ctx context.Context, projectID int32, queryText str
 	return results, err
 }
 
+func (e *embedder) churnHintIndexPath(projectID int32) string {
+	return filepath.Join(e.dataDir, fmt.Sprintf("churn-hints-%d.zvec", projectID))
+}
+
+func (e *embedder) UpsertChurnHint(ctx context.Context, projectID int32, hintID int32, hintText string) {
+	vec, err := e.embed(ctx, hintText)
+	if err != nil {
+		log.Printf("embedder: embed churn hint %d: %v", hintID, err)
+		return
+	}
+	if vec == nil {
+		return
+	}
+	path := e.churnHintIndexPath(projectID)
+	start := time.Now()
+	idx, err := e.loadOrCreate(path, len(vec))
+	if err != nil {
+		log.Printf("embedder: open churn hint index %s: %v", path, err)
+		return
+	}
+	if err := idx.Upsert(path, uint64(hintID), vec); err != nil { //nolint:gosec
+		log.Printf("embedder: upsert churn hint %d: %v", hintID, err)
+	}
+	e.sink.track(ctx, "zvec:upsert-churn-hint", start)
+}
+
+func (e *embedder) TopNChurnHints(ctx context.Context, projectID int32, queryText string, n int) ([]zvec.SearchResult, error) {
+	vec, err := e.embed(ctx, queryText)
+	if err != nil {
+		return nil, fmt.Errorf("embed query: %w", err)
+	}
+	if vec == nil {
+		return nil, nil
+	}
+	path := e.churnHintIndexPath(projectID)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, nil
+	}
+	start := time.Now()
+	idx, err := zvec.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open churn hint index: %w", err)
+	}
+	results, err := idx.TopN(vec, n)
+	e.sink.track(ctx, "zvec:search-churn-hints", start)
+	return results, err
+}
+
 // issueNumericID converts "IS-42" → 42.
 func issueNumericID(id string) uint64 {
 	s := strings.TrimPrefix(id, "IS-")
