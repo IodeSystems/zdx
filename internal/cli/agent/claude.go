@@ -312,6 +312,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 	sessionIdx := 0
 	consecutiveChurns := 0
 	lastChurnTodoKey := ""
+	tightLoop := newTightLoopDetector(5, 60*time.Second)
 	for {
 		if ctx.Err() != nil {
 			return nil
@@ -385,8 +386,33 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 			"resume_issue_id", takeCfg.ResumeIssueID,
 			"resume_sid", takeCfg.ResumeSID)
 
+		iterationStart := time.Now()
 		result := Take(ctx, takeCfg)
 		sessionIdx++
+
+		// Defense-in-depth tight-loop guard (TK-1836 / IS-1234): a real
+		// session resets the window; otherwise feed the iteration start
+		// timestamp so we can detect the loop spinning faster than its
+		// declared idle interval and back off exponentially, regardless
+		// of which downstream code path is mis-pacing it.
+		if result.Success || result.TodoKey != "" {
+			tightLoop.reset()
+		} else if backoff := tightLoop.record(iterationStart); backoff > 0 {
+			log("tight-loop detected: %d iterations in <%s; backing off %s",
+				tightLoop.capacity,
+				tightLoop.span.Truncate(time.Second),
+				backoff.Truncate(time.Second))
+			emit("loop.tight_loop_detected",
+				"iteration_id", iterationID,
+				"iterations", tightLoop.capacity,
+				"span_seconds", int(tightLoop.span.Seconds()),
+				"backoff_seconds", int(backoff.Seconds()))
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(backoff):
+			}
+		}
 
 		// Handle idle (no work available).
 		if errors.Is(result.Err, ErrNoWork) {
