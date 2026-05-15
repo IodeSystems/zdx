@@ -144,6 +144,33 @@ func TestDevResolveBackportSyncClean(t *testing.T) {
 			t.Errorf("backport task for %q: want=%v got=%v (tasks=%+v)",
 				targetBranch, wantTaskForTarget, hasTarget, resp.Tasks)
 		}
+
+		// Sync-todo assertion: clean sync → one open `branch-sync` todo
+		// keyed by (source → target). Diverged sync → no such todo (the
+		// backport task carries the operator instruction instead).
+		var todoCheck struct {
+			Key    string `json:"key"`
+			Status string `json:"status"`
+		}
+		wantSyncTodo := !divergeTarget
+		expectedKey := fmt.Sprintf("branch-sync:dev:%s", targetBranch)
+		ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel2()
+		conn2, err := pgx.Connect(ctx2, srv.DSN)
+		if err != nil {
+			t.Fatalf("pgx connect (sync todo check): %v", err)
+		}
+		defer conn2.Close(ctx2)
+		err = conn2.QueryRow(ctx2,
+			`SELECT key, status FROM zdx_todos
+			 WHERE project_id = (SELECT id FROM zdx_projects WHERE slug = $1)
+			   AND key = $2`,
+			slug, expectedKey).Scan(&todoCheck.Key, &todoCheck.Status)
+		gotSyncTodo := err == nil && todoCheck.Key == expectedKey
+		if gotSyncTodo != wantSyncTodo {
+			t.Errorf("branch-sync todo for %q: want=%v got=%v (err=%v key=%q)",
+				expectedKey, wantSyncTodo, gotSyncTodo, err, todoCheck.Key)
+		}
 	}
 
 	t.Run("clean_sync_skips_backport_task", func(t *testing.T) {

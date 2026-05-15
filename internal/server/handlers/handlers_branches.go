@@ -79,8 +79,11 @@ func (h *Handler) createBackportTask(ctx context.Context, projectID int32, proje
 	// resolution to target — no manual backport task needed. Only kicks in
 	// when the project has a git config and both branches are reachable
 	// from origin. Failures of the git check fall through to create the
-	// task (conservative).
+	// task (conservative). Emits a single open `branch-sync` todo per
+	// (source, target) so the operator has a visible reminder to push the
+	// ff-merge — mirrors maybeQueueReleaseSyncs (handlers_environments.go).
 	if clean, ok := h.canBackportSyncClean(ctx, projectSlug, sourceBranch, targetBranch); ok && clean {
+		h.ensureBranchSyncTodo(ctx, projectID, sourceBranch, targetBranch)
 		return "", false, nil
 	}
 	id, err := h.Q.NextTaskID(ctx)
@@ -102,6 +105,41 @@ func (h *Handler) createBackportTask(ctx context.Context, projectID int32, proje
 		return "", false, err
 	}
 	return id, true, nil
+}
+
+// ensureBranchSyncTodo creates (idempotently, via the unique key) a single
+// open `branch-sync` todo per (source → target) pair. Mirrors
+// maybeQueueReleaseSyncs (handlers_environments.go) so dev → named-release
+// gets the same operator-visible reminder as main → env-release-branch.
+// Failures are swallowed: the todo is a UX nicety, not a correctness gate.
+func (h *Handler) ensureBranchSyncTodo(ctx context.Context, projectID int32, sourceBranch, targetBranch string) {
+	if sourceBranch == "" || targetBranch == "" || sourceBranch == targetBranch {
+		return
+	}
+	key := fmt.Sprintf("branch-sync:%s:%s", sourceBranch, targetBranch)
+	title := fmt.Sprintf("Sync %s → %s", sourceBranch, targetBranch)
+	text := fmt.Sprintf(
+		"%s is an ancestor of %s — resolutions on %s will land on %s via a clean fast-forward merge. Run:\n"+
+			"1. git fetch origin && git checkout %s && git merge --ff-only origin/%s\n"+
+			"2. git push origin %s\n"+
+			"3. If fast-forward fails (diverged), file an issue describing the conflict.\n"+
+			"\nThis was auto-created when the IS-825 backport trigger detected a clean sync.",
+		targetBranch, sourceBranch, sourceBranch, targetBranch,
+		targetBranch, sourceBranch, targetBranch,
+	)
+	_, _ = h.Q.CreateTodo(ctx, db.CreateTodoParams{
+		ProjectID:  projectID,
+		Key:        key,
+		Title:      title,
+		Text:       text,
+		Kind:       "sync",
+		TargetType: "branch",
+		TargetID:   targetBranch,
+		Priority:   3,
+		Status:     "open",
+		Persona:    "agent",
+		Source:     "",
+	})
 }
 
 // canBackportSyncClean reports whether sourceBranch can be cleanly fast-
