@@ -28,6 +28,7 @@ func ShipCmd() *cobra.Command {
 	cmd.AddCommand(shipRunCmd())
 	cmd.AddCommand(shipCompatCheckCmd())
 	cmd.AddCommand(shipMigratePreflightCmd())
+	cmd.AddCommand(shipBuildKeyCmd())
 	return cmd
 }
 

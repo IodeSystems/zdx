@@ -13,6 +13,7 @@ schema/next.sql
 schema/compat-result.txt
 .zdx/credentials
 .zdx/ingest-token
+.zdx/build-key.pem
 data/
 .zdx/context
 .zdx/smoke.json
