@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -63,6 +64,14 @@ func GitEnv() []string {
 // gitURL may embed a token: https://<token>@github.com/org/repo.git
 func EnsureRepo(dir, gitURL, branch string) error {
 	if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+		// Keep origin in sync with the configured URL. Project git config
+		// can change (token rotation, new remote, test runs) but the local
+		// clone retains its original `origin` URL — without this update the
+		// next fetch would silently target a stale remote, leading to
+		// audit/snapshot misses against the new source of truth.
+		setURL := exec.Command("git", "-C", dir, "remote", "set-url", "origin", gitURL)
+		setURL.Env = GitEnv()
+		_ = setURL.Run()
 		cmd := exec.Command("git", "-C", dir, "fetch", "--prune", "origin")
 		cmd.Env = GitEnv()
 		if out, err := cmd.CombinedOutput(); err != nil {
@@ -114,6 +123,38 @@ func hashExists(dir, ref string) bool {
 	cmd := exec.Command("git", "-C", dir, "cat-file", "-e", ref)
 	cmd.Env = GitEnv()
 	return cmd.Run() == nil
+}
+
+// commitMessage returns the full message (subject + body + trailers) of the
+// given sha. Empty string on failure.
+func commitMessage(dir, sha string) string {
+	cmd := exec.Command("git", "-C", dir, "show", "-s", "--format=%B", sha)
+	cmd.Env = GitEnv()
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return string(out)
+}
+
+// commitReferencesIssue reports whether the commit message references issueID
+// (e.g. "IS-1083") in a recognized location: subject prefix ("IS-N:", "(IS-N)",
+// "[IS-N]"), a body line containing IS-N, or an "Issue:" trailer naming it.
+// Matching is case-insensitive on the prefix; the numeric tail is exact.
+func commitReferencesIssue(message, issueID string) bool {
+	if message == "" || issueID == "" {
+		return false
+	}
+	target := strings.ToUpper(strings.TrimSpace(issueID))
+	lines := strings.Split(message, "\n")
+	if len(lines) == 0 {
+		return false
+	}
+	// Whole-message word-boundary check first — the impl direction in
+	// IS-1083 names "body line containing IS-N" so any IS-N occurrence in
+	// the message (outside a longer identifier) is sufficient.
+	re := regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(target) + `\b`)
+	return re.MatchString(message)
 }
 
 // ReadSnippet returns the contents of path at commit hash, windowed to a line

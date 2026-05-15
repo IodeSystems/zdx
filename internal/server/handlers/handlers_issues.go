@@ -633,6 +633,50 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			if in.Body.ClosedDirty != nil {
 				closedDirty = pgtype.Bool{Bool: *in.Body.ClosedDirty, Valid: true}
 			}
+			// IS-1083: when the operator asserts a completed_in_sha on a
+			// non-force "done" close, verify the commit (a) exists in the
+			// project repo and (b) actually references the issue ID in its
+			// title/body/trailers. Force closes bypass (the marker records
+			// that), categorical reasons (duplicate/wontfix/superseded/link)
+			// have no sha. The audit only fires when a project git repo is
+			// configured — otherwise we have no way to resolve the sha and
+			// the field is recorded unverified as before (preserves pre-
+			// IS-1062 behavior for projects without a git config).
+			if completedInSha.Valid && !force && (reason == "done" || reason == "") && h.Features.HasProjectGitConfig {
+				sha := completedInSha.String
+				if gitRow, gErr := h.Q.GetProjectGitConfig(ctx, in.Body.Slug); gErr == nil && gitRow.GitUrl != "" {
+					gitURL := gitRow.GitUrl
+					if gitRow.GitToken != "" && strings.HasPrefix(gitURL, "https://") {
+						gitURL = "https://" + gitRow.GitToken + "@" + strings.TrimPrefix(gitURL, "https://")
+					}
+					branch := gitRow.GitBranch
+					if branch == "" {
+						branch = "main"
+					}
+					repoDir := h.Reconciler.RepoDir(in.Body.Slug)
+					// Best-effort clone/refresh; failures fall through to the
+					// hashExists check, which returns 409 if the sha can't be
+					// resolved locally.
+					_ = EnsureRepo(repoDir, gitURL, branch)
+					if !hashExists(repoDir, sha+"^{commit}") {
+						// One more attempt: targeted fetch of the specific
+						// sha (matches ReadSnippet's pattern). GitHub
+						// rejects this, so we follow with a full fetch.
+						if HasRepo(repoDir) {
+							fetch := exec.Command("git", "-C", repoDir, "fetch", "--no-tags", "origin", sha)
+							fetch.Env = GitEnv()
+							_ = fetch.Run()
+						}
+					}
+					if !hashExists(repoDir, sha+"^{commit}") {
+						return nil, apiErr(409, "completed_in_sha "+sha+" not found in repo for project "+in.Body.Slug+" — push the commit, or pass --force to override")
+					}
+					msg := commitMessage(repoDir, sha)
+					if !commitReferencesIssue(msg, issueID) {
+						return nil, apiErr(409, "commit "+sha+" does not reference "+issueID+" in title/body/trailers — amend the commit to include \""+issueID+"\" in the subject/body or as an \"Issue: "+issueID+"\" trailer, or pass --force to override")
+					}
+				}
+			}
 			if err := h.Q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID, DuplicateOf: duplicateOf, LinkOf: linkOf, CloseReason: closeReason, ForceCloseReason: forceCloseReason, CompletedInSha: completedInSha, ClosedDirty: closedDirty}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
