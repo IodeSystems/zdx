@@ -239,6 +239,22 @@ type ZdxDeploy struct {
 	Log              string             `db:"log" json:"log"`
 }
 
+type ZdxDeployRequest struct {
+	ID                 int32              `db:"id" json:"id"`
+	EnvID              int32              `db:"env_id" json:"env_id"`
+	CommitSha          string             `db:"commit_sha" json:"commit_sha"`
+	RequestedByUserID  pgtype.Int4        `db:"requested_by_user_id" json:"requested_by_user_id"`
+	RequestedByTokenID pgtype.Int4        `db:"requested_by_token_id" json:"requested_by_token_id"`
+	Reason             string             `db:"reason" json:"reason"`
+	BlockingIssueID    pgtype.Text        `db:"blocking_issue_id" json:"blocking_issue_id"`
+	Status             string             `db:"status" json:"status"`
+	AcceptedAt         pgtype.Timestamptz `db:"accepted_at" json:"accepted_at"`
+	CompletedAt        pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	FailureText        string             `db:"failure_text" json:"failure_text"`
+	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type ZdxDiscussion struct {
 	ID              int32              `db:"id" json:"id"`
 	ProjectID       int32              `db:"project_id" json:"project_id"`
@@ -277,6 +293,30 @@ type ZdxEdge struct {
 	Label      string             `db:"label" json:"label"`
 	Weight     int32              `db:"weight" json:"weight"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type ZdxEnvAgent struct {
+	ID              int32              `db:"id" json:"id"`
+	EnvID           int32              `db:"env_id" json:"env_id"`
+	AgentID         string             `db:"agent_id" json:"agent_id"`
+	Hostname        string             `db:"hostname" json:"hostname"`
+	Version         string             `db:"version" json:"version"`
+	Os              string             `db:"os" json:"os"`
+	DeployedCommit  string             `db:"deployed_commit" json:"deployed_commit"`
+	UptimeSecs      int64              `db:"uptime_secs" json:"uptime_secs"`
+	ConnectedAt     pgtype.Timestamptz `db:"connected_at" json:"connected_at"`
+	LastHeartbeatAt pgtype.Timestamptz `db:"last_heartbeat_at" json:"last_heartbeat_at"`
+}
+
+type ZdxEnvAgentToken struct {
+	ID         int32              `db:"id" json:"id"`
+	EnvID      int32              `db:"env_id" json:"env_id"`
+	TokenHash  string             `db:"token_hash" json:"token_hash"`
+	Scopes     []string           `db:"scopes" json:"scopes"`
+	Name       string             `db:"name" json:"name"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	LastUsedAt pgtype.Timestamptz `db:"last_used_at" json:"last_used_at"`
+	RevokedAt  pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
 }
 
 type ZdxEnvironment struct {
@@ -452,28 +492,29 @@ type ZdxInvite struct {
 }
 
 type ZdxIssue struct {
-	ID             string             `db:"id" json:"id"`
-	ProjectID      int32              `db:"project_id" json:"project_id"`
-	Title          string             `db:"title" json:"title"`
-	Status         string             `db:"status" json:"status"`
-	Priority       string             `db:"priority" json:"priority"`
-	Component      string             `db:"component" json:"component"`
-	Context        string             `db:"context" json:"context"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	IssueType      string             `db:"issue_type" json:"issue_type"`
-	DuplicateOf    string             `db:"duplicate_of" json:"duplicate_of"`
-	Url            string             `db:"url" json:"url"`
-	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	SourceErrorID  pgtype.Int8        `db:"source_error_id" json:"source_error_id"`
-	LinkOf         string             `db:"link_of" json:"link_of"`
-	ReopenCount    int32              `db:"reopen_count" json:"reopen_count"`
-	ClosedAt       pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
-	TargetBranch   string             `db:"target_branch" json:"target_branch"`
-	CloseReason    string             `db:"close_reason" json:"close_reason"`
-	NodeRef        pgtype.Text        `db:"node_ref" json:"node_ref"`
-	CompletedInSha pgtype.Text        `db:"completed_in_sha" json:"completed_in_sha"`
-	ClosedDirty    pgtype.Bool        `db:"closed_dirty" json:"closed_dirty"`
-	EnvID          pgtype.Int4        `db:"env_id" json:"env_id"`
+	ID               string             `db:"id" json:"id"`
+	ProjectID        int32              `db:"project_id" json:"project_id"`
+	Title            string             `db:"title" json:"title"`
+	Status           string             `db:"status" json:"status"`
+	Priority         string             `db:"priority" json:"priority"`
+	Component        string             `db:"component" json:"component"`
+	Context          string             `db:"context" json:"context"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	IssueType        string             `db:"issue_type" json:"issue_type"`
+	DuplicateOf      string             `db:"duplicate_of" json:"duplicate_of"`
+	Url              string             `db:"url" json:"url"`
+	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	SourceErrorID    pgtype.Int8        `db:"source_error_id" json:"source_error_id"`
+	LinkOf           string             `db:"link_of" json:"link_of"`
+	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
+	ClosedAt         pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	TargetBranch     string             `db:"target_branch" json:"target_branch"`
+	CloseReason      string             `db:"close_reason" json:"close_reason"`
+	NodeRef          pgtype.Text        `db:"node_ref" json:"node_ref"`
+	CompletedInSha   pgtype.Text        `db:"completed_in_sha" json:"completed_in_sha"`
+	ClosedDirty      pgtype.Bool        `db:"closed_dirty" json:"closed_dirty"`
+	EnvID            pgtype.Int4        `db:"env_id" json:"env_id"`
+	ForceCloseReason pgtype.Text        `db:"force_close_reason" json:"force_close_reason"`
 }
 
 type ZdxIssueBlock struct {

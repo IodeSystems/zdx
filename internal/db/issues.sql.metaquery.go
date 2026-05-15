@@ -38,25 +38,27 @@ SET status = 'closed',
     duplicate_of = $1,
     link_of = $2,
     close_reason = $3,
-    completed_in_sha = $4::text,
-    closed_dirty = $5::boolean,
+    force_close_reason = $4::text,
+    completed_in_sha = $5::text,
+    closed_dirty = $6::boolean,
     closed_at = NOW(),
     updated_at = NOW()
-WHERE project_id = $6 AND id = $7`,
+WHERE project_id = $7 AND id = $8`,
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "duplicate_of", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 2, Name: "link_of", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 3, Name: "close_reason", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 4, Name: "completed_in_sha", GoType: "pgtype.Text", DBType: "text"},
-		{Position: 5, Name: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool"},
-		{Position: 6, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
-		{Position: 7, Name: "id", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 4, Name: "force_close_reason", GoType: "pgtype.Text", DBType: "text"},
+		{Position: 5, Name: "completed_in_sha", GoType: "pgtype.Text", DBType: "text"},
+		{Position: 6, Name: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool"},
+		{Position: 7, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 8, Name: "id", GoType: "string", DBType: "text", NotNull: true},
 	},
 }
 
 // WrapCloseIssue returns a metaquery.Builder over MetaCloseIssue, pre-bound with typed arguments.
 func WrapCloseIssue(arg CloseIssueParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaCloseIssue, arg.DuplicateOf, arg.LinkOf, arg.CloseReason, arg.CompletedInSha, arg.ClosedDirty, arg.ProjectID, arg.ID)
+	return metaquery.Wrap(&MetaCloseIssue, arg.DuplicateOf, arg.LinkOf, arg.CloseReason, arg.ForceCloseReason, arg.CompletedInSha, arg.ClosedDirty, arg.ProjectID, arg.ID)
 }
 
 var MetaCountOpenIssuesByTitle = metaquery.Query{
@@ -116,7 +118,7 @@ var MetaCreateIssue = metaquery.Query{
 	Source: "issues.sql",
 	SQL: `INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url, source_error_id, node_ref)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id`,
+RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id, force_close_reason`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_issues"},
@@ -140,6 +142,7 @@ RETURNING id, project_id, title, status, priority, component, context, created_a
 		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
 		{Name: "env_id", OriginalName: "env_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_issues"},
+		{Name: "force_close_reason", OriginalName: "force_close_reason", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "id", GoType: "string", DBType: "text", NotNull: true},
@@ -164,51 +167,53 @@ func WrapCreateIssue(arg CreateIssueParams) *metaquery.Builder {
 
 // CreateIssueCols gives typed, name-safe access to CreateIssue's output columns.
 var CreateIssueCols = struct {
-	ID             metaquery.TextCol
-	ProjectID      metaquery.IntCol
-	Title          metaquery.TextCol
-	Status         metaquery.TextCol
-	Priority       metaquery.TextCol
-	Component      metaquery.TextCol
-	Context        metaquery.TextCol
-	CreatedAt      metaquery.TimeCol
-	IssueType      metaquery.TextCol
-	DuplicateOf    metaquery.TextCol
-	Url            metaquery.TextCol
-	UpdatedAt      metaquery.TimeCol
-	SourceErrorID  metaquery.IntCol
-	LinkOf         metaquery.TextCol
-	ReopenCount    metaquery.IntCol
-	ClosedAt       metaquery.TimeCol
-	TargetBranch   metaquery.TextCol
-	CloseReason    metaquery.TextCol
-	NodeRef        metaquery.TextCol
-	CompletedInSha metaquery.TextCol
-	ClosedDirty    metaquery.BoolCol
-	EnvID          metaquery.IntCol
+	ID               metaquery.TextCol
+	ProjectID        metaquery.IntCol
+	Title            metaquery.TextCol
+	Status           metaquery.TextCol
+	Priority         metaquery.TextCol
+	Component        metaquery.TextCol
+	Context          metaquery.TextCol
+	CreatedAt        metaquery.TimeCol
+	IssueType        metaquery.TextCol
+	DuplicateOf      metaquery.TextCol
+	Url              metaquery.TextCol
+	UpdatedAt        metaquery.TimeCol
+	SourceErrorID    metaquery.IntCol
+	LinkOf           metaquery.TextCol
+	ReopenCount      metaquery.IntCol
+	ClosedAt         metaquery.TimeCol
+	TargetBranch     metaquery.TextCol
+	CloseReason      metaquery.TextCol
+	NodeRef          metaquery.TextCol
+	CompletedInSha   metaquery.TextCol
+	ClosedDirty      metaquery.BoolCol
+	EnvID            metaquery.IntCol
+	ForceCloseReason metaquery.TextCol
 }{
-	ID:             metaquery.NewTextCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	Title:          metaquery.NewTextCol("title"),
-	Status:         metaquery.NewTextCol("status"),
-	Priority:       metaquery.NewTextCol("priority"),
-	Component:      metaquery.NewTextCol("component"),
-	Context:        metaquery.NewTextCol("context"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	IssueType:      metaquery.NewTextCol("issue_type"),
-	DuplicateOf:    metaquery.NewTextCol("duplicate_of"),
-	Url:            metaquery.NewTextCol("url"),
-	UpdatedAt:      metaquery.NewTimeCol("updated_at"),
-	SourceErrorID:  metaquery.NewIntCol("source_error_id"),
-	LinkOf:         metaquery.NewTextCol("link_of"),
-	ReopenCount:    metaquery.NewIntCol("reopen_count"),
-	ClosedAt:       metaquery.NewTimeCol("closed_at"),
-	TargetBranch:   metaquery.NewTextCol("target_branch"),
-	CloseReason:    metaquery.NewTextCol("close_reason"),
-	NodeRef:        metaquery.NewTextCol("node_ref"),
-	CompletedInSha: metaquery.NewTextCol("completed_in_sha"),
-	ClosedDirty:    metaquery.NewBoolCol("closed_dirty"),
-	EnvID:          metaquery.NewIntCol("env_id"),
+	ID:               metaquery.NewTextCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Title:            metaquery.NewTextCol("title"),
+	Status:           metaquery.NewTextCol("status"),
+	Priority:         metaquery.NewTextCol("priority"),
+	Component:        metaquery.NewTextCol("component"),
+	Context:          metaquery.NewTextCol("context"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	IssueType:        metaquery.NewTextCol("issue_type"),
+	DuplicateOf:      metaquery.NewTextCol("duplicate_of"),
+	Url:              metaquery.NewTextCol("url"),
+	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
+	SourceErrorID:    metaquery.NewIntCol("source_error_id"),
+	LinkOf:           metaquery.NewTextCol("link_of"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClosedAt:         metaquery.NewTimeCol("closed_at"),
+	TargetBranch:     metaquery.NewTextCol("target_branch"),
+	CloseReason:      metaquery.NewTextCol("close_reason"),
+	NodeRef:          metaquery.NewTextCol("node_ref"),
+	CompletedInSha:   metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:      metaquery.NewBoolCol("closed_dirty"),
+	EnvID:            metaquery.NewIntCol("env_id"),
+	ForceCloseReason: metaquery.NewTextCol("force_close_reason"),
 }
 
 var MetaFindOpenIssueByTitle = metaquery.Query{
@@ -243,7 +248,7 @@ var MetaGetIssue = metaquery.Query{
 	Name:   "GetIssue",
 	Cmd:    ":one",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id, force_close_reason
 FROM zdx_issues WHERE project_id = $1 AND id = $2`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
@@ -268,6 +273,7 @@ FROM zdx_issues WHERE project_id = $1 AND id = $2`,
 		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
 		{Name: "env_id", OriginalName: "env_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_issues"},
+		{Name: "force_close_reason", OriginalName: "force_close_reason", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -282,58 +288,60 @@ func WrapGetIssue(arg GetIssueParams) *metaquery.Builder {
 
 // GetIssueCols gives typed, name-safe access to GetIssue's output columns.
 var GetIssueCols = struct {
-	ID             metaquery.TextCol
-	ProjectID      metaquery.IntCol
-	Title          metaquery.TextCol
-	Status         metaquery.TextCol
-	Priority       metaquery.TextCol
-	Component      metaquery.TextCol
-	Context        metaquery.TextCol
-	CreatedAt      metaquery.TimeCol
-	IssueType      metaquery.TextCol
-	DuplicateOf    metaquery.TextCol
-	Url            metaquery.TextCol
-	UpdatedAt      metaquery.TimeCol
-	SourceErrorID  metaquery.IntCol
-	LinkOf         metaquery.TextCol
-	ReopenCount    metaquery.IntCol
-	ClosedAt       metaquery.TimeCol
-	TargetBranch   metaquery.TextCol
-	CloseReason    metaquery.TextCol
-	NodeRef        metaquery.TextCol
-	CompletedInSha metaquery.TextCol
-	ClosedDirty    metaquery.BoolCol
-	EnvID          metaquery.IntCol
+	ID               metaquery.TextCol
+	ProjectID        metaquery.IntCol
+	Title            metaquery.TextCol
+	Status           metaquery.TextCol
+	Priority         metaquery.TextCol
+	Component        metaquery.TextCol
+	Context          metaquery.TextCol
+	CreatedAt        metaquery.TimeCol
+	IssueType        metaquery.TextCol
+	DuplicateOf      metaquery.TextCol
+	Url              metaquery.TextCol
+	UpdatedAt        metaquery.TimeCol
+	SourceErrorID    metaquery.IntCol
+	LinkOf           metaquery.TextCol
+	ReopenCount      metaquery.IntCol
+	ClosedAt         metaquery.TimeCol
+	TargetBranch     metaquery.TextCol
+	CloseReason      metaquery.TextCol
+	NodeRef          metaquery.TextCol
+	CompletedInSha   metaquery.TextCol
+	ClosedDirty      metaquery.BoolCol
+	EnvID            metaquery.IntCol
+	ForceCloseReason metaquery.TextCol
 }{
-	ID:             metaquery.NewTextCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	Title:          metaquery.NewTextCol("title"),
-	Status:         metaquery.NewTextCol("status"),
-	Priority:       metaquery.NewTextCol("priority"),
-	Component:      metaquery.NewTextCol("component"),
-	Context:        metaquery.NewTextCol("context"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	IssueType:      metaquery.NewTextCol("issue_type"),
-	DuplicateOf:    metaquery.NewTextCol("duplicate_of"),
-	Url:            metaquery.NewTextCol("url"),
-	UpdatedAt:      metaquery.NewTimeCol("updated_at"),
-	SourceErrorID:  metaquery.NewIntCol("source_error_id"),
-	LinkOf:         metaquery.NewTextCol("link_of"),
-	ReopenCount:    metaquery.NewIntCol("reopen_count"),
-	ClosedAt:       metaquery.NewTimeCol("closed_at"),
-	TargetBranch:   metaquery.NewTextCol("target_branch"),
-	CloseReason:    metaquery.NewTextCol("close_reason"),
-	NodeRef:        metaquery.NewTextCol("node_ref"),
-	CompletedInSha: metaquery.NewTextCol("completed_in_sha"),
-	ClosedDirty:    metaquery.NewBoolCol("closed_dirty"),
-	EnvID:          metaquery.NewIntCol("env_id"),
+	ID:               metaquery.NewTextCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Title:            metaquery.NewTextCol("title"),
+	Status:           metaquery.NewTextCol("status"),
+	Priority:         metaquery.NewTextCol("priority"),
+	Component:        metaquery.NewTextCol("component"),
+	Context:          metaquery.NewTextCol("context"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	IssueType:        metaquery.NewTextCol("issue_type"),
+	DuplicateOf:      metaquery.NewTextCol("duplicate_of"),
+	Url:              metaquery.NewTextCol("url"),
+	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
+	SourceErrorID:    metaquery.NewIntCol("source_error_id"),
+	LinkOf:           metaquery.NewTextCol("link_of"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClosedAt:         metaquery.NewTimeCol("closed_at"),
+	TargetBranch:     metaquery.NewTextCol("target_branch"),
+	CloseReason:      metaquery.NewTextCol("close_reason"),
+	NodeRef:          metaquery.NewTextCol("node_ref"),
+	CompletedInSha:   metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:      metaquery.NewBoolCol("closed_dirty"),
+	EnvID:            metaquery.NewIntCol("env_id"),
+	ForceCloseReason: metaquery.NewTextCol("force_close_reason"),
 }
 
 var MetaGetIssueByAnyProject = metaquery.Query{
 	Name:   "GetIssueByAnyProject",
 	Cmd:    ":one",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id, force_close_reason
 FROM zdx_issues WHERE id = $1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
@@ -358,6 +366,7 @@ FROM zdx_issues WHERE id = $1`,
 		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
 		{Name: "env_id", OriginalName: "env_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_issues"},
+		{Name: "force_close_reason", OriginalName: "force_close_reason", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "id", GoType: "string", DBType: "text", NotNull: true},
@@ -371,58 +380,60 @@ func WrapGetIssueByAnyProject(id string) *metaquery.Builder {
 
 // GetIssueByAnyProjectCols gives typed, name-safe access to GetIssueByAnyProject's output columns.
 var GetIssueByAnyProjectCols = struct {
-	ID             metaquery.TextCol
-	ProjectID      metaquery.IntCol
-	Title          metaquery.TextCol
-	Status         metaquery.TextCol
-	Priority       metaquery.TextCol
-	Component      metaquery.TextCol
-	Context        metaquery.TextCol
-	CreatedAt      metaquery.TimeCol
-	IssueType      metaquery.TextCol
-	DuplicateOf    metaquery.TextCol
-	Url            metaquery.TextCol
-	UpdatedAt      metaquery.TimeCol
-	SourceErrorID  metaquery.IntCol
-	LinkOf         metaquery.TextCol
-	ReopenCount    metaquery.IntCol
-	ClosedAt       metaquery.TimeCol
-	TargetBranch   metaquery.TextCol
-	CloseReason    metaquery.TextCol
-	NodeRef        metaquery.TextCol
-	CompletedInSha metaquery.TextCol
-	ClosedDirty    metaquery.BoolCol
-	EnvID          metaquery.IntCol
+	ID               metaquery.TextCol
+	ProjectID        metaquery.IntCol
+	Title            metaquery.TextCol
+	Status           metaquery.TextCol
+	Priority         metaquery.TextCol
+	Component        metaquery.TextCol
+	Context          metaquery.TextCol
+	CreatedAt        metaquery.TimeCol
+	IssueType        metaquery.TextCol
+	DuplicateOf      metaquery.TextCol
+	Url              metaquery.TextCol
+	UpdatedAt        metaquery.TimeCol
+	SourceErrorID    metaquery.IntCol
+	LinkOf           metaquery.TextCol
+	ReopenCount      metaquery.IntCol
+	ClosedAt         metaquery.TimeCol
+	TargetBranch     metaquery.TextCol
+	CloseReason      metaquery.TextCol
+	NodeRef          metaquery.TextCol
+	CompletedInSha   metaquery.TextCol
+	ClosedDirty      metaquery.BoolCol
+	EnvID            metaquery.IntCol
+	ForceCloseReason metaquery.TextCol
 }{
-	ID:             metaquery.NewTextCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	Title:          metaquery.NewTextCol("title"),
-	Status:         metaquery.NewTextCol("status"),
-	Priority:       metaquery.NewTextCol("priority"),
-	Component:      metaquery.NewTextCol("component"),
-	Context:        metaquery.NewTextCol("context"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	IssueType:      metaquery.NewTextCol("issue_type"),
-	DuplicateOf:    metaquery.NewTextCol("duplicate_of"),
-	Url:            metaquery.NewTextCol("url"),
-	UpdatedAt:      metaquery.NewTimeCol("updated_at"),
-	SourceErrorID:  metaquery.NewIntCol("source_error_id"),
-	LinkOf:         metaquery.NewTextCol("link_of"),
-	ReopenCount:    metaquery.NewIntCol("reopen_count"),
-	ClosedAt:       metaquery.NewTimeCol("closed_at"),
-	TargetBranch:   metaquery.NewTextCol("target_branch"),
-	CloseReason:    metaquery.NewTextCol("close_reason"),
-	NodeRef:        metaquery.NewTextCol("node_ref"),
-	CompletedInSha: metaquery.NewTextCol("completed_in_sha"),
-	ClosedDirty:    metaquery.NewBoolCol("closed_dirty"),
-	EnvID:          metaquery.NewIntCol("env_id"),
+	ID:               metaquery.NewTextCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Title:            metaquery.NewTextCol("title"),
+	Status:           metaquery.NewTextCol("status"),
+	Priority:         metaquery.NewTextCol("priority"),
+	Component:        metaquery.NewTextCol("component"),
+	Context:          metaquery.NewTextCol("context"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	IssueType:        metaquery.NewTextCol("issue_type"),
+	DuplicateOf:      metaquery.NewTextCol("duplicate_of"),
+	Url:              metaquery.NewTextCol("url"),
+	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
+	SourceErrorID:    metaquery.NewIntCol("source_error_id"),
+	LinkOf:           metaquery.NewTextCol("link_of"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClosedAt:         metaquery.NewTimeCol("closed_at"),
+	TargetBranch:     metaquery.NewTextCol("target_branch"),
+	CloseReason:      metaquery.NewTextCol("close_reason"),
+	NodeRef:          metaquery.NewTextCol("node_ref"),
+	CompletedInSha:   metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:      metaquery.NewBoolCol("closed_dirty"),
+	EnvID:            metaquery.NewIntCol("env_id"),
+	ForceCloseReason: metaquery.NewTextCol("force_close_reason"),
 }
 
 var MetaGetIssueBySourceErrorID = metaquery.Query{
 	Name:   "GetIssueBySourceErrorID",
 	Cmd:    ":one",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id, force_close_reason
 FROM zdx_issues WHERE project_id = $1 AND source_error_id = $2
 LIMIT 1`,
 	Columns: []metaquery.Column{
@@ -448,6 +459,7 @@ LIMIT 1`,
 		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
 		{Name: "env_id", OriginalName: "env_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_issues"},
+		{Name: "force_close_reason", OriginalName: "force_close_reason", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -462,51 +474,53 @@ func WrapGetIssueBySourceErrorID(arg GetIssueBySourceErrorIDParams) *metaquery.B
 
 // GetIssueBySourceErrorIDCols gives typed, name-safe access to GetIssueBySourceErrorID's output columns.
 var GetIssueBySourceErrorIDCols = struct {
-	ID             metaquery.TextCol
-	ProjectID      metaquery.IntCol
-	Title          metaquery.TextCol
-	Status         metaquery.TextCol
-	Priority       metaquery.TextCol
-	Component      metaquery.TextCol
-	Context        metaquery.TextCol
-	CreatedAt      metaquery.TimeCol
-	IssueType      metaquery.TextCol
-	DuplicateOf    metaquery.TextCol
-	Url            metaquery.TextCol
-	UpdatedAt      metaquery.TimeCol
-	SourceErrorID  metaquery.IntCol
-	LinkOf         metaquery.TextCol
-	ReopenCount    metaquery.IntCol
-	ClosedAt       metaquery.TimeCol
-	TargetBranch   metaquery.TextCol
-	CloseReason    metaquery.TextCol
-	NodeRef        metaquery.TextCol
-	CompletedInSha metaquery.TextCol
-	ClosedDirty    metaquery.BoolCol
-	EnvID          metaquery.IntCol
+	ID               metaquery.TextCol
+	ProjectID        metaquery.IntCol
+	Title            metaquery.TextCol
+	Status           metaquery.TextCol
+	Priority         metaquery.TextCol
+	Component        metaquery.TextCol
+	Context          metaquery.TextCol
+	CreatedAt        metaquery.TimeCol
+	IssueType        metaquery.TextCol
+	DuplicateOf      metaquery.TextCol
+	Url              metaquery.TextCol
+	UpdatedAt        metaquery.TimeCol
+	SourceErrorID    metaquery.IntCol
+	LinkOf           metaquery.TextCol
+	ReopenCount      metaquery.IntCol
+	ClosedAt         metaquery.TimeCol
+	TargetBranch     metaquery.TextCol
+	CloseReason      metaquery.TextCol
+	NodeRef          metaquery.TextCol
+	CompletedInSha   metaquery.TextCol
+	ClosedDirty      metaquery.BoolCol
+	EnvID            metaquery.IntCol
+	ForceCloseReason metaquery.TextCol
 }{
-	ID:             metaquery.NewTextCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	Title:          metaquery.NewTextCol("title"),
-	Status:         metaquery.NewTextCol("status"),
-	Priority:       metaquery.NewTextCol("priority"),
-	Component:      metaquery.NewTextCol("component"),
-	Context:        metaquery.NewTextCol("context"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	IssueType:      metaquery.NewTextCol("issue_type"),
-	DuplicateOf:    metaquery.NewTextCol("duplicate_of"),
-	Url:            metaquery.NewTextCol("url"),
-	UpdatedAt:      metaquery.NewTimeCol("updated_at"),
-	SourceErrorID:  metaquery.NewIntCol("source_error_id"),
-	LinkOf:         metaquery.NewTextCol("link_of"),
-	ReopenCount:    metaquery.NewIntCol("reopen_count"),
-	ClosedAt:       metaquery.NewTimeCol("closed_at"),
-	TargetBranch:   metaquery.NewTextCol("target_branch"),
-	CloseReason:    metaquery.NewTextCol("close_reason"),
-	NodeRef:        metaquery.NewTextCol("node_ref"),
-	CompletedInSha: metaquery.NewTextCol("completed_in_sha"),
-	ClosedDirty:    metaquery.NewBoolCol("closed_dirty"),
-	EnvID:          metaquery.NewIntCol("env_id"),
+	ID:               metaquery.NewTextCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Title:            metaquery.NewTextCol("title"),
+	Status:           metaquery.NewTextCol("status"),
+	Priority:         metaquery.NewTextCol("priority"),
+	Component:        metaquery.NewTextCol("component"),
+	Context:          metaquery.NewTextCol("context"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	IssueType:        metaquery.NewTextCol("issue_type"),
+	DuplicateOf:      metaquery.NewTextCol("duplicate_of"),
+	Url:              metaquery.NewTextCol("url"),
+	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
+	SourceErrorID:    metaquery.NewIntCol("source_error_id"),
+	LinkOf:           metaquery.NewTextCol("link_of"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClosedAt:         metaquery.NewTimeCol("closed_at"),
+	TargetBranch:     metaquery.NewTextCol("target_branch"),
+	CloseReason:      metaquery.NewTextCol("close_reason"),
+	NodeRef:          metaquery.NewTextCol("node_ref"),
+	CompletedInSha:   metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:      metaquery.NewBoolCol("closed_dirty"),
+	EnvID:            metaquery.NewIntCol("env_id"),
+	ForceCloseReason: metaquery.NewTextCol("force_close_reason"),
 }
 
 var MetaGetIssueWork = metaquery.Query{
@@ -712,7 +726,7 @@ var MetaListIssues = metaquery.Query{
 	Name:   "ListIssues",
 	Cmd:    ":many",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id, force_close_reason
 FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
@@ -737,6 +751,7 @@ FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC`,
 		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
 		{Name: "env_id", OriginalName: "env_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_issues"},
+		{Name: "force_close_reason", OriginalName: "force_close_reason", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -750,58 +765,60 @@ func WrapListIssues(projectID int32) *metaquery.Builder {
 
 // ListIssuesCols gives typed, name-safe access to ListIssues's output columns.
 var ListIssuesCols = struct {
-	ID             metaquery.TextCol
-	ProjectID      metaquery.IntCol
-	Title          metaquery.TextCol
-	Status         metaquery.TextCol
-	Priority       metaquery.TextCol
-	Component      metaquery.TextCol
-	Context        metaquery.TextCol
-	CreatedAt      metaquery.TimeCol
-	IssueType      metaquery.TextCol
-	DuplicateOf    metaquery.TextCol
-	Url            metaquery.TextCol
-	UpdatedAt      metaquery.TimeCol
-	SourceErrorID  metaquery.IntCol
-	LinkOf         metaquery.TextCol
-	ReopenCount    metaquery.IntCol
-	ClosedAt       metaquery.TimeCol
-	TargetBranch   metaquery.TextCol
-	CloseReason    metaquery.TextCol
-	NodeRef        metaquery.TextCol
-	CompletedInSha metaquery.TextCol
-	ClosedDirty    metaquery.BoolCol
-	EnvID          metaquery.IntCol
+	ID               metaquery.TextCol
+	ProjectID        metaquery.IntCol
+	Title            metaquery.TextCol
+	Status           metaquery.TextCol
+	Priority         metaquery.TextCol
+	Component        metaquery.TextCol
+	Context          metaquery.TextCol
+	CreatedAt        metaquery.TimeCol
+	IssueType        metaquery.TextCol
+	DuplicateOf      metaquery.TextCol
+	Url              metaquery.TextCol
+	UpdatedAt        metaquery.TimeCol
+	SourceErrorID    metaquery.IntCol
+	LinkOf           metaquery.TextCol
+	ReopenCount      metaquery.IntCol
+	ClosedAt         metaquery.TimeCol
+	TargetBranch     metaquery.TextCol
+	CloseReason      metaquery.TextCol
+	NodeRef          metaquery.TextCol
+	CompletedInSha   metaquery.TextCol
+	ClosedDirty      metaquery.BoolCol
+	EnvID            metaquery.IntCol
+	ForceCloseReason metaquery.TextCol
 }{
-	ID:             metaquery.NewTextCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	Title:          metaquery.NewTextCol("title"),
-	Status:         metaquery.NewTextCol("status"),
-	Priority:       metaquery.NewTextCol("priority"),
-	Component:      metaquery.NewTextCol("component"),
-	Context:        metaquery.NewTextCol("context"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	IssueType:      metaquery.NewTextCol("issue_type"),
-	DuplicateOf:    metaquery.NewTextCol("duplicate_of"),
-	Url:            metaquery.NewTextCol("url"),
-	UpdatedAt:      metaquery.NewTimeCol("updated_at"),
-	SourceErrorID:  metaquery.NewIntCol("source_error_id"),
-	LinkOf:         metaquery.NewTextCol("link_of"),
-	ReopenCount:    metaquery.NewIntCol("reopen_count"),
-	ClosedAt:       metaquery.NewTimeCol("closed_at"),
-	TargetBranch:   metaquery.NewTextCol("target_branch"),
-	CloseReason:    metaquery.NewTextCol("close_reason"),
-	NodeRef:        metaquery.NewTextCol("node_ref"),
-	CompletedInSha: metaquery.NewTextCol("completed_in_sha"),
-	ClosedDirty:    metaquery.NewBoolCol("closed_dirty"),
-	EnvID:          metaquery.NewIntCol("env_id"),
+	ID:               metaquery.NewTextCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Title:            metaquery.NewTextCol("title"),
+	Status:           metaquery.NewTextCol("status"),
+	Priority:         metaquery.NewTextCol("priority"),
+	Component:        metaquery.NewTextCol("component"),
+	Context:          metaquery.NewTextCol("context"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	IssueType:        metaquery.NewTextCol("issue_type"),
+	DuplicateOf:      metaquery.NewTextCol("duplicate_of"),
+	Url:              metaquery.NewTextCol("url"),
+	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
+	SourceErrorID:    metaquery.NewIntCol("source_error_id"),
+	LinkOf:           metaquery.NewTextCol("link_of"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClosedAt:         metaquery.NewTimeCol("closed_at"),
+	TargetBranch:     metaquery.NewTextCol("target_branch"),
+	CloseReason:      metaquery.NewTextCol("close_reason"),
+	NodeRef:          metaquery.NewTextCol("node_ref"),
+	CompletedInSha:   metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:      metaquery.NewBoolCol("closed_dirty"),
+	EnvID:            metaquery.NewIntCol("env_id"),
+	ForceCloseReason: metaquery.NewTextCol("force_close_reason"),
 }
 
 var MetaListIssuesClosedDirty = metaquery.Query{
 	Name:   "ListIssuesClosedDirty",
 	Cmd:    ":many",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id, force_close_reason
 FROM zdx_issues
 WHERE project_id = $1 AND closed_dirty = true
 ORDER BY closed_at DESC NULLS LAST`,
@@ -828,6 +845,7 @@ ORDER BY closed_at DESC NULLS LAST`,
 		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
 		{Name: "env_id", OriginalName: "env_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_issues"},
+		{Name: "force_close_reason", OriginalName: "force_close_reason", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -841,58 +859,154 @@ func WrapListIssuesClosedDirty(projectID int32) *metaquery.Builder {
 
 // ListIssuesClosedDirtyCols gives typed, name-safe access to ListIssuesClosedDirty's output columns.
 var ListIssuesClosedDirtyCols = struct {
-	ID             metaquery.TextCol
-	ProjectID      metaquery.IntCol
-	Title          metaquery.TextCol
-	Status         metaquery.TextCol
-	Priority       metaquery.TextCol
-	Component      metaquery.TextCol
-	Context        metaquery.TextCol
-	CreatedAt      metaquery.TimeCol
-	IssueType      metaquery.TextCol
-	DuplicateOf    metaquery.TextCol
-	Url            metaquery.TextCol
-	UpdatedAt      metaquery.TimeCol
-	SourceErrorID  metaquery.IntCol
-	LinkOf         metaquery.TextCol
-	ReopenCount    metaquery.IntCol
-	ClosedAt       metaquery.TimeCol
-	TargetBranch   metaquery.TextCol
-	CloseReason    metaquery.TextCol
-	NodeRef        metaquery.TextCol
-	CompletedInSha metaquery.TextCol
-	ClosedDirty    metaquery.BoolCol
-	EnvID          metaquery.IntCol
+	ID               metaquery.TextCol
+	ProjectID        metaquery.IntCol
+	Title            metaquery.TextCol
+	Status           metaquery.TextCol
+	Priority         metaquery.TextCol
+	Component        metaquery.TextCol
+	Context          metaquery.TextCol
+	CreatedAt        metaquery.TimeCol
+	IssueType        metaquery.TextCol
+	DuplicateOf      metaquery.TextCol
+	Url              metaquery.TextCol
+	UpdatedAt        metaquery.TimeCol
+	SourceErrorID    metaquery.IntCol
+	LinkOf           metaquery.TextCol
+	ReopenCount      metaquery.IntCol
+	ClosedAt         metaquery.TimeCol
+	TargetBranch     metaquery.TextCol
+	CloseReason      metaquery.TextCol
+	NodeRef          metaquery.TextCol
+	CompletedInSha   metaquery.TextCol
+	ClosedDirty      metaquery.BoolCol
+	EnvID            metaquery.IntCol
+	ForceCloseReason metaquery.TextCol
 }{
-	ID:             metaquery.NewTextCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	Title:          metaquery.NewTextCol("title"),
-	Status:         metaquery.NewTextCol("status"),
-	Priority:       metaquery.NewTextCol("priority"),
-	Component:      metaquery.NewTextCol("component"),
-	Context:        metaquery.NewTextCol("context"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	IssueType:      metaquery.NewTextCol("issue_type"),
-	DuplicateOf:    metaquery.NewTextCol("duplicate_of"),
-	Url:            metaquery.NewTextCol("url"),
-	UpdatedAt:      metaquery.NewTimeCol("updated_at"),
-	SourceErrorID:  metaquery.NewIntCol("source_error_id"),
-	LinkOf:         metaquery.NewTextCol("link_of"),
-	ReopenCount:    metaquery.NewIntCol("reopen_count"),
-	ClosedAt:       metaquery.NewTimeCol("closed_at"),
-	TargetBranch:   metaquery.NewTextCol("target_branch"),
-	CloseReason:    metaquery.NewTextCol("close_reason"),
-	NodeRef:        metaquery.NewTextCol("node_ref"),
-	CompletedInSha: metaquery.NewTextCol("completed_in_sha"),
-	ClosedDirty:    metaquery.NewBoolCol("closed_dirty"),
-	EnvID:          metaquery.NewIntCol("env_id"),
+	ID:               metaquery.NewTextCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Title:            metaquery.NewTextCol("title"),
+	Status:           metaquery.NewTextCol("status"),
+	Priority:         metaquery.NewTextCol("priority"),
+	Component:        metaquery.NewTextCol("component"),
+	Context:          metaquery.NewTextCol("context"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	IssueType:        metaquery.NewTextCol("issue_type"),
+	DuplicateOf:      metaquery.NewTextCol("duplicate_of"),
+	Url:              metaquery.NewTextCol("url"),
+	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
+	SourceErrorID:    metaquery.NewIntCol("source_error_id"),
+	LinkOf:           metaquery.NewTextCol("link_of"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClosedAt:         metaquery.NewTimeCol("closed_at"),
+	TargetBranch:     metaquery.NewTextCol("target_branch"),
+	CloseReason:      metaquery.NewTextCol("close_reason"),
+	NodeRef:          metaquery.NewTextCol("node_ref"),
+	CompletedInSha:   metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:      metaquery.NewBoolCol("closed_dirty"),
+	EnvID:            metaquery.NewIntCol("env_id"),
+	ForceCloseReason: metaquery.NewTextCol("force_close_reason"),
+}
+
+var MetaListIssuesForceClose = metaquery.Query{
+	Name:   "ListIssuesForceClose",
+	Cmd:    ":many",
+	Source: "issues.sql",
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id, force_close_reason
+FROM zdx_issues
+WHERE project_id = $1 AND force_close_reason IS NOT NULL
+ORDER BY closed_at DESC NULLS LAST`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_issues"},
+		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "priority", OriginalName: "priority", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "component", OriginalName: "component", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "context", OriginalName: "context", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_issues"},
+		{Name: "issue_type", OriginalName: "issue_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "duplicate_of", OriginalName: "duplicate_of", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "url", OriginalName: "url", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_issues"},
+		{Name: "source_error_id", OriginalName: "source_error_id", GoType: "pgtype.Int8", DBType: "int8", Table: "zdx_issues"},
+		{Name: "link_of", OriginalName: "link_of", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_issues"},
+		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_issues"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "node_ref", OriginalName: "node_ref", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
+		{Name: "env_id", OriginalName: "env_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_issues"},
+		{Name: "force_close_reason", OriginalName: "force_close_reason", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapListIssuesForceClose returns a metaquery.Builder over MetaListIssuesForceClose, pre-bound with typed arguments.
+func WrapListIssuesForceClose(projectID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListIssuesForceClose, projectID)
+}
+
+// ListIssuesForceCloseCols gives typed, name-safe access to ListIssuesForceClose's output columns.
+var ListIssuesForceCloseCols = struct {
+	ID               metaquery.TextCol
+	ProjectID        metaquery.IntCol
+	Title            metaquery.TextCol
+	Status           metaquery.TextCol
+	Priority         metaquery.TextCol
+	Component        metaquery.TextCol
+	Context          metaquery.TextCol
+	CreatedAt        metaquery.TimeCol
+	IssueType        metaquery.TextCol
+	DuplicateOf      metaquery.TextCol
+	Url              metaquery.TextCol
+	UpdatedAt        metaquery.TimeCol
+	SourceErrorID    metaquery.IntCol
+	LinkOf           metaquery.TextCol
+	ReopenCount      metaquery.IntCol
+	ClosedAt         metaquery.TimeCol
+	TargetBranch     metaquery.TextCol
+	CloseReason      metaquery.TextCol
+	NodeRef          metaquery.TextCol
+	CompletedInSha   metaquery.TextCol
+	ClosedDirty      metaquery.BoolCol
+	EnvID            metaquery.IntCol
+	ForceCloseReason metaquery.TextCol
+}{
+	ID:               metaquery.NewTextCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Title:            metaquery.NewTextCol("title"),
+	Status:           metaquery.NewTextCol("status"),
+	Priority:         metaquery.NewTextCol("priority"),
+	Component:        metaquery.NewTextCol("component"),
+	Context:          metaquery.NewTextCol("context"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	IssueType:        metaquery.NewTextCol("issue_type"),
+	DuplicateOf:      metaquery.NewTextCol("duplicate_of"),
+	Url:              metaquery.NewTextCol("url"),
+	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
+	SourceErrorID:    metaquery.NewIntCol("source_error_id"),
+	LinkOf:           metaquery.NewTextCol("link_of"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClosedAt:         metaquery.NewTimeCol("closed_at"),
+	TargetBranch:     metaquery.NewTextCol("target_branch"),
+	CloseReason:      metaquery.NewTextCol("close_reason"),
+	NodeRef:          metaquery.NewTextCol("node_ref"),
+	CompletedInSha:   metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:      metaquery.NewBoolCol("closed_dirty"),
+	EnvID:            metaquery.NewIntCol("env_id"),
+	ForceCloseReason: metaquery.NewTextCol("force_close_reason"),
 }
 
 var MetaListOpenIssues = metaquery.Query{
 	Name:   "ListOpenIssues",
 	Cmd:    ":many",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id, force_close_reason
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY updated_at DESC`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
@@ -917,6 +1031,7 @@ FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY updated_at DE
 		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
 		{Name: "env_id", OriginalName: "env_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_issues"},
+		{Name: "force_close_reason", OriginalName: "force_close_reason", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -930,58 +1045,60 @@ func WrapListOpenIssues(projectID int32) *metaquery.Builder {
 
 // ListOpenIssuesCols gives typed, name-safe access to ListOpenIssues's output columns.
 var ListOpenIssuesCols = struct {
-	ID             metaquery.TextCol
-	ProjectID      metaquery.IntCol
-	Title          metaquery.TextCol
-	Status         metaquery.TextCol
-	Priority       metaquery.TextCol
-	Component      metaquery.TextCol
-	Context        metaquery.TextCol
-	CreatedAt      metaquery.TimeCol
-	IssueType      metaquery.TextCol
-	DuplicateOf    metaquery.TextCol
-	Url            metaquery.TextCol
-	UpdatedAt      metaquery.TimeCol
-	SourceErrorID  metaquery.IntCol
-	LinkOf         metaquery.TextCol
-	ReopenCount    metaquery.IntCol
-	ClosedAt       metaquery.TimeCol
-	TargetBranch   metaquery.TextCol
-	CloseReason    metaquery.TextCol
-	NodeRef        metaquery.TextCol
-	CompletedInSha metaquery.TextCol
-	ClosedDirty    metaquery.BoolCol
-	EnvID          metaquery.IntCol
+	ID               metaquery.TextCol
+	ProjectID        metaquery.IntCol
+	Title            metaquery.TextCol
+	Status           metaquery.TextCol
+	Priority         metaquery.TextCol
+	Component        metaquery.TextCol
+	Context          metaquery.TextCol
+	CreatedAt        metaquery.TimeCol
+	IssueType        metaquery.TextCol
+	DuplicateOf      metaquery.TextCol
+	Url              metaquery.TextCol
+	UpdatedAt        metaquery.TimeCol
+	SourceErrorID    metaquery.IntCol
+	LinkOf           metaquery.TextCol
+	ReopenCount      metaquery.IntCol
+	ClosedAt         metaquery.TimeCol
+	TargetBranch     metaquery.TextCol
+	CloseReason      metaquery.TextCol
+	NodeRef          metaquery.TextCol
+	CompletedInSha   metaquery.TextCol
+	ClosedDirty      metaquery.BoolCol
+	EnvID            metaquery.IntCol
+	ForceCloseReason metaquery.TextCol
 }{
-	ID:             metaquery.NewTextCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	Title:          metaquery.NewTextCol("title"),
-	Status:         metaquery.NewTextCol("status"),
-	Priority:       metaquery.NewTextCol("priority"),
-	Component:      metaquery.NewTextCol("component"),
-	Context:        metaquery.NewTextCol("context"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	IssueType:      metaquery.NewTextCol("issue_type"),
-	DuplicateOf:    metaquery.NewTextCol("duplicate_of"),
-	Url:            metaquery.NewTextCol("url"),
-	UpdatedAt:      metaquery.NewTimeCol("updated_at"),
-	SourceErrorID:  metaquery.NewIntCol("source_error_id"),
-	LinkOf:         metaquery.NewTextCol("link_of"),
-	ReopenCount:    metaquery.NewIntCol("reopen_count"),
-	ClosedAt:       metaquery.NewTimeCol("closed_at"),
-	TargetBranch:   metaquery.NewTextCol("target_branch"),
-	CloseReason:    metaquery.NewTextCol("close_reason"),
-	NodeRef:        metaquery.NewTextCol("node_ref"),
-	CompletedInSha: metaquery.NewTextCol("completed_in_sha"),
-	ClosedDirty:    metaquery.NewBoolCol("closed_dirty"),
-	EnvID:          metaquery.NewIntCol("env_id"),
+	ID:               metaquery.NewTextCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Title:            metaquery.NewTextCol("title"),
+	Status:           metaquery.NewTextCol("status"),
+	Priority:         metaquery.NewTextCol("priority"),
+	Component:        metaquery.NewTextCol("component"),
+	Context:          metaquery.NewTextCol("context"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	IssueType:        metaquery.NewTextCol("issue_type"),
+	DuplicateOf:      metaquery.NewTextCol("duplicate_of"),
+	Url:              metaquery.NewTextCol("url"),
+	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
+	SourceErrorID:    metaquery.NewIntCol("source_error_id"),
+	LinkOf:           metaquery.NewTextCol("link_of"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClosedAt:         metaquery.NewTimeCol("closed_at"),
+	TargetBranch:     metaquery.NewTextCol("target_branch"),
+	CloseReason:      metaquery.NewTextCol("close_reason"),
+	NodeRef:          metaquery.NewTextCol("node_ref"),
+	CompletedInSha:   metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:      metaquery.NewBoolCol("closed_dirty"),
+	EnvID:            metaquery.NewIntCol("env_id"),
+	ForceCloseReason: metaquery.NewTextCol("force_close_reason"),
 }
 
 var MetaListOpenIssuesEligibleForBackport = metaquery.Query{
 	Name:   "ListOpenIssuesEligibleForBackport",
 	Cmd:    ":many",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id, force_close_reason
 FROM zdx_issues
 WHERE project_id = $1
   AND status = 'open'
@@ -1012,6 +1129,7 @@ ORDER BY (priority)::int ASC, updated_at DESC`,
 		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
 		{Name: "env_id", OriginalName: "env_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_issues"},
+		{Name: "force_close_reason", OriginalName: "force_close_reason", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -1026,58 +1144,60 @@ func WrapListOpenIssuesEligibleForBackport(arg ListOpenIssuesEligibleForBackport
 
 // ListOpenIssuesEligibleForBackportCols gives typed, name-safe access to ListOpenIssuesEligibleForBackport's output columns.
 var ListOpenIssuesEligibleForBackportCols = struct {
-	ID             metaquery.TextCol
-	ProjectID      metaquery.IntCol
-	Title          metaquery.TextCol
-	Status         metaquery.TextCol
-	Priority       metaquery.TextCol
-	Component      metaquery.TextCol
-	Context        metaquery.TextCol
-	CreatedAt      metaquery.TimeCol
-	IssueType      metaquery.TextCol
-	DuplicateOf    metaquery.TextCol
-	Url            metaquery.TextCol
-	UpdatedAt      metaquery.TimeCol
-	SourceErrorID  metaquery.IntCol
-	LinkOf         metaquery.TextCol
-	ReopenCount    metaquery.IntCol
-	ClosedAt       metaquery.TimeCol
-	TargetBranch   metaquery.TextCol
-	CloseReason    metaquery.TextCol
-	NodeRef        metaquery.TextCol
-	CompletedInSha metaquery.TextCol
-	ClosedDirty    metaquery.BoolCol
-	EnvID          metaquery.IntCol
+	ID               metaquery.TextCol
+	ProjectID        metaquery.IntCol
+	Title            metaquery.TextCol
+	Status           metaquery.TextCol
+	Priority         metaquery.TextCol
+	Component        metaquery.TextCol
+	Context          metaquery.TextCol
+	CreatedAt        metaquery.TimeCol
+	IssueType        metaquery.TextCol
+	DuplicateOf      metaquery.TextCol
+	Url              metaquery.TextCol
+	UpdatedAt        metaquery.TimeCol
+	SourceErrorID    metaquery.IntCol
+	LinkOf           metaquery.TextCol
+	ReopenCount      metaquery.IntCol
+	ClosedAt         metaquery.TimeCol
+	TargetBranch     metaquery.TextCol
+	CloseReason      metaquery.TextCol
+	NodeRef          metaquery.TextCol
+	CompletedInSha   metaquery.TextCol
+	ClosedDirty      metaquery.BoolCol
+	EnvID            metaquery.IntCol
+	ForceCloseReason metaquery.TextCol
 }{
-	ID:             metaquery.NewTextCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	Title:          metaquery.NewTextCol("title"),
-	Status:         metaquery.NewTextCol("status"),
-	Priority:       metaquery.NewTextCol("priority"),
-	Component:      metaquery.NewTextCol("component"),
-	Context:        metaquery.NewTextCol("context"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	IssueType:      metaquery.NewTextCol("issue_type"),
-	DuplicateOf:    metaquery.NewTextCol("duplicate_of"),
-	Url:            metaquery.NewTextCol("url"),
-	UpdatedAt:      metaquery.NewTimeCol("updated_at"),
-	SourceErrorID:  metaquery.NewIntCol("source_error_id"),
-	LinkOf:         metaquery.NewTextCol("link_of"),
-	ReopenCount:    metaquery.NewIntCol("reopen_count"),
-	ClosedAt:       metaquery.NewTimeCol("closed_at"),
-	TargetBranch:   metaquery.NewTextCol("target_branch"),
-	CloseReason:    metaquery.NewTextCol("close_reason"),
-	NodeRef:        metaquery.NewTextCol("node_ref"),
-	CompletedInSha: metaquery.NewTextCol("completed_in_sha"),
-	ClosedDirty:    metaquery.NewBoolCol("closed_dirty"),
-	EnvID:          metaquery.NewIntCol("env_id"),
+	ID:               metaquery.NewTextCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Title:            metaquery.NewTextCol("title"),
+	Status:           metaquery.NewTextCol("status"),
+	Priority:         metaquery.NewTextCol("priority"),
+	Component:        metaquery.NewTextCol("component"),
+	Context:          metaquery.NewTextCol("context"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	IssueType:        metaquery.NewTextCol("issue_type"),
+	DuplicateOf:      metaquery.NewTextCol("duplicate_of"),
+	Url:              metaquery.NewTextCol("url"),
+	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
+	SourceErrorID:    metaquery.NewIntCol("source_error_id"),
+	LinkOf:           metaquery.NewTextCol("link_of"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClosedAt:         metaquery.NewTimeCol("closed_at"),
+	TargetBranch:     metaquery.NewTextCol("target_branch"),
+	CloseReason:      metaquery.NewTextCol("close_reason"),
+	NodeRef:          metaquery.NewTextCol("node_ref"),
+	CompletedInSha:   metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:      metaquery.NewBoolCol("closed_dirty"),
+	EnvID:            metaquery.NewIntCol("env_id"),
+	ForceCloseReason: metaquery.NewTextCol("force_close_reason"),
 }
 
 var MetaListOpenLinkedIssues = metaquery.Query{
 	Name:   "ListOpenLinkedIssues",
 	Cmd:    ":many",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id, force_close_reason
 FROM zdx_issues
 WHERE project_id = $1
   AND status = 'open'
@@ -1105,6 +1225,7 @@ WHERE project_id = $1
 		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
 		{Name: "env_id", OriginalName: "env_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_issues"},
+		{Name: "force_close_reason", OriginalName: "force_close_reason", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -1119,51 +1240,53 @@ func WrapListOpenLinkedIssues(arg ListOpenLinkedIssuesParams) *metaquery.Builder
 
 // ListOpenLinkedIssuesCols gives typed, name-safe access to ListOpenLinkedIssues's output columns.
 var ListOpenLinkedIssuesCols = struct {
-	ID             metaquery.TextCol
-	ProjectID      metaquery.IntCol
-	Title          metaquery.TextCol
-	Status         metaquery.TextCol
-	Priority       metaquery.TextCol
-	Component      metaquery.TextCol
-	Context        metaquery.TextCol
-	CreatedAt      metaquery.TimeCol
-	IssueType      metaquery.TextCol
-	DuplicateOf    metaquery.TextCol
-	Url            metaquery.TextCol
-	UpdatedAt      metaquery.TimeCol
-	SourceErrorID  metaquery.IntCol
-	LinkOf         metaquery.TextCol
-	ReopenCount    metaquery.IntCol
-	ClosedAt       metaquery.TimeCol
-	TargetBranch   metaquery.TextCol
-	CloseReason    metaquery.TextCol
-	NodeRef        metaquery.TextCol
-	CompletedInSha metaquery.TextCol
-	ClosedDirty    metaquery.BoolCol
-	EnvID          metaquery.IntCol
+	ID               metaquery.TextCol
+	ProjectID        metaquery.IntCol
+	Title            metaquery.TextCol
+	Status           metaquery.TextCol
+	Priority         metaquery.TextCol
+	Component        metaquery.TextCol
+	Context          metaquery.TextCol
+	CreatedAt        metaquery.TimeCol
+	IssueType        metaquery.TextCol
+	DuplicateOf      metaquery.TextCol
+	Url              metaquery.TextCol
+	UpdatedAt        metaquery.TimeCol
+	SourceErrorID    metaquery.IntCol
+	LinkOf           metaquery.TextCol
+	ReopenCount      metaquery.IntCol
+	ClosedAt         metaquery.TimeCol
+	TargetBranch     metaquery.TextCol
+	CloseReason      metaquery.TextCol
+	NodeRef          metaquery.TextCol
+	CompletedInSha   metaquery.TextCol
+	ClosedDirty      metaquery.BoolCol
+	EnvID            metaquery.IntCol
+	ForceCloseReason metaquery.TextCol
 }{
-	ID:             metaquery.NewTextCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	Title:          metaquery.NewTextCol("title"),
-	Status:         metaquery.NewTextCol("status"),
-	Priority:       metaquery.NewTextCol("priority"),
-	Component:      metaquery.NewTextCol("component"),
-	Context:        metaquery.NewTextCol("context"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	IssueType:      metaquery.NewTextCol("issue_type"),
-	DuplicateOf:    metaquery.NewTextCol("duplicate_of"),
-	Url:            metaquery.NewTextCol("url"),
-	UpdatedAt:      metaquery.NewTimeCol("updated_at"),
-	SourceErrorID:  metaquery.NewIntCol("source_error_id"),
-	LinkOf:         metaquery.NewTextCol("link_of"),
-	ReopenCount:    metaquery.NewIntCol("reopen_count"),
-	ClosedAt:       metaquery.NewTimeCol("closed_at"),
-	TargetBranch:   metaquery.NewTextCol("target_branch"),
-	CloseReason:    metaquery.NewTextCol("close_reason"),
-	NodeRef:        metaquery.NewTextCol("node_ref"),
-	CompletedInSha: metaquery.NewTextCol("completed_in_sha"),
-	ClosedDirty:    metaquery.NewBoolCol("closed_dirty"),
-	EnvID:          metaquery.NewIntCol("env_id"),
+	ID:               metaquery.NewTextCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Title:            metaquery.NewTextCol("title"),
+	Status:           metaquery.NewTextCol("status"),
+	Priority:         metaquery.NewTextCol("priority"),
+	Component:        metaquery.NewTextCol("component"),
+	Context:          metaquery.NewTextCol("context"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	IssueType:        metaquery.NewTextCol("issue_type"),
+	DuplicateOf:      metaquery.NewTextCol("duplicate_of"),
+	Url:              metaquery.NewTextCol("url"),
+	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
+	SourceErrorID:    metaquery.NewIntCol("source_error_id"),
+	LinkOf:           metaquery.NewTextCol("link_of"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClosedAt:         metaquery.NewTimeCol("closed_at"),
+	TargetBranch:     metaquery.NewTextCol("target_branch"),
+	CloseReason:      metaquery.NewTextCol("close_reason"),
+	NodeRef:          metaquery.NewTextCol("node_ref"),
+	CompletedInSha:   metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:      metaquery.NewBoolCol("closed_dirty"),
+	EnvID:            metaquery.NewIntCol("env_id"),
+	ForceCloseReason: metaquery.NewTextCol("force_close_reason"),
 }
 
 var MetaListWorklogForProject = metaquery.Query{
@@ -1340,7 +1463,7 @@ var MetaSearchIssues = metaquery.Query{
 	Name:   "SearchIssues",
 	Cmd:    ":many",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, target_branch, close_reason, node_ref, completed_in_sha, closed_dirty, env_id, force_close_reason
 FROM zdx_issues
 WHERE project_id = $1
   AND (title ILIKE '%' || $2::text || '%' OR context ILIKE '%' || $2::text || '%')
@@ -1368,6 +1491,7 @@ ORDER BY updated_at DESC`,
 		{Name: "completed_in_sha", OriginalName: "completed_in_sha", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 		{Name: "closed_dirty", OriginalName: "closed_dirty", GoType: "pgtype.Bool", DBType: "bool", Table: "zdx_issues"},
 		{Name: "env_id", OriginalName: "env_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_issues"},
+		{Name: "force_close_reason", OriginalName: "force_close_reason", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -1382,51 +1506,53 @@ func WrapSearchIssues(arg SearchIssuesParams) *metaquery.Builder {
 
 // SearchIssuesCols gives typed, name-safe access to SearchIssues's output columns.
 var SearchIssuesCols = struct {
-	ID             metaquery.TextCol
-	ProjectID      metaquery.IntCol
-	Title          metaquery.TextCol
-	Status         metaquery.TextCol
-	Priority       metaquery.TextCol
-	Component      metaquery.TextCol
-	Context        metaquery.TextCol
-	CreatedAt      metaquery.TimeCol
-	IssueType      metaquery.TextCol
-	DuplicateOf    metaquery.TextCol
-	Url            metaquery.TextCol
-	UpdatedAt      metaquery.TimeCol
-	SourceErrorID  metaquery.IntCol
-	LinkOf         metaquery.TextCol
-	ReopenCount    metaquery.IntCol
-	ClosedAt       metaquery.TimeCol
-	TargetBranch   metaquery.TextCol
-	CloseReason    metaquery.TextCol
-	NodeRef        metaquery.TextCol
-	CompletedInSha metaquery.TextCol
-	ClosedDirty    metaquery.BoolCol
-	EnvID          metaquery.IntCol
+	ID               metaquery.TextCol
+	ProjectID        metaquery.IntCol
+	Title            metaquery.TextCol
+	Status           metaquery.TextCol
+	Priority         metaquery.TextCol
+	Component        metaquery.TextCol
+	Context          metaquery.TextCol
+	CreatedAt        metaquery.TimeCol
+	IssueType        metaquery.TextCol
+	DuplicateOf      metaquery.TextCol
+	Url              metaquery.TextCol
+	UpdatedAt        metaquery.TimeCol
+	SourceErrorID    metaquery.IntCol
+	LinkOf           metaquery.TextCol
+	ReopenCount      metaquery.IntCol
+	ClosedAt         metaquery.TimeCol
+	TargetBranch     metaquery.TextCol
+	CloseReason      metaquery.TextCol
+	NodeRef          metaquery.TextCol
+	CompletedInSha   metaquery.TextCol
+	ClosedDirty      metaquery.BoolCol
+	EnvID            metaquery.IntCol
+	ForceCloseReason metaquery.TextCol
 }{
-	ID:             metaquery.NewTextCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	Title:          metaquery.NewTextCol("title"),
-	Status:         metaquery.NewTextCol("status"),
-	Priority:       metaquery.NewTextCol("priority"),
-	Component:      metaquery.NewTextCol("component"),
-	Context:        metaquery.NewTextCol("context"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	IssueType:      metaquery.NewTextCol("issue_type"),
-	DuplicateOf:    metaquery.NewTextCol("duplicate_of"),
-	Url:            metaquery.NewTextCol("url"),
-	UpdatedAt:      metaquery.NewTimeCol("updated_at"),
-	SourceErrorID:  metaquery.NewIntCol("source_error_id"),
-	LinkOf:         metaquery.NewTextCol("link_of"),
-	ReopenCount:    metaquery.NewIntCol("reopen_count"),
-	ClosedAt:       metaquery.NewTimeCol("closed_at"),
-	TargetBranch:   metaquery.NewTextCol("target_branch"),
-	CloseReason:    metaquery.NewTextCol("close_reason"),
-	NodeRef:        metaquery.NewTextCol("node_ref"),
-	CompletedInSha: metaquery.NewTextCol("completed_in_sha"),
-	ClosedDirty:    metaquery.NewBoolCol("closed_dirty"),
-	EnvID:          metaquery.NewIntCol("env_id"),
+	ID:               metaquery.NewTextCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Title:            metaquery.NewTextCol("title"),
+	Status:           metaquery.NewTextCol("status"),
+	Priority:         metaquery.NewTextCol("priority"),
+	Component:        metaquery.NewTextCol("component"),
+	Context:          metaquery.NewTextCol("context"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	IssueType:        metaquery.NewTextCol("issue_type"),
+	DuplicateOf:      metaquery.NewTextCol("duplicate_of"),
+	Url:              metaquery.NewTextCol("url"),
+	UpdatedAt:        metaquery.NewTimeCol("updated_at"),
+	SourceErrorID:    metaquery.NewIntCol("source_error_id"),
+	LinkOf:           metaquery.NewTextCol("link_of"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClosedAt:         metaquery.NewTimeCol("closed_at"),
+	TargetBranch:     metaquery.NewTextCol("target_branch"),
+	CloseReason:      metaquery.NewTextCol("close_reason"),
+	NodeRef:          metaquery.NewTextCol("node_ref"),
+	CompletedInSha:   metaquery.NewTextCol("completed_in_sha"),
+	ClosedDirty:      metaquery.NewBoolCol("closed_dirty"),
+	EnvID:            metaquery.NewIntCol("env_id"),
+	ForceCloseReason: metaquery.NewTextCol("force_close_reason"),
 }
 
 var MetaSetIssueEnv = metaquery.Query{

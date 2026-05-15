@@ -28,6 +28,57 @@ func WrapDeleteLogEventsOlderThan(cutoff pgtype.Timestamptz) *metaquery.Builder 
 	return metaquery.Wrap(&MetaDeleteLogEventsOlderThan, cutoff)
 }
 
+var MetaIneffectiveSessionsByWeek = metaquery.Query{
+	Name:   "IneffectiveSessionsByWeek",
+	Cmd:    ":many",
+	Source: "log_events.sql",
+	SQL: `SELECT
+    date_trunc('week', created_at)::timestamptz       AS week_start,
+    COALESCE(context_json->>'persona', '')::text     AS persona,
+    COALESCE(context_json->>'model', '')::text       AS model,
+    COALESCE(context_json->>'complexity', '')::text  AS complexity,
+    COUNT(*)                                          AS ineffective_count
+FROM zdx_log_events
+WHERE message = 'session.ineffective'
+  AND project_id = $1::int
+  AND ($2::timestamptz IS NULL OR created_at >= $2::timestamptz)
+  AND ($3::timestamptz IS NULL OR created_at <  $3::timestamptz)
+GROUP BY week_start, persona, model, complexity
+ORDER BY week_start DESC, ineffective_count DESC`,
+	Columns: []metaquery.Column{
+		{Name: "week_start", OriginalName: "week_start", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true},
+		{Name: "persona", OriginalName: "persona", GoType: "string", DBType: "text", NotNull: true},
+		{Name: "model", OriginalName: "model", GoType: "string", DBType: "text", NotNull: true},
+		{Name: "complexity", OriginalName: "complexity", GoType: "string", DBType: "text", NotNull: true},
+		{Name: "ineffective_count", OriginalName: "ineffective_count", GoType: "int64", DBType: "bigint", NotNull: true},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "int4", NotNull: true},
+		{Position: 2, Name: "since", GoType: "pgtype.Timestamptz", DBType: "timestamptz"},
+		{Position: 3, Name: "until", GoType: "pgtype.Timestamptz", DBType: "timestamptz"},
+	},
+}
+
+// WrapIneffectiveSessionsByWeek returns a metaquery.Builder over MetaIneffectiveSessionsByWeek, pre-bound with typed arguments.
+func WrapIneffectiveSessionsByWeek(arg IneffectiveSessionsByWeekParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaIneffectiveSessionsByWeek, arg.ProjectID, arg.Since, arg.Until)
+}
+
+// IneffectiveSessionsByWeekCols gives typed, name-safe access to IneffectiveSessionsByWeek's output columns.
+var IneffectiveSessionsByWeekCols = struct {
+	WeekStart        metaquery.TimeCol
+	Persona          metaquery.TextCol
+	Model            metaquery.TextCol
+	Complexity       metaquery.TextCol
+	IneffectiveCount metaquery.IntCol
+}{
+	WeekStart:        metaquery.NewTimeCol("week_start"),
+	Persona:          metaquery.NewTextCol("persona"),
+	Model:            metaquery.NewTextCol("model"),
+	Complexity:       metaquery.NewTextCol("complexity"),
+	IneffectiveCount: metaquery.NewIntCol("ineffective_count"),
+}
+
 var MetaInsertLogEvent = metaquery.Query{
 	Name:   "InsertLogEvent",
 	Cmd:    ":exec",

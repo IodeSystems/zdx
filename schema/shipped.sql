@@ -661,6 +661,47 @@ ALTER SEQUENCE public.zdx_counter_events_id_seq OWNED BY public.zdx_counter_even
 
 
 --
+-- Name: zdx_deploy_requests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_deploy_requests (
+    id integer NOT NULL,
+    env_id integer NOT NULL,
+    commit_sha text NOT NULL,
+    requested_by_user_id integer,
+    requested_by_token_id integer,
+    reason text DEFAULT ''::text NOT NULL,
+    blocking_issue_id text,
+    status text DEFAULT 'pending'::text NOT NULL,
+    accepted_at timestamp with time zone,
+    completed_at timestamp with time zone,
+    failure_text text DEFAULT ''::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_deploy_requests_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_deploy_requests_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_deploy_requests_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_deploy_requests_id_seq OWNED BY public.zdx_deploy_requests.id;
+
+
+--
 -- Name: zdx_deploys; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -834,6 +875,80 @@ CREATE SEQUENCE public.zdx_edges_id_seq
 --
 
 ALTER SEQUENCE public.zdx_edges_id_seq OWNED BY public.zdx_edges.id;
+
+
+--
+-- Name: zdx_env_agent_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_env_agent_tokens (
+    id integer NOT NULL,
+    env_id integer NOT NULL,
+    token_hash text NOT NULL,
+    scopes text[] DEFAULT '{}'::text[] NOT NULL,
+    name text DEFAULT 'env-agent'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_used_at timestamp with time zone,
+    revoked_at timestamp with time zone
+);
+
+
+--
+-- Name: zdx_env_agent_tokens_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_env_agent_tokens_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_env_agent_tokens_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_env_agent_tokens_id_seq OWNED BY public.zdx_env_agent_tokens.id;
+
+
+--
+-- Name: zdx_env_agents; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_env_agents (
+    id integer NOT NULL,
+    env_id integer NOT NULL,
+    agent_id text NOT NULL,
+    hostname text DEFAULT ''::text NOT NULL,
+    version text DEFAULT ''::text NOT NULL,
+    os text DEFAULT ''::text NOT NULL,
+    deployed_commit text DEFAULT ''::text NOT NULL,
+    uptime_secs bigint DEFAULT 0 NOT NULL,
+    connected_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_heartbeat_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_env_agents_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_env_agents_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_env_agents_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_env_agents_id_seq OWNED BY public.zdx_env_agents.id;
 
 
 --
@@ -1479,7 +1594,8 @@ CREATE TABLE public.zdx_issues (
     node_ref text,
     completed_in_sha text,
     closed_dirty boolean,
-    env_id integer
+    env_id integer,
+    force_close_reason text
 );
 
 
@@ -3238,6 +3354,13 @@ ALTER TABLE ONLY public.zdx_counter_events ALTER COLUMN id SET DEFAULT nextval('
 
 
 --
+-- Name: zdx_deploy_requests id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_deploy_requests ALTER COLUMN id SET DEFAULT nextval('public.zdx_deploy_requests_id_seq'::regclass);
+
+
+--
 -- Name: zdx_deploys id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -3270,6 +3393,20 @@ ALTER TABLE ONLY public.zdx_doctor_deferrals ALTER COLUMN id SET DEFAULT nextval
 --
 
 ALTER TABLE ONLY public.zdx_edges ALTER COLUMN id SET DEFAULT nextval('public.zdx_edges_id_seq'::regclass);
+
+
+--
+-- Name: zdx_env_agent_tokens id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_env_agent_tokens ALTER COLUMN id SET DEFAULT nextval('public.zdx_env_agent_tokens_id_seq'::regclass);
+
+
+--
+-- Name: zdx_env_agents id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_env_agents ALTER COLUMN id SET DEFAULT nextval('public.zdx_env_agents_id_seq'::regclass);
 
 
 --
@@ -3836,6 +3973,14 @@ ALTER TABLE ONLY public.zdx_counter_events
 
 
 --
+-- Name: zdx_deploy_requests zdx_deploy_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_deploy_requests
+    ADD CONSTRAINT zdx_deploy_requests_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: zdx_deploys zdx_deploys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3889,6 +4034,38 @@ ALTER TABLE ONLY public.zdx_edges
 
 ALTER TABLE ONLY public.zdx_edges
     ADD CONSTRAINT zdx_edges_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_env_agent_tokens zdx_env_agent_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_env_agent_tokens
+    ADD CONSTRAINT zdx_env_agent_tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_env_agent_tokens zdx_env_agent_tokens_token_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_env_agent_tokens
+    ADD CONSTRAINT zdx_env_agent_tokens_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: zdx_env_agents zdx_env_agents_env_id_agent_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_env_agents
+    ADD CONSTRAINT zdx_env_agents_env_id_agent_id_key UNIQUE (env_id, agent_id);
+
+
+--
+-- Name: zdx_env_agents zdx_env_agents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_env_agents
+    ADD CONSTRAINT zdx_env_agents_pkey PRIMARY KEY (id);
 
 
 --
@@ -5071,6 +5248,13 @@ CREATE INDEX idx_zdx_issues_closed_dirty ON public.zdx_issues USING btree (proje
 
 
 --
+-- Name: idx_zdx_issues_force_close_reason; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_zdx_issues_force_close_reason ON public.zdx_issues USING btree (project_id) WHERE (force_close_reason IS NOT NULL);
+
+
+--
 -- Name: zdx_agent_budgets_agent_uniq; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5162,6 +5346,13 @@ CREATE INDEX zdx_counter_events_project_created ON public.zdx_counter_events USI
 
 
 --
+-- Name: zdx_deploy_requests_env_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_deploy_requests_env_status_idx ON public.zdx_deploy_requests USING btree (env_id, status, created_at);
+
+
+--
 -- Name: zdx_deploys_env_time; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5180,6 +5371,20 @@ CREATE INDEX zdx_edges_from_node_id_idx ON public.zdx_edges USING btree (from_no
 --
 
 CREATE INDEX zdx_edges_to_node_id_idx ON public.zdx_edges USING btree (to_node_id);
+
+
+--
+-- Name: zdx_env_agent_tokens_env_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_env_agent_tokens_env_id_idx ON public.zdx_env_agent_tokens USING btree (env_id) WHERE (revoked_at IS NULL);
+
+
+--
+-- Name: zdx_env_agents_env_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_env_agents_env_id_idx ON public.zdx_env_agents USING btree (env_id);
 
 
 --
@@ -5638,6 +5843,38 @@ ALTER TABLE ONLY public.zdx_counter_events
 
 
 --
+-- Name: zdx_deploy_requests zdx_deploy_requests_blocking_issue_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_deploy_requests
+    ADD CONSTRAINT zdx_deploy_requests_blocking_issue_id_fkey FOREIGN KEY (blocking_issue_id) REFERENCES public.zdx_issues(id) ON DELETE SET NULL;
+
+
+--
+-- Name: zdx_deploy_requests zdx_deploy_requests_env_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_deploy_requests
+    ADD CONSTRAINT zdx_deploy_requests_env_id_fkey FOREIGN KEY (env_id) REFERENCES public.zdx_environments(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_deploy_requests zdx_deploy_requests_requested_by_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_deploy_requests
+    ADD CONSTRAINT zdx_deploy_requests_requested_by_token_id_fkey FOREIGN KEY (requested_by_token_id) REFERENCES public.zdx_env_agent_tokens(id) ON DELETE SET NULL;
+
+
+--
+-- Name: zdx_deploy_requests zdx_deploy_requests_requested_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_deploy_requests
+    ADD CONSTRAINT zdx_deploy_requests_requested_by_user_id_fkey FOREIGN KEY (requested_by_user_id) REFERENCES public.zdx_users(id) ON DELETE SET NULL;
+
+
+--
 -- Name: zdx_deploys zdx_deploys_deployed_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5699,6 +5936,22 @@ ALTER TABLE ONLY public.zdx_edges
 
 ALTER TABLE ONLY public.zdx_edges
     ADD CONSTRAINT zdx_edges_to_node_id_fkey FOREIGN KEY (to_node_id) REFERENCES public.zdx_nodes(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_env_agent_tokens zdx_env_agent_tokens_env_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_env_agent_tokens
+    ADD CONSTRAINT zdx_env_agent_tokens_env_id_fkey FOREIGN KEY (env_id) REFERENCES public.zdx_environments(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_env_agents zdx_env_agents_env_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_env_agents
+    ADD CONSTRAINT zdx_env_agents_env_id_fkey FOREIGN KEY (env_id) REFERENCES public.zdx_environments(id) ON DELETE CASCADE;
 
 
 --

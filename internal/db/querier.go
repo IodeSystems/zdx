@@ -87,6 +87,10 @@ type Querier interface {
 	// IS-1062: completed_in_sha is the HEAD (or operator-asserted) commit that
 	// completed the issue. closed_dirty is true when --force overrode the
 	// clean-tree gate (impl/ops only) — an audit hook for force-closes.
+	// IS-1088: force_close_reason captures the operator's bypass justification
+	// (e.g. heuristic-false-positive, emergency, rollback, other) when --force
+	// bypasses a non-categorical close gate. Null for clean closes and for
+	// categorical reasons (duplicate, wontfix, superseded, link).
 	CloseIssue(ctx context.Context, arg CloseIssueParams) error
 	CloseStaleClaudeSessions(ctx context.Context, staleMinutes int32) ([]CloseStaleClaudeSessionsRow, error)
 	CountApiKeys(ctx context.Context) (int32, error)
@@ -139,8 +143,16 @@ type Querier interface {
 	CreateCodeRef(ctx context.Context, arg CreateCodeRefParams) (ZdxCodeRef, error)
 	CreateConcern(ctx context.Context, arg CreateConcernParams) (ZdxConcern, error)
 	CreateDeploy(ctx context.Context, arg CreateDeployParams) (ZdxDeploy, error)
+	// Insert a new deploy-request row (status='pending') for the env. Returns
+	// the full row so the handler can echo id/created_at back to the caller.
+	CreateDeployRequest(ctx context.Context, arg CreateDeployRequestParams) (ZdxDeployRequest, error)
 	CreateDiscussion(ctx context.Context, arg CreateDiscussionParams) (ZdxDiscussion, error)
 	CreateDiscussionMessage(ctx context.Context, arg CreateDiscussionMessageParams) (ZdxDiscussionMessage, error)
+	// Mint a new env-agent token. token_hash is the SHA-256 hex of the plaintext
+	// (which is returned once to the caller and never persisted). scopes encodes
+	// which dx-envd capabilities the bearer may invoke (e.g. {"deploy:apply",
+	// "schema:dump"}).
+	CreateEnvAgentToken(ctx context.Context, arg CreateEnvAgentTokenParams) (ZdxEnvAgentToken, error)
 	CreateEnvironment(ctx context.Context, arg CreateEnvironmentParams) (CreateEnvironmentRow, error)
 	CreateFile(ctx context.Context, arg CreateFileParams) (ZdxFile, error)
 	CreateFocus(ctx context.Context, arg CreateFocusParams) (ZdxFocuse, error)
@@ -257,7 +269,13 @@ type Querier interface {
 	// that does have a file_id, so legacy rows linked to non-recorder tests still
 	// resolve to the uploaded artifact instead of 404ing on handleServeDemo.
 	GetDemoByID(ctx context.Context, id int32) (GetDemoByIDRow, error)
+	GetDeployRequest(ctx context.Context, id int32) (ZdxDeployRequest, error)
 	GetDiscussion(ctx context.Context, arg GetDiscussionParams) (ZdxDiscussion, error)
+	GetEnvAgentByAgentID(ctx context.Context, arg GetEnvAgentByAgentIDParams) (ZdxEnvAgent, error)
+	// Middleware hot path: resolve a presented token to its env_id + scopes.
+	// Filters out revoked rows so a revoked token looks identical to "no such
+	// token" to the caller.
+	GetEnvAgentTokenByHash(ctx context.Context, tokenHash string) (GetEnvAgentTokenByHashRow, error)
 	GetEnvironment(ctx context.Context, arg GetEnvironmentParams) (GetEnvironmentRow, error)
 	GetErrorEventByID(ctx context.Context, id int64) (ZdxErrorEvent, error)
 	GetErrorReportByID(ctx context.Context, id int64) (GetErrorReportByIDRow, error)
@@ -325,6 +343,12 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (ZdxUser, error)
 	GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, error)
 	GetVersionBranchByName(ctx context.Context, arg GetVersionBranchByNameParams) (GetVersionBranchByNameRow, error)
+	// Per-week count of session.ineffective tracelogs (IS-1100), bucketed by
+	// date_trunc('week', created_at) and grouped by the persona/model/complexity
+	// tags stamped into context_json by ineffectiveTraceArgs. v1: persona may be
+	// "" until IS-1096 stamps it on every session; pass through as-is. Feeds the
+	// routing-distribution dashboard for IS-1101.
+	IneffectiveSessionsByWeek(ctx context.Context, arg IneffectiveSessionsByWeekParams) ([]IneffectiveSessionsByWeekRow, error)
 	InsertBlockerQuestion(ctx context.Context, arg InsertBlockerQuestionParams) (ZdxBlockerQuestion, error)
 	InsertCounterEvent(ctx context.Context, arg InsertCounterEventParams) error
 	InsertErrorEvent(ctx context.Context, arg InsertErrorEventParams) error
@@ -439,6 +463,10 @@ type Querier interface {
 	// up the dangling thread (typically left over from a failed LLM send).
 	ListDiscussionsAwaitingResponse(ctx context.Context, projectID int32) ([]ListDiscussionsAwaitingResponseRow, error)
 	ListDoctorDeferrals(ctx context.Context, projectID int32) ([]ZdxDoctorDeferral, error)
+	// Admin/UI listing of live tokens for an env. token_hash is intentionally
+	// omitted so the listing is safe to log.
+	ListEnvAgentTokensByEnv(ctx context.Context, envID int32) ([]ListEnvAgentTokensByEnvRow, error)
+	ListEnvAgentsForEnv(ctx context.Context, envID int32) ([]ZdxEnvAgent, error)
 	ListEnvironmentNamesBoundToBranch(ctx context.Context, arg ListEnvironmentNamesBoundToBranchParams) ([]string, error)
 	ListEnvironments(ctx context.Context, projectID int32) ([]ListEnvironmentsRow, error)
 	// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) min(first_seen, created_at) max(last_seen, created_at)
@@ -494,6 +522,9 @@ type Querier interface {
 	// IS-1062: surfacing hook for `dx issue list --closed-dirty`. Returns issues
 	// that were force-closed against an unclean working tree, newest first.
 	ListIssuesClosedDirty(ctx context.Context, projectID int32) ([]ZdxIssue, error)
+	// IS-1088: audit hook for force-bypass closes. Returns issues whose close
+	// bypassed a non-categorical gate (force_close_reason is set), newest first.
+	ListIssuesForceClose(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	ListJournalEntries(ctx context.Context, arg ListJournalEntriesParams) ([]ListJournalEntriesRow, error)
 	ListKpiTrend(ctx context.Context, arg ListKpiTrendParams) ([]ZdxKpiSample, error)
 	ListLLMConfigs(ctx context.Context) ([]ListLLMConfigsRow, error)
@@ -540,6 +571,10 @@ type Querier interface {
 	ListOrphanReadyTasks(ctx context.Context, projectID int32) ([]ListOrphanReadyTasksRow, error)
 	ListPatterns(ctx context.Context, projectID int32) ([]ZdxPattern, error)
 	ListPendingBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
+	// dx-envd poller path: oldest pending row for this env. The poller normally
+	// consumes one at a time (limit 1) but the query accepts a caller-chosen
+	// limit so tests / admin tooling can drain the queue.
+	ListPendingDeployRequestsByEnv(ctx context.Context, arg ListPendingDeployRequestsByEnvParams) ([]ZdxDeployRequest, error)
 	ListPlanStepRefs(ctx context.Context, stepID int32) ([]ZdxPlanStepRef, error)
 	ListPlanSteps(ctx context.Context, planID int32) ([]ZdxPlanStep, error)
 	ListPlans(ctx context.Context, projectID int32) ([]ListPlansRow, error)
@@ -671,6 +706,12 @@ type Querier interface {
 	MarkAgentDisconnected(ctx context.Context, id string) error
 	MarkChunkBroken(ctx context.Context, arg MarkChunkBrokenParams) (ZdxNarrativeChunk, error)
 	MarkChunksStaleByFiles(ctx context.Context, arg MarkChunksStaleByFilesParams) error
+	// Atomically claim a pending row. The status='pending' guard means two racing
+	// env-agents can't both accept the same request — the loser sees no rows.
+	MarkDeployRequestAccepted(ctx context.Context, id int32) (ZdxDeployRequest, error)
+	// failure_text is the terminal error string surfaced by dx-envd.
+	MarkDeployRequestFailed(ctx context.Context, arg MarkDeployRequestFailedParams) (ZdxDeployRequest, error)
+	MarkDeployRequestSucceeded(ctx context.Context, id int32) (ZdxDeployRequest, error)
 	MarkFeatureReviewed(ctx context.Context, arg MarkFeatureReviewedParams) error
 	MarkInviteUsed(ctx context.Context, id int32) error
 	MarkJournalEntryReviewed(ctx context.Context, id int32) error
@@ -759,6 +800,7 @@ type Querier interface {
 	ResolveTodo(ctx context.Context, arg ResolveTodoParams) error
 	ResolveTodoByID(ctx context.Context, id int32) error
 	ResolveTodosNotInKeys(ctx context.Context, arg ResolveTodosNotInKeysParams) error
+	RevokeEnvAgentToken(ctx context.Context, id int32) error
 	RevokeIntegrationToken(ctx context.Context, id int32) error
 	// metaquery: off
 	SearchFeatures(ctx context.Context, arg SearchFeaturesParams) ([]SearchFeaturesRow, error)
@@ -819,6 +861,8 @@ type Querier interface {
 	TopPriorityOpenIssues(ctx context.Context, projectID int32) ([]TopPriorityOpenIssuesRow, error)
 	TouchApiKey(ctx context.Context, id int32) error
 	TouchClaudeSession(ctx context.Context, id int64) error
+	// Fire-and-forget update from the auth middleware after a successful lookup.
+	TouchEnvAgentTokenLastUsed(ctx context.Context, id int32) error
 	// Clear an originally-global agent's project pin (back to global pool).
 	// Refuses to operate on project-scoped agents.
 	UnassignAgent(ctx context.Context, id string) (ZdxAgent, error)
@@ -877,6 +921,11 @@ type Querier interface {
 	UpdateVersionBranchSource(ctx context.Context, arg UpdateVersionBranchSourceParams) error
 	UpsertAgentBudget(ctx context.Context, arg UpsertAgentBudgetParams) (ZdxAgentBudget, error)
 	UpsertCounted(ctx context.Context, arg UpsertCountedParams) error
+	// Insert-or-update one zdx_env_agents row keyed by (env_id, agent_id).
+	// Called on the initial WS handshake AND on every subsequent heartbeat;
+	// last_heartbeat_at always advances to now() so `dx env list` can grade
+	// env liveness off the column.
+	UpsertEnvAgentHeartbeat(ctx context.Context, arg UpsertEnvAgentHeartbeatParams) (ZdxEnvAgent, error)
 	UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (UpsertFeatureRow, error)
 	UpsertMaturityAnswer(ctx context.Context, arg UpsertMaturityAnswerParams) (ZdxMaturityAnswer, error)
 	// Re-stamping is idempotent: if the (project, kind, target) triple already

@@ -24,6 +24,67 @@ func (q *Queries) DeleteLogEventsOlderThan(ctx context.Context, cutoff pgtype.Ti
 	return result.RowsAffected(), nil
 }
 
+const ineffectiveSessionsByWeek = `-- name: IneffectiveSessionsByWeek :many
+SELECT
+    date_trunc('week', created_at)::timestamptz       AS week_start,
+    COALESCE(context_json->>'persona', '')::text     AS persona,
+    COALESCE(context_json->>'model', '')::text       AS model,
+    COALESCE(context_json->>'complexity', '')::text  AS complexity,
+    COUNT(*)                                          AS ineffective_count
+FROM zdx_log_events
+WHERE message = 'session.ineffective'
+  AND project_id = $1::int
+  AND ($2::timestamptz IS NULL OR created_at >= $2::timestamptz)
+  AND ($3::timestamptz IS NULL OR created_at <  $3::timestamptz)
+GROUP BY week_start, persona, model, complexity
+ORDER BY week_start DESC, ineffective_count DESC
+`
+
+type IneffectiveSessionsByWeekParams struct {
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	Since     pgtype.Timestamptz `db:"since" json:"since"`
+	Until     pgtype.Timestamptz `db:"until" json:"until"`
+}
+
+type IneffectiveSessionsByWeekRow struct {
+	WeekStart        pgtype.Timestamptz `db:"week_start" json:"week_start"`
+	Persona          string             `db:"persona" json:"persona"`
+	Model            string             `db:"model" json:"model"`
+	Complexity       string             `db:"complexity" json:"complexity"`
+	IneffectiveCount int64              `db:"ineffective_count" json:"ineffective_count"`
+}
+
+// Per-week count of session.ineffective tracelogs (IS-1100), bucketed by
+// date_trunc('week', created_at) and grouped by the persona/model/complexity
+// tags stamped into context_json by ineffectiveTraceArgs. v1: persona may be
+// "" until IS-1096 stamps it on every session; pass through as-is. Feeds the
+// routing-distribution dashboard for IS-1101.
+func (q *Queries) IneffectiveSessionsByWeek(ctx context.Context, arg IneffectiveSessionsByWeekParams) ([]IneffectiveSessionsByWeekRow, error) {
+	rows, err := q.db.Query(ctx, ineffectiveSessionsByWeek, arg.ProjectID, arg.Since, arg.Until)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []IneffectiveSessionsByWeekRow
+	for rows.Next() {
+		var i IneffectiveSessionsByWeekRow
+		if err := rows.Scan(
+			&i.WeekStart,
+			&i.Persona,
+			&i.Model,
+			&i.Complexity,
+			&i.IneffectiveCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertLogEvent = `-- name: InsertLogEvent :exec
 INSERT INTO zdx_log_events (project_id, component, environment, level, message, source, context_json)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
