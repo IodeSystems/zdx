@@ -395,8 +395,60 @@ func issueShowCmd() *cobra.Command {
 	}
 }
 
+// SuggestedForceCloseReasons is the advisory taxonomy for non-categorical
+// --force closes (IS-1088). The set is advisory only — any non-empty reason
+// is accepted by the CLI so operators can record incident-specific
+// justifications. Auditors filter on force_close_reason regardless of which
+// label was used.
+var SuggestedForceCloseReasons = []string{
+	"heuristic-false-positive",
+	"emergency",
+	"rollback",
+	"other",
+}
+
+// validateIssueCloseFlags applies the IS-1088 close-flag taxonomy. Pure
+// function so it can be unit-tested without the full cobra/HTTP path.
+//
+// Categorical reasons (duplicate/wontfix/superseded) require --force and keep
+// their existing [closed:<reason>] worklog marker. Non-categorical --force
+// closes (e.g. heuristic-false-positive, emergency, rollback, other) are
+// "force-bypass" closes: the CLI requires a non-empty --reason and routes the
+// server to emit a [closed:force:<reason>] marker plus persist
+// force_close_reason for audit. --reason=other additionally requires --note so
+// the operator's narrative is captured rather than a bare "other".
+func validateIssueCloseFlags(reason, note string, force bool, duplicateOf, linkOf string) error {
+	forceReasons := map[string]bool{"duplicate": true, "wontfix": true, "superseded": true}
+	if forceReasons[reason] && !force {
+		return fmt.Errorf("closing with --reason=%s requires --force", reason)
+	}
+	if force && !forceReasons[reason] {
+		// IS-1088: --force without a categorical reason is a force-bypass
+		// close. Require a non-empty --reason from (or like) the suggested
+		// taxonomy. The set is advisory; any non-empty value is accepted.
+		if reason == "" {
+			return fmt.Errorf("--force requires --reason=<%s|categorical>; set --reason=other --note=\"...\" for free-form",
+				strings.Join(SuggestedForceCloseReasons, "|"))
+		}
+		if reason == "other" && note == "" {
+			return fmt.Errorf("--reason=other requires --note=\"<justification>\"")
+		}
+	}
+	if reason == "duplicate" && duplicateOf == "" {
+		return fmt.Errorf("--duplicate-of is required when --reason=duplicate")
+	}
+	if reason == "link" && linkOf == "" {
+		return fmt.Errorf("--link-of is required when --reason=link")
+	}
+	if duplicateOf != "" && linkOf != "" {
+		return fmt.Errorf("--duplicate-of and --link-of are mutually exclusive")
+	}
+	return nil
+}
+
 func issueCloseCmd() *cobra.Command {
 	var reason string
+	var note string
 	var force bool
 	var duplicateOf string
 	var linkOf string
@@ -406,21 +458,8 @@ func issueCloseCmd() *cobra.Command {
 		Short: "Close an issue",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			forceReasons := map[string]bool{"duplicate": true, "wontfix": true, "superseded": true}
-			if forceReasons[reason] && !force {
-				return fmt.Errorf("closing with --reason=%s requires --force", reason)
-			}
-			if force && !forceReasons[reason] && reason != "done" && reason != "" {
-				return fmt.Errorf("--force requires --reason=done|duplicate|wontfix|superseded")
-			}
-			if reason == "duplicate" && duplicateOf == "" {
-				return fmt.Errorf("--duplicate-of is required when --reason=duplicate")
-			}
-			if reason == "link" && linkOf == "" {
-				return fmt.Errorf("--link-of is required when --reason=link")
-			}
-			if duplicateOf != "" && linkOf != "" {
-				return fmt.Errorf("--duplicate-of and --link-of are mutually exclusive")
+			if err := validateIssueCloseFlags(reason, note, force, duplicateOf, linkOf); err != nil {
+				return err
 			}
 			id := args[0]
 			n, err := parseIssueID(id)
@@ -504,6 +543,9 @@ func issueCloseCmd() *cobra.Command {
 			if closedDirty {
 				body.ClosedDirty = &closedDirty
 			}
+			if note != "" {
+				body.Notes = &note
+			}
 			resp, err := c.CloseIssueWithResponse(cmd.Context(), body)
 			if err != nil {
 				return err
@@ -523,8 +565,9 @@ func issueCloseCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&reason, "reason", "", "close reason (done|duplicate|link|wontfix|superseded)")
-	cmd.Flags().BoolVar(&force, "force", false, "bypass close gate (required with --reason=duplicate|wontfix|superseded; optional with --reason=done; also overrides the IS-1062 clean-tree gate and marks closed_dirty=true if dirty)")
+	cmd.Flags().StringVar(&reason, "reason", "", "close reason (done|duplicate|link|wontfix|superseded; or with --force: heuristic-false-positive|emergency|rollback|other)")
+	cmd.Flags().StringVar(&note, "note", "", "narrative attached to the close marker (required with --force --reason=other)")
+	cmd.Flags().BoolVar(&force, "force", false, "force-bypass close gate. Categorical reasons (duplicate|wontfix|superseded) require --force. Non-categorical --force closes also require --reason from the suggested taxonomy (heuristic-false-positive|emergency|rollback|other) and emit a [closed:force:<reason>] worklog marker plus persist force_close_reason for audit (IS-1088). Also overrides the IS-1062 clean-tree gate and marks closed_dirty=true if dirty.")
 	cmd.Flags().StringVar(&duplicateOf, "duplicate-of", "", "issue ID this duplicates (required when --reason=duplicate)")
 	cmd.Flags().StringVar(&linkOf, "link-of", "", "issue ID this is a narrow-slice link of (required when --reason=link; cascade-closes with target, no reopen-cascade)")
 	cmd.Flags().StringVar(&commitFlag, "commit", "", "commit SHA that completed the issue; bypasses clean-tree gate, sets completed_in_sha=<sha>; defaults to HEAD when omitted (IS-1062)")

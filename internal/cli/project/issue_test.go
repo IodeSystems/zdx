@@ -348,6 +348,140 @@ func TestParseUnresolvedBranchesError(t *testing.T) {
 	}
 }
 
+// TestValidateIssueCloseFlags covers IS-1088: the close-flag taxonomy that
+// distinguishes categorical closes (duplicate/wontfix/superseded) from
+// force-bypass closes with operator-supplied reasons. See validateIssueCloseFlags.
+func TestValidateIssueCloseFlags(t *testing.T) {
+	cases := []struct {
+		name        string
+		reason      string
+		note        string
+		force       bool
+		duplicateOf string
+		linkOf      string
+		wantErr     string // substring match; "" means no error
+	}{
+		// IS-1088 force-bypass cases
+		{
+			name:    "force without reason errors with taxonomy hint",
+			force:   true,
+			wantErr: "--force requires --reason",
+		},
+		{
+			name:   "force with heuristic-false-positive ok",
+			reason: "heuristic-false-positive",
+			force:  true,
+		},
+		{
+			name:   "force with emergency ok",
+			reason: "emergency",
+			force:  true,
+		},
+		{
+			name:   "force with rollback ok",
+			reason: "rollback",
+			force:  true,
+		},
+		{
+			name:    "force with reason=other but no note errors",
+			reason:  "other",
+			force:   true,
+			wantErr: "--reason=other requires --note",
+		},
+		{
+			name:   "force with reason=other and note ok",
+			reason: "other",
+			note:   "decomp gate fired on descriptive prose",
+			force:  true,
+		},
+		{
+			name:   "force with arbitrary non-empty reason ok (taxonomy is advisory)",
+			reason: "incident-2026-05-14",
+			force:  true,
+		},
+		{
+			name:   "force with done is also a force-bypass (non-empty reason ok)",
+			reason: "done",
+			force:  true,
+		},
+		// Categorical reason cases (IS-1088: keep current behavior)
+		{
+			name:        "force with duplicate and duplicate-of ok",
+			reason:      "duplicate",
+			force:       true,
+			duplicateOf: "IS-99",
+		},
+		{
+			name:    "duplicate without force errors",
+			reason:  "duplicate",
+			wantErr: "--reason=duplicate requires --force",
+		},
+		{
+			name:    "wontfix without force errors",
+			reason:  "wontfix",
+			wantErr: "--reason=wontfix requires --force",
+		},
+		{
+			name:    "superseded without force errors",
+			reason:  "superseded",
+			wantErr: "--reason=superseded requires --force",
+		},
+		{
+			name:   "force with wontfix ok",
+			reason: "wontfix",
+			force:  true,
+		},
+		{
+			name:    "duplicate with force but no --duplicate-of errors",
+			reason:  "duplicate",
+			force:   true,
+			wantErr: "--duplicate-of is required",
+		},
+		{
+			name:    "link without --link-of errors",
+			reason:  "link",
+			wantErr: "--link-of is required",
+		},
+		{
+			name:   "link with --link-of ok (no force needed)",
+			reason: "link",
+			linkOf: "IS-99",
+		},
+		// Mutual exclusion + clean-close cases
+		{
+			name:        "duplicate-of and link-of mutually exclusive",
+			reason:      "link",
+			linkOf:      "IS-1",
+			duplicateOf: "IS-2",
+			wantErr:     "mutually exclusive",
+		},
+		{
+			name:   "clean close with reason=done ok",
+			reason: "done",
+		},
+		{
+			name: "clean close with no reason ok",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateIssueCloseFlags(tc.reason, tc.note, tc.force, tc.duplicateOf, tc.linkOf)
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Fatalf("want no error, got %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("want error containing %q, got nil", tc.wantErr)
+			}
+			if !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("error %q does not contain %q", err.Error(), tc.wantErr)
+			}
+		})
+	}
+}
+
 func TestExtractDecompositionCandidates_CapsAt20(t *testing.T) {
 	var b strings.Builder
 	for i := 0; i < 50; i++ {

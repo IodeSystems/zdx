@@ -611,6 +611,20 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			if force {
 				closeReason = reason
 			}
+			// IS-1088: distinguish force-bypass from categorical closes.
+			// Categorical reasons (duplicate/wontfix/superseded/link) keep
+			// their existing [closed:<reason>] marker. Force-bypass closes
+			// (force=true with a non-categorical reason, e.g. heuristic-
+			// false-positive, emergency, rollback, other) get a
+			// [closed:force:<reason>] marker and persist force_close_reason
+			// for audit. force=true with empty reason is a defensive case
+			// (CLI validates non-empty); emit [closed:force] without crash.
+			isCategoricalReason := forceReasons[reason] || reason == "link"
+			isForceBypass := force && !isCategoricalReason
+			forceCloseReason := pgtype.Text{}
+			if isForceBypass && reason != "" {
+				forceCloseReason = pgtype.Text{String: reason, Valid: true}
+			}
 			completedInSha := pgtype.Text{}
 			if s := ptrStr(in.Body.CompletedInSha); s != "" {
 				completedInSha = pgtype.Text{String: s, Valid: true}
@@ -619,13 +633,18 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			if in.Body.ClosedDirty != nil {
 				closedDirty = pgtype.Bool{Bool: *in.Body.ClosedDirty, Valid: true}
 			}
-			if err := h.Q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID, DuplicateOf: duplicateOf, LinkOf: linkOf, CloseReason: closeReason, CompletedInSha: completedInSha, ClosedDirty: closedDirty}); err != nil {
+			if err := h.Q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID, DuplicateOf: duplicateOf, LinkOf: linkOf, CloseReason: closeReason, ForceCloseReason: forceCloseReason, CompletedInSha: completedInSha, ClosedDirty: closedDirty}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			h.recordRevision(ctx, p.ID, "issue", issueID, "status", prevStatus, "closed")
 			notes := ptrStr(in.Body.Notes)
 			note := "[closed"
-			if reason != "" {
+			if isForceBypass {
+				note += ":force"
+				if reason != "" {
+					note += ":" + reason
+				}
+			} else if reason != "" {
 				note += ":" + reason
 			}
 			note += "] "
@@ -1669,27 +1688,32 @@ func toIssueItem(r db.ZdxIssue) IssueItem {
 	if r.ClosedDirty.Valid {
 		closedDirty = r.ClosedDirty.Bool
 	}
+	forceCloseReason := ""
+	if r.ForceCloseReason.Valid {
+		forceCloseReason = r.ForceCloseReason.String
+	}
 	return IssueItem{
-		ID:              issueIntID(r.ID),
-		Title:           r.Title,
-		Status:          r.Status,
-		Priority:        r.Priority,
-		Component:       r.Component,
-		Context:         r.Context,
-		IssueType:       r.IssueType,
-		DuplicateOf:     r.DuplicateOf,
-		LinkOf:          r.LinkOf,
-		CloseReason:     r.CloseReason,
-		ReopenCount:     r.ReopenCount,
-		TargetBranch:    r.TargetBranch,
-		URL:             r.Url,
-		NodeRef:         nodeRef,
-		CompletedInSha:  completedInSha,
-		ClosedDirty:     closedDirty,
-		CreatedAt:       fmtTS(r.CreatedAt),
-		UpdatedAt:       fmtTS(r.UpdatedAt),
-		BlockedBy:       []string{},
-		BlockedByDetail: []IssueBlockerRef{},
+		ID:               issueIntID(r.ID),
+		Title:            r.Title,
+		Status:           r.Status,
+		Priority:         r.Priority,
+		Component:        r.Component,
+		Context:          r.Context,
+		IssueType:        r.IssueType,
+		DuplicateOf:      r.DuplicateOf,
+		LinkOf:           r.LinkOf,
+		CloseReason:      r.CloseReason,
+		ReopenCount:      r.ReopenCount,
+		TargetBranch:     r.TargetBranch,
+		URL:              r.Url,
+		NodeRef:          nodeRef,
+		CompletedInSha:   completedInSha,
+		ClosedDirty:      closedDirty,
+		ForceCloseReason: forceCloseReason,
+		CreatedAt:        fmtTS(r.CreatedAt),
+		UpdatedAt:        fmtTS(r.UpdatedAt),
+		BlockedBy:        []string{},
+		BlockedByDetail:  []IssueBlockerRef{},
 	}
 }
 

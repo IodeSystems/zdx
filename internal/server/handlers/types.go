@@ -3,28 +3,29 @@ package handlers
 // ── Response types ─────────────────────────────────────────────────────────
 
 type IssueItem struct {
-	ID              int32             `json:"id" doc:"Server integer ID; CLI formats as IS-N"`
-	Title           string            `json:"title"`
-	Status          string            `json:"status"`
-	Priority        string            `json:"priority"`
-	Component       string            `json:"component"`
-	Features        string            `json:"features"`
-	BlockedBy       []string          `json:"blocked_by"`
-	BlockedByDetail []IssueBlockerRef `json:"blocked_by_detail"`
-	Context         string            `json:"context"`
-	Source          string            `json:"source"`
-	IssueType       string            `json:"issue_type"`
-	DuplicateOf     string            `json:"duplicate_of,omitempty"`
-	LinkOf          string            `json:"link_of,omitempty"`
-	CloseReason     string            `json:"close_reason,omitempty"`
-	ReopenCount     int32             `json:"reopen_count,omitempty" doc:"Number of times this issue has been reopened — a churn signal for stabilization candidates"`
-	TargetBranch    string            `json:"target_branch,omitempty"`
-	URL             string            `json:"url"`
-	NodeRef         string            `json:"node_ref,omitempty" doc:"Atlas node this issue is filed against, formatted as kind:slug; empty when not filed against a node"`
-	CompletedInSha  string            `json:"completed_in_sha,omitempty" doc:"Commit (HEAD or operator-asserted via --commit) that completed the issue. Set on close; null for historical pre-IS-1062 closes."`
-	ClosedDirty     bool              `json:"closed_dirty,omitempty" doc:"True only when the issue was force-closed against an unclean working tree (audit hook)."`
-	CreatedAt       string            `json:"created_at"`
-	UpdatedAt       string            `json:"updated_at"`
+	ID               int32             `json:"id" doc:"Server integer ID; CLI formats as IS-N"`
+	Title            string            `json:"title"`
+	Status           string            `json:"status"`
+	Priority         string            `json:"priority"`
+	Component        string            `json:"component"`
+	Features         string            `json:"features"`
+	BlockedBy        []string          `json:"blocked_by"`
+	BlockedByDetail  []IssueBlockerRef `json:"blocked_by_detail"`
+	Context          string            `json:"context"`
+	Source           string            `json:"source"`
+	IssueType        string            `json:"issue_type"`
+	DuplicateOf      string            `json:"duplicate_of,omitempty"`
+	LinkOf           string            `json:"link_of,omitempty"`
+	CloseReason      string            `json:"close_reason,omitempty"`
+	ReopenCount      int32             `json:"reopen_count,omitempty" doc:"Number of times this issue has been reopened — a churn signal for stabilization candidates"`
+	TargetBranch     string            `json:"target_branch,omitempty"`
+	URL              string            `json:"url"`
+	NodeRef          string            `json:"node_ref,omitempty" doc:"Atlas node this issue is filed against, formatted as kind:slug; empty when not filed against a node"`
+	CompletedInSha   string            `json:"completed_in_sha,omitempty" doc:"Commit (HEAD or operator-asserted via --commit) that completed the issue. Set on close; null for historical pre-IS-1062 closes."`
+	ClosedDirty      bool              `json:"closed_dirty,omitempty" doc:"True only when the issue was force-closed against an unclean working tree (audit hook)."`
+	ForceCloseReason string            `json:"force_close_reason,omitempty" doc:"Operator's bypass justification (e.g. heuristic-false-positive, emergency, rollback, other) when --force overrode a non-categorical close gate. Empty for clean closes and categorical reasons (duplicate/wontfix/superseded/link). IS-1088."`
+	CreatedAt        string            `json:"created_at"`
+	UpdatedAt        string            `json:"updated_at"`
 }
 
 // IssueBranchesItem is the resolved (trunk_branch, release_branch) pair for
