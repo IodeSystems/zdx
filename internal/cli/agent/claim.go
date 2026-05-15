@@ -31,13 +31,63 @@ type claimedTodo struct {
 	ClaimBaseBranch string `json:"claim_base_branch,omitempty"`
 }
 
+// scopeInfo mirrors AgentClaimScope from the server, carrying the "why did
+// my claim return empty" signal up to the loop supervisor. Populated only
+// for scoped claims (--scope-issue); nil for global/unscoped claims.
+type scopeInfo struct {
+	IssueID      string
+	State        string
+	Reason       string
+	OpenBlockers []string
+}
+
+// terminal reports whether the scope subtree has no claimable work and will
+// not gain any: the scope issue itself is closed, or every descendant is
+// closed/blocked so the tracker is closable. The third stalled reason —
+// "all-blocked" — is transient (another worker may release a lease or a
+// blocker may close) and is NOT terminal.
+func (s *scopeInfo) terminal() bool {
+	if s == nil {
+		return false
+	}
+	switch s.State {
+	case "closed":
+		return true
+	case "stalled":
+		return s.Reason == "tracker-closable"
+	}
+	return false
+}
+
 // fromAgentClaimBody projects the typed dxclient response into the internal
-// claimedTodo shape used by the rest of the lifecycle (take.go, manager.go,
-// claude.go). The typed body has many more fields than callers need; we
-// translate only what the lifecycle reads.
-func fromAgentClaimBody(b *dxclient.AgentClaimBody) *claimedTodo {
+// (claimedTodo, scopeInfo) pair used by the rest of the lifecycle (take.go,
+// manager.go, claude.go). claimedTodo is nil when the response carries no
+// real claim — either b is nil (transport-level miss) or b.Id == 0 (server
+// returned an empty TodoItem alongside a populated Scope, the wire shape
+// for "scope stalled/closed"). scopeInfo is non-nil only for scoped claims.
+func fromAgentClaimBody(b *dxclient.AgentClaimBody) (*claimedTodo, *scopeInfo) {
 	if b == nil {
-		return nil
+		return nil, nil
+	}
+	var sc *scopeInfo
+	if b.Scope != nil {
+		sc = &scopeInfo{
+			IssueID: b.Scope.IssueId,
+			State:   b.Scope.State,
+		}
+		if b.Scope.Reason != nil {
+			sc.Reason = *b.Scope.Reason
+		}
+		if b.Scope.OpenBlockers != nil {
+			sc.OpenBlockers = *b.Scope.OpenBlockers
+		}
+	}
+	// Empty TodoItem (Id==0) means no claim was made — server-side this is
+	// how scoped stalls and other no-claim 200 paths surface. Returning a
+	// non-nil claimedTodo here would let the loop tight-spin against the
+	// empty payload (the original IS-1234 hot-fire).
+	if b.Id == 0 {
+		return nil, sc
 	}
 	t := &claimedTodo{
 		ID:         b.Id,
@@ -64,7 +114,7 @@ func fromAgentClaimBody(b *dxclient.AgentClaimBody) *claimedTodo {
 	if b.ClaimBaseBranch != nil {
 		t.ClaimBaseBranch = *b.ClaimBaseBranch
 	}
-	return t
+	return t, sc
 }
 
 // claimNextTodo atomically reserves the next available todo for agentID via
@@ -77,7 +127,7 @@ func fromAgentClaimBody(b *dxclient.AgentClaimBody) *claimedTodo {
 // ordered by project.priority then todo.priority. When rc.slug is set the
 // daemon stays on the project-scoped /claim path. The wire response shape
 // is identical (claim-any populates project_slug; /claim leaves it blank).
-func claimNextTodo(rc remoteConfig, agentID, persona string, leaseMinutes int32, scopeIssueID string) (*claimedTodo, error) {
+func claimNextTodo(rc remoteConfig, agentID, persona string, leaseMinutes int32, scopeIssueID string) (*claimedTodo, *scopeInfo, error) {
 	c := cli.NewClient(rc.url, rc.key)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -96,12 +146,13 @@ func claimNextTodo(rc remoteConfig, agentID, persona string, leaseMinutes int32,
 			Persona:      &persona,
 		})
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if resp.StatusCode() >= 400 {
-			return nil, fmt.Errorf("claim HTTP %d", resp.StatusCode())
+			return nil, nil, fmt.Errorf("claim HTTP %d", resp.StatusCode())
 		}
-		return fromAgentClaimBody(resp.JSON200), nil
+		t, s := fromAgentClaimBody(resp.JSON200)
+		return t, s, nil
 	}
 
 	body := dxclient.AgentClaimJSONRequestBody{
@@ -115,12 +166,13 @@ func claimNextTodo(rc remoteConfig, agentID, persona string, leaseMinutes int32,
 	}
 	resp, err := c.AgentClaimWithResponse(ctx, &dxclient.AgentClaimParams{}, body)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if resp.StatusCode() >= 400 {
-		return nil, fmt.Errorf("claim HTTP %d", resp.StatusCode())
+		return nil, nil, fmt.Errorf("claim HTTP %d", resp.StatusCode())
 	}
-	return fromAgentClaimBody(resp.JSON200), nil
+	t, s := fromAgentClaimBody(resp.JSON200)
+	return t, s, nil
 }
 
 // renewTodoLease pushes the lease deadline forward so a long-running session

@@ -514,8 +514,21 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 			return nil
 		}
 
-		todo, err := claimNextTodo(opts.RC, opts.Alias, opts.Persona, leaseMin, opts.ScopeIssueID)
+		todo, scope, err := claimNextTodo(opts.RC, opts.Alias, opts.Persona, leaseMin, opts.ScopeIssueID)
 		if err != nil || todo == nil {
+			// Scope-exhausted terminates the loop: the scope issue is closed
+			// or its subtree has nothing claimable left (tracker-closable).
+			// No amount of polling will produce work, so exit cleanly
+			// instead of burning a 60s poll cycle forever (IS-1234 / TK-1835).
+			if scope.terminal() {
+				fmt.Fprintf(os.Stderr, "[%s] scope %s exhausted: %s (%s); exiting loop\n",
+					providerName, scope.IssueID, scope.State, scope.Reason)
+				emit("loop.scope_exhausted",
+					"scope_issue_id", scope.IssueID,
+					"state", scope.State,
+					"reason", scope.Reason)
+				return nil
+			}
 			emit("claim.idle", "err", errString(err))
 			select {
 			case <-ctx.Done():

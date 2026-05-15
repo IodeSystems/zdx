@@ -40,6 +40,34 @@ func countLines(s string) int {
 // ErrNoWork is returned by Take when no claimable todo is available.
 var ErrNoWork = errors.New("no claimable work")
 
+// ErrScopeExhausted is returned by Take when a scoped claim
+// (--scope-issue) reports a terminal state (the scope issue is closed, or
+// every descendant is closed/blocked so the tracker is closable). Distinct
+// from ErrNoWork because the supervisor loop should exit cleanly rather
+// than continue polling — no amount of waiting will produce work in the
+// subtree (TK-1835 / IS-1234).
+var ErrScopeExhausted = errors.New("scope exhausted")
+
+// ScopeExhaustedError carries the why-exhausted context (final scope state
+// + reason) so the supervisor loop can log a meaningful exit line.
+// errors.Is(err, ErrScopeExhausted) returns true.
+type ScopeExhaustedError struct {
+	IssueID string
+	State   string
+	Reason  string
+}
+
+func (e *ScopeExhaustedError) Error() string {
+	if e.Reason != "" {
+		return fmt.Sprintf("scope %s exhausted: %s (%s)", e.IssueID, e.State, e.Reason)
+	}
+	return fmt.Sprintf("scope %s exhausted: %s", e.IssueID, e.State)
+}
+
+func (e *ScopeExhaustedError) Is(target error) bool {
+	return target == ErrScopeExhausted
+}
+
 // TakeConfig holds everything Take needs to execute one work item.
 type TakeConfig struct {
 	RC       remoteConfig
@@ -129,8 +157,25 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 		log("resuming interrupted session: issue=%s sid=%s", issueID, sid)
 	} else {
 		// Claim the next available todo via the API.
-		todo, err := claimNextTodo(cfg.RC, cfg.AgentID, cfg.Persona, int32(cfg.AgentCfg.LeaseMinutes), cfg.ScopeIssueID)
+		todo, scope, err := claimNextTodo(cfg.RC, cfg.AgentID, cfg.Persona, int32(cfg.AgentCfg.LeaseMinutes), cfg.ScopeIssueID)
 		if err != nil || todo == nil {
+			// Distinguish scope-exhausted (terminal: caller should exit
+			// the loop) from transient idle (caller should sleep + retry).
+			// Server signals exhaustion via scope.state=closed or
+			// scope.state=stalled,reason=tracker-closable. Anything else
+			// — including transient "all-blocked" stalls or transport
+			// errors — falls through to ErrNoWork.
+			if scope.terminal() {
+				emit("claim.scope_exhausted",
+					"scope_issue_id", scope.IssueID,
+					"state", scope.State,
+					"reason", scope.Reason)
+				return TakeResult{Err: &ScopeExhaustedError{
+					IssueID: scope.IssueID,
+					State:   scope.State,
+					Reason:  scope.Reason,
+				}}
+			}
 			return TakeResult{Err: ErrNoWork}
 		}
 		activeTodo = todo

@@ -414,6 +414,30 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 			}
 		}
 
+		// Handle scope-exhausted: --scope-issue subtree has nothing
+		// claimable and never will (issue closed, or tracker-closable).
+		// Exit cleanly so `dx agent claude --loop --scope-issue=...` means
+		// "work the subtree to completion and stop", not "poll until SIGINT"
+		// (IS-1234 / TK-1835).
+		var scopeExhausted *ScopeExhaustedError
+		if errors.As(result.Err, &scopeExhausted) {
+			log("scope %s exhausted (%s%s); exiting loop",
+				scopeExhausted.IssueID,
+				scopeExhausted.State,
+				func() string {
+					if scopeExhausted.Reason != "" {
+						return ": " + scopeExhausted.Reason
+					}
+					return ""
+				}())
+			emit("loop.scope_exhausted",
+				"iteration_id", iterationID,
+				"scope_issue_id", scopeExhausted.IssueID,
+				"state", scopeExhausted.State,
+				"reason", scopeExhausted.Reason)
+			return nil
+		}
+
 		// Handle idle (no work available).
 		if errors.Is(result.Err, ErrNoWork) {
 			emit("claim.idle", "iteration_id", iterationID)
