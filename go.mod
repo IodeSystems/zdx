@@ -9,7 +9,7 @@ require (
 	github.com/golang/snappy v1.0.0
 	github.com/google/uuid v1.6.0
 	github.com/iodesystems/sqlc-go-codegen-metaquery v0.1.0
-	github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx v0.0.0-20260421032010-9c3033998584
+	github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx v0.0.0-20260421063117-f6ec44d19674
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/modelcontextprotocol/go-sdk v1.5.0
 	github.com/oapi-codegen/runtime v1.4.0
